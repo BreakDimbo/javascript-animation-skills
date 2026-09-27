@@ -514,7 +514,7 @@ precision highp sampler2D;
 uniform vec2 uRes; uniform float uTime; uniform float uFrame;
 uniform vec3 uCamPos, uCamR, uCamU, uCamF; uniform float uFocal;
 uniform vec3 uSun;
-uniform vec3 uPP[6]; uniform mat3 uPR[6]; uniform vec2 uPK[6]; uniform float uPF[6]; uniform int uNP;   // uPF: hit flash   // planes: position, rotation, (livery, prop angle)
+uniform vec3 uPP[8]; uniform mat3 uPR[8]; uniform vec2 uPK[8]; uniform float uPF[8]; uniform int uNP;   // uPF: hit flash   // planes: position, rotation, (livery, prop angle)
 uniform sampler2D uPanoSky, uPanoFull, uCloudTex, uCloudDepth;
 uniform vec3 uBake; uniform float uPanoClouds;
 uniform int uPlaneSteps, uShadowSteps;
@@ -839,8 +839,8 @@ vec3 paint(float m, vec3 q, float fp){
 }
 vec3 paintBase(float m, vec3 q){
   float kind = floor((m + .5) / 10.), k = m - kind * 10.;
-  bool foe = kind > .5, ace = kind > 1.5;
-  vec3 base = ace ? vec3(.07, .06, .09) : foe ? C_NAVY : C_WHITE;
+  bool mate = kind > 2.5, foe = kind > .5 && !mate, ace = foe && kind > 1.5;   // 3-5: wingmen in crimson, sky blue, gold
+  vec3 base = ace ? vec3(.07, .06, .09) : foe ? C_NAVY : kind > 4.5 ? vec3(.92, .72, .3) : kind > 3.5 ? vec3(.42, .66, .86) : mate ? vec3(.74, .13, .11) : C_WHITE;
   vec3 o = ace ? C_RED : foe ? C_GOLD : C_GREEN, mi = ace ? C_GOLD : foe ? C_NAVY : C_WHITE, in_ = ace ? vec3(.07, .06, .09) : foe ? C_GOLD : C_RED;
   if (k < 1.5) {                                    // fuselage: roundel on the sides, a band behind the spinner
     if (abs(q.x) > .15) return roundel(length(vec2(q.y - .05, q.z + 1.9)), .42, o, mi, in_, base);
@@ -862,7 +862,7 @@ vec3 paintBase(float m, vec3 q){
     if (q.z > .19 && q.y < .67) return vec3(.88, .68, .55);               // face
     return foe ? vec3(.12, .12, .14) : vec3(.36, .22, .13);               // leather cap
   }
-  if (k < 6.5) return foe ? C_GOLD : C_RED;         // spinner (the ace's nose is gold too)
+  if (k < 6.5) return foe ? C_GOLD : mate && kind < 3.5 ? C_WHITE : C_RED;   // spinner (the ace's nose is gold too)
   return vec3(.2, .19, .24);
 }
 vec3 shadePlane(vec3 alb, vec3 n, vec3 rd, float m, float sh){
@@ -1032,7 +1032,7 @@ vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnem
   }
 #endif
   // the planes in the water (only when they fly low)
-  for (int w = 0; w < 6; w++) {
+  for (int w = 0; w < 8; w++) {
     if (w >= uNP) break;
     float ph; vec4 pcol = tracePlane(w, p + vec3(0, .05, 0), r, 400., ph);
     refl = mix(refl, pcol.rgb, pcol.a);
@@ -1061,8 +1061,8 @@ vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnem
 
 // ── the frame: planes, sea or sky, clouds; smoke, spray and streaks are drawn afterwards as particles ──
 vec3 render(vec3 ro, vec3 rd, out float tDepth){
-  vec4 pc[6]; float pt[6]; bool used[6];
-  for (int w = 0; w < 6; w++) { pt[w] = 1e9; pc[w] = vec4(0); used[w] = false; if (w < uNP) pc[w] = tracePlane(w, ro, rd, 1e5, pt[w]); }
+  vec4 pc[8]; float pt[8]; bool used[8];
+  for (int w = 0; w < 8; w++) { pt[w] = 1e9; pc[w] = vec4(0); used[w] = false; if (w < uNP) pc[w] = tracePlane(w, ro, rd, 1e5, pt[w]); }
   float tSea = rd.y < 0. ? -ro.y / rd.y : 1e9;
   vec3 col;
 #ifdef FAST
@@ -1071,7 +1071,7 @@ vec3 render(vec3 ro, vec3 rd, out float tDepth){
   col = tSea < 1e8 ? seaShade(ro, rd, tSea, uReflSteps, 0., 0.) : skyCol(rd);
 #endif
   float tSolid = tSea;
-  for (int w = 0; w < 6; w++) if (pc[w].a > .5) tSolid = min(tSolid, pt[w]);
+  for (int w = 0; w < 8; w++) if (pc[w].a > .5) tSolid = min(tSolid, pt[w]);
 #ifdef FAST
   vec2 cuv = gl_FragCoord.xy / uRes;
   vec4 cl = texture(uCloudTex, cuv);
@@ -1082,9 +1082,9 @@ vec3 render(vec3 ro, vec3 rd, out float tDepth){
 #endif
   // far to near: planes behind the cloud's front, the cloud, planes in front of it
   bool cloudDone = false;
-  for (int k = 0; k < 6; k++) {
+  for (int k = 0; k < 8; k++) {
     int best = -1; float bt = -1.;
-    for (int w = 0; w < 6; w++) if (!used[w] && pc[w].a > 0. && pt[w] < tSea && pt[w] > bt) { best = w; bt = pt[w]; }
+    for (int w = 0; w < 8; w++) if (!used[w] && pc[w].a > 0. && pt[w] < tSea && pt[w] > bt) { best = w; bt = pt[w]; }
     if (best < 0) break;
     used[best] = true;
     if (!cloudDone && tc > bt) { col = col * (1. - cl.a) + cl.rgb; cloudDone = true; }
@@ -1318,10 +1318,10 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     gl.uniform1i(pr.loc('uCloudTex'), 3); gl.uniform1i(pr.loc('uCloudDepth'), 4);
     gl.uniform1i(pr.loc('uNC'), S.nc);
     gl.uniform4fv(pr.loc('uCB'), CLOUD_U[0]); gl.uniform4fv(pr.loc('uCX'), CLOUD_U[1]); gl.uniform4fv(pr.loc('uCS'), CLOUD_U[2]);
-    const pp = new Float32Array(18), pm = new Float32Array(54), pk = new Float32Array(12), pf = new Float32Array(6);
-    planes.slice(0, 6).forEach((q, i) => { pp.set(q.p, i * 3); pm.set(q.m, i * 9); pk[i * 2] = q.kind; pk[i * 2 + 1] = q.prop; pf[i] = q.flash || 0; });
+    const pp = new Float32Array(24), pm = new Float32Array(72), pk = new Float32Array(16), pf = new Float32Array(8);
+    planes.slice(0, 8).forEach((q, i) => { pp.set(q.p, i * 3); pm.set(q.m, i * 9); pk[i * 2] = q.kind; pk[i * 2 + 1] = q.prop; pf[i] = q.flash || 0; });
     gl.uniform3fv(pr.loc('uPP'), pp); gl.uniformMatrix3fv(pr.loc('uPR'), false, pm); gl.uniform2fv(pr.loc('uPK'), pk); gl.uniform1fv(pr.loc('uPF'), pf);
-    gl.uniform1i(pr.loc('uNP'), Math.min(6, planes.length));
+    gl.uniform1i(pr.loc('uNP'), Math.min(8, planes.length));
     gl.uniform1i(pr.loc('uNWake'), wakes.length); gl.uniform4fv(pr.loc('uWakeBox'), S.wakeBox || [0, 0, 0, 0]);
   }
 
@@ -1757,6 +1757,68 @@ function buildScore(ac) {
 }
 window.SCORE = ac => buildScore(ac);
 
+// ───────────────────────── online play: the transport ─────────────────────────
+// Each player is a presence: an object of absolute state (a plane, what it fired, what it hit) that a shared room
+// hands to everyone in it about 30 times a second. On claude.ai the page's `room` capability carries it, for everyone
+// signed in who can open the page; anywhere else the tabs of one browser talk over a BroadcastChannel, enough to try it.
+// A room is { set(patch), peers() -> [{ id, me, st }], leave() }; join(name, inLobby) resolves { room, inLobby }.
+function makeNet() {
+  const N = { kind: null, status: 'idle', lobby: null };
+  const wrap = r => ({
+    set: patch => r.presence(patch).catch(() => {}),
+    peers: () => r.peers().map(q => ({ id: q.peer, me: q.sameTab, st: q.presence || {} })),
+    leave: () => (r.leave ? r.leave() : Promise.resolve()).catch(() => {}),
+  });
+  // a room inside the lobby, for when named rooms are not offered: every member tags its presence with the room's name
+  const virtual = name => {
+    const keys = new Set();
+    return {
+      set: patch => { for (const k in patch) keys.add(k); return N.lobby.set({ ...patch, rm: name }); },
+      peers: () => N.lobby.peers().filter(q => q.st.rm === name),
+      leave: () => { const clr = { rm: null }; for (const k of keys) clr[k] = null; return N.lobby.set(clr); },
+    };
+  };
+  function localHub() {
+    const ch = new BroadcastChannel('just-breathe-net'), id = Math.random().toString(36).slice(2, 10), rooms = {};
+    const open = name => {
+      const R0 = { st: {}, peers: new Map(), last: 0, dirty: false };
+      const send = () => { R0.last = performance.now(); R0.dirty = false; ch.postMessage({ room: name, id, st: R0.st }); };
+      R0.tick = () => { const age = performance.now() - R0.last; if ((R0.dirty && age > 33) || age > 1000) send(); };
+      R0.api = {
+        set: patch => { const st = { ...R0.st }; for (const k in patch) { if (patch[k] === null) delete st[k]; else st[k] = patch[k]; } R0.st = st; R0.dirty = true; R0.tick(); return Promise.resolve(); },
+        peers: () => { const now = performance.now(), out = [{ id, me: true, st: R0.st }]; for (const [pid, q] of R0.peers) if (now - q.t < 3000) out.push({ id: pid, me: false, st: q.st }); return out; },
+        leave: () => { ch.postMessage({ room: name, id, bye: true }); delete rooms[name]; return Promise.resolve(); },
+      };
+      rooms[name] = R0; return R0.api;
+    };
+    ch.onmessage = ({ data: m }) => { const R0 = rooms[m.room]; if (!R0 || m.id === id) return; if (m.bye) R0.peers.delete(m.id); else R0.peers.set(m.id, { st: m.st, t: performance.now() }); };
+    setInterval(() => { for (const k in rooms) rooms[k].tick(); }, 16);
+    return { id, lobby: open('lobby'), join: name => Promise.resolve(open(name)) };
+  }
+  N.virtual = virtual;
+  N.connect = () => N.ready || (N.ready = (async () => {
+    N.status = 'connecting';
+    let room = null;
+    if (window.claude && window.claude.use) { try { room = await window.claude.use('room'); } catch { room = null; } }
+    if (room) {
+      N.kind = 'room'; N.lobby = wrap(room);
+      N.join = async (name, inLobby) => {                               // a named room; failing that, a room inside the lobby
+        for (let k = 0; k < 3 && !inLobby; k++) {
+          try { return { room: wrap(await room.join(name)), inLobby: false }; }
+          catch (e) { if (e && e.code === 'not_permitted') break; await new Promise(r => setTimeout(r, 800)); }
+        }
+        return { room: virtual(name), inLobby: true };
+      };
+      N.myId = () => { const me = room.peers().find(q => q.sameTab); return me ? me.peer : null; };
+    } else if ('BroadcastChannel' in window) {
+      const hub = localHub(); N.kind = 'local'; N.lobby = hub.lobby; N.join = async name => ({ room: await hub.join(name), inLobby: false }); N.myId = () => hub.id;
+    }
+    N.status = N.kind ? 'ok' : 'none';
+    return N;
+  })());
+  return N;
+}
+
 // ───────────────────────── the game (?play) ─────────────────────────
 // Fly the white fighter through five levels of navy fighters and a black-and-gold ace, then an endless
 // evening. Nobody dies here: a beaten plane smokes, glides down and ditches.
@@ -1878,18 +1940,31 @@ function bootGame() {
   // ── state ──
   const G0 = { mode: 'title', t: 0, score: 0, level: 1, wave: 0, waves: 1, levelName: '', best: store.get('jb-best', 0), unlocked: store.get('jb-level', 1),
     msgs: [], hurt: 0, shake: 0, stop: 0, nextWave: 0, modeT: 0, combo: 1, comboT: 0, hitMark: 0, lowT: 0, buttons: [], cards: [], mult: 1 };
+  // online co-op: up to four players. The host flies the rivals, the waves and the crates and says what mode the game is
+  // in; everyone flies their own plane, fires their own weapon and tells the host how much they hit each rival.
+  const NET = makeNet();
+  const MP = { on: false, host: false, code: '', room: null, mates: new Map(), slot: 0, slots: {}, epoch: 0, run: 0, seenEpoch: -1, seenRun: -1,
+    dealt: {}, acks: {}, took: [], shots: 0, rk: 0, sk: 0, respawn: 0, wipeT: 0, lastSend: 0, lastAd: 0, off: {}, hostSeen: 0, hostSt: null,
+    picked: false, pendingStart: false, eid: 1, pid: 1 };
+  const CALL = ['白鹭', '赤狐', '青燕', '金雀'], KINDS = [0, 3, 4, 5];
+  const MCOL = ['rgba(255, 244, 226, .95)', 'rgba(255, 130, 110, .95)', 'rgba(140, 205, 255, .95)', 'rgba(255, 210, 110, .95)'];
+  const SPAWN = [[0, 240, 700], [-45, 236, 735], [45, 244, 735], [0, 252, 770]];
+  const TYPE_N = ['rookie', 'veteran', 'ace'], STATE_N = ['fly', 'down', 'ditched'];
+  const mateList = () => [...MP.mates.values()];
   let W = newWeapons(), Wsaved = null, scoreSaved = 0;
   let player, enemies, bullets, parts, sparks, rings, pickups, popups, missiles, bolts;
   function clearWorld() {
-    player = newPlane(0, [0, 240, 700], [0, 0, -1]); player.hp = player.maxHp = W.maxHp;
+    const sl = MP.on ? MP.slot : 0;
+    player = newPlane(KINDS[sl], SPAWN[sl], [0, 0, -1]); player.hp = player.maxHp = W.maxHp;
     enemies = []; bullets = []; parts = []; sparks = []; rings = []; pickups = []; popups = []; missiles = []; bolts = [];
   }
   clearWorld();
   const say = (text, life = 2.2, big = false) => G0.msgs.push({ text, age: 0, life, big });
   function setMode(m) { G0.mode = m; G0.modeT = 0; G0.buttons = []; }
-  function newRun(level) { W = newWeapons(); G0.score = 0; startLevel(level); }
+  function newRun(level) { W = newWeapons(); G0.score = 0; MP.run++; startLevel(level); }
   function startLevel(n) {
     const L = levelDef(n);
+    MP.epoch++; MP.picked = false; MP.pendingStart = false; MP.wipeT = 0; MP.respawn = 0;
     Object.assign(G0, { level: n, wave: 0, waves: L.waves.length, levelName: L.name, mult: L.mult, ease: L.ease, msgs: [], combo: 1, comboT: 0, nextWave: 0 });
     Wsaved = { ...W }; scoreSaved = G0.score;
     clearWorld();
@@ -1907,7 +1982,8 @@ function bootGame() {
       p[1] = clamp(player.p[1] + rand(-15, 30), 120, 900);
       const e = newPlane(T.kind, p, L.ease ? fl : V.mul(fl, -1), type);
       e.T = T;
-      e.hp = e.maxHp = Math.round(T.hp * L.mult * (L.ease ? (type === 'ace' ? .55 : .7) : 1));
+      e.hp = e.maxHp = Math.round(T.hp * L.mult * (L.ease ? (type === 'ace' ? .55 : .7) : 1) * (1 + .6 * (MP.on ? MP.mates.size : 0)));   // tougher for a crew
+      e.id = MP.eid++; e.shots = 0; e.cshots = 0;
       e.rateK = L.ease ? .55 : 1; e.spreadK = L.ease ? 1.9 : 1; e.turnK = L.ease ? .8 : 1;
       e.speed = L.ease ? 58 : T.speed; e.vel = V.mul(e.f, e.speed);
       e.ai.side = Math.random() < .5 ? -1 : 1; e.ai.skill = Math.min(1, T.skill * Math.sqrt(L.mult) * (L.ease ? .6 : 1));
@@ -1934,7 +2010,7 @@ function bootGame() {
     for (let i = 0; i < 9; i++) puff(p, V.add(V.mul(pl.vel, .25), [rand(-9, 9), rand(-2, 9), rand(-9, 9)]), 1.8, 4, .1, .85, rand(1.8, 3), 0, 1.2);
     for (let i = 0; i < 16; i++) puff(p, V.add(V.mul(pl.vel, .6), [rand(-28, 28), rand(-5, 26), rand(-28, 28)]), rand(.2, .45), 0, .05, .95, rand(1, 1.8), 0, .4, 9.8);
     rings.push({ p, age: 0, r: pl.type === 'ace' ? 90 : 60 });
-    if (pl !== player && W.wl >= 12) rings.push({ p, age: -.08, r: (pl.type === 'ace' ? 120 : 80) * (W.wl >= 30 ? 1.6 : 1), col: W.wl >= 30 ? [1, .8, .3] : WS(W.wl).col });
+    if (pl !== player && !pl.mate && W.wl >= 12) rings.push({ p, age: -.08, r: (pl.type === 'ace' ? 120 : 80) * (W.wl >= 30 ? 1.6 : 1), col: W.wl >= 30 ? [1, .8, .3] : WS(W.wl).col });
     hitSparks(p, pl.vel, [1, .7, .35], 14);
   }
 
@@ -1968,6 +2044,14 @@ function bootGame() {
       w: pw ? T.w : heavy ? .2 : .09, heat: pw ? T.heat : heavy ? 1.4 : .95, pierce: pw ? T.pierce : 0, hits: pw && T.pierce ? [] : null });
     pl.muzzle = .06;
     snd.gun(pl, heavy || (pw && T.boom));
+    if (pw) MP.shots++; else if (heavy) pl.cshots = (pl.cshots || 0) + 1; else pl.shots = (pl.shots || 0) + 1;
+  }
+  // a wingman's rounds, drawn from what their page says they fired: they look the same and hit nothing here
+  function fireMate(m) {
+    const T = WS(m.wl); m.gun = (m.gun + 1) % T.guns;
+    const mz = P(m, GUN_POS[m.gun]), dir = m.la ? V.norm(V.lerp(m.f, V.norm(V.sub(m.la, mz)), .9)) : m.f;
+    bullets.push({ p: mz, prev: mz, v: V.add(m.vel, V.mul(dir, 650 * (T.fast ? 1.25 : 1))), owner: m, life: 1.35, dmg: 0, col: T.col, heavy: false, whizzed: true, w: T.w, heat: T.heat, pierce: 0, hits: null });
+    m.muzzle = .06; if ((m.gunN = (m.gunN || 0) + 1) % 2) snd.gun(m, T.boom);
   }
   // chain lightning: a hit arcs to up to two more rivals nearby
   function chain(from, first) {
@@ -1983,12 +2067,15 @@ function bootGame() {
   // rockets and the missile storm: they fly out, then home on a rival, leaving curling smoke
   function launch(pl, count, storm) {
     const alive = enemies.filter(e => e.state === 'fly'); if (!alive.length) return;
+    const mine = pl === player, L = mine ? W.wl : pl.wl;
+    if (mine) { if (storm) MP.sk++; else MP.rk++; }
     for (let i = 0; i < count; i++) {
-      const tg = storm ? alive[i % alive.length] : (G0.lock && G0.lock.state === 'fly' ? G0.lock : alive[0]);
+      const near = alive.slice().sort((a, b) => V.len(V.sub(a.p, pl.p)) - V.len(V.sub(b.p, pl.p)))[0];
+      const tg = storm ? alive[i % alive.length] : mine ? (G0.lock && G0.lock.state === 'fly' ? G0.lock : alive[0]) : near;
       let v0, p0;
       if (storm) { const a = i / count * Math.PI * 2; v0 = V.add(pl.vel, V.mul(V.norm(V.add(V.mul(V.add(V.mul(pl.right, Math.cos(a)), V.mul(pl.up, Math.sin(a))), .8), pl.f)), 60)); p0 = P(pl, [Math.cos(a) * 2, Math.sin(a) * .6 + .2, 1]); }
       else { const side = i % 2 ? 1 : -1; p0 = P(pl, [side * (1.2 + (i >> 1) * .6), -.55, .6]); v0 = V.add(pl.vel, V.add(V.mul(pl.up, -6), V.mul(pl.right, side * 9))); }
-      missiles.push({ p: p0, v: v0, tg, age: 0, arm: storm ? .35 : .15, trail: [], dead: 0, storm, col: storm ? (WS(W.wl).phoenix ? rainbow(i) : [1, .5, .9]) : [1, .75, .4], dmg: (storm ? 2 : 3) * (1 + .03 * W.wl) });
+      missiles.push({ p: p0, v: v0, tg, age: 0, arm: storm ? .35 : .15, trail: [], dead: 0, storm, ghost: !mine, col: storm ? (WS(L).phoenix ? rainbow(i) : [1, .5, .9]) : [1, .75, .4], dmg: mine ? (storm ? 2 : 3) * (1 + .03 * L) : 0 });
     }
     snd.rocket(storm);
   }
@@ -2003,12 +2090,15 @@ function bootGame() {
     if (!best) G0.lock = null;
     return best;
   }
-  function damage(e, amount, at, soft) {
-    if (soft && G0.t - (e.softT || -1) < .08) {                       // the beam burns every frame; sparks and pings only now and then
-      e.hp -= amount; e.flash = Math.max(e.flash, .6); if (e.hp <= 0 && e.state === 'fly') goDown(e); return;
+  function damage(e, amount, at, soft, remote) {
+    if (e.ghost) MP.dealt[e.id] = (MP.dealt[e.id] || 0) + amount;     // a guest's hit: the host applies it
+    else e.hp -= amount;
+    if (remote || (soft && G0.t - (e.softT || -1) < .08)) {            // a wingman's hit, or the beam between its sparks
+      e.flash = Math.max(e.flash, .6); if (remote && Math.random() < .5) hitSparks(at, e.vel, [1, .9, .7], 4);
+      if (!e.ghost && e.hp <= 0 && e.state === 'fly') goDown(e); return;
     }
     if (soft) e.softT = G0.t;
-    e.hp -= amount; e.flash = 1;
+    e.flash = 1;
     if (e === player) {
       G0.hurt = 1; G0.shake = Math.max(G0.shake, .45); snd.hurt(); try { navigator.vibrate && navigator.vibrate(25); } catch {}
       hitSparks(at, e.vel, [1, .8, .5]);
@@ -2017,17 +2107,17 @@ function bootGame() {
       if (tierOf(W).burn) puff(at, V.mul(e.vel, .5), .6, 3, 1, .8, .35, 1, 2);
       if (V.len(V.sub(e.p, cam.pos)) < 120) G0.shake = Math.max(G0.shake, .06);
     }
-    if (e.hp <= 0 && e.state === 'fly') goDown(e);
+    if (!e.ghost && e.hp <= 0 && e.state === 'fly') goDown(e);
   }
   function goDown(pl) {
     pl.state = 'down'; pl.downT = 0; explode(pl);
     G0.shake = Math.max(G0.shake, .4); G0.stop = .09; snd.boom(V.len(V.sub(pl.p, cam.pos)), pl.type === 'ace');
-    if (pl === player) return;
+    if (pl === player || pl.mate) return;
     G0.combo = G0.comboT > 0 ? Math.min(4, G0.combo + 1) : 1; G0.comboT = 5;
     const pts = pl.T.score * G0.combo; G0.score += pts;
     popups.push({ p: pl.p.slice(), text: '+' + pts + (G0.combo > 1 ? '  ×' + G0.combo : ''), age: 0 });
     gainXP(pl.T.xp);
-    if (Math.random() < pl.T.drop) pickups.push({ p: V.add(pl.p, [0, 8, 0]), t: 0, type: W.wl < 30 && Math.random() < .7 ? 'ammo' : 'repair' });
+    if (Math.random() < pl.T.drop) pickups.push({ id: MP.pid++, p: V.add(pl.p, [0, 8, 0]), t: 0, type: Math.random() < .7 ? 'ammo' : 'repair' });
   }
 
   // ── input ──
@@ -2040,11 +2130,22 @@ function bootGame() {
       const key = { 'set-cam': 'cam', 'set-ctl': 'pilot', 'set-fire': 'auto' }[act];
       SET[key] = SET[key] ? 0 : 1; store.set('jb-' + key, SET[key]); return;
     }
+    if (act === 'noop') return;
+    if (act === 'net') { setMode('lobby'); NET.connect(); return; }
+    if (act === 'back') { setMode('title'); return; }
+    if (act === 'host') { hostRoom(); return; }
+    if (act.startsWith('join:')) { joinRoom(act.slice(5)); return; }
+    if (act === 'leave') { leaveRoom(); return; }
+    if (MP.on && !MP.host && !act.startsWith('perk')) return;         // in a room the host starts the levels
     if (MOBILE && act !== 'full') goFull();                            // a tap to fly is also the tap that may take the whole screen
     if (act === 'start') newRun(1);
     else if (act === 'continue') newRun(G0.unlocked);
     else if (act === 'retry') { W = { ...Wsaved }; G0.score = scoreSaved; startLevel(G0.level); }
-    else if (act.startsWith('perk')) { G0.cards[Number(act.slice(4))].apply(W); startLevel(G0.level + 1); }
+    else if (act.startsWith('perk')) {
+      G0.cards[Number(act.slice(4))].apply(W);
+      if (MP.on) { MP.picked = true; G0.cards = []; if (MP.host) MP.pendingStart = true; }   // the host waits for the crew to choose
+      else startLevel(G0.level + 1);
+    }
   }
   stage.addEventListener('pointerdown', e => {
     e.preventDefault(); snd.unlock();
@@ -2070,7 +2171,7 @@ function bootGame() {
     input.keys[e.code] = true; if (e.code === 'Space') e.preventDefault();
     if (G0.mode !== 'fly' && G0.modeT > .4 && (e.code === 'Space' || e.code === 'Enter' || /^Digit[123]$/.test(e.code))) {
       snd.unlock();
-      const acts = G0.buttons.map(b => b.act);
+      const acts = G0.buttons.map(b => b.act).filter(a => !['leave', 'back', 'net', 'full', 'noop'].includes(a) && !a.startsWith('set-'));
       const want = /^Digit/.test(e.code) ? acts.find(a => a === 'perk' + (Number(e.code.slice(5)) - 1)) : acts[0];
       if (want) press(want);
     }
@@ -2285,10 +2386,22 @@ function bootGame() {
   }
   // rivals don't sit on your tail forever: they engage for a few seconds, break off and extend, then turn
   // back and pass across your nose, so the fight keeps coming into view instead of circling behind you
+  function aiTarget(e, dt) {                                          // in a crew each rival picks one of you, and sticks to it a while
+    if (!MP.on || !MP.mates.size) return player;
+    const cands = [player, ...mateList()].filter(q => q.state === 'fly');
+    if (!cands.length) return player;
+    e.tgtT = (e.tgtT || 0) - dt;
+    if (!e.tgt || !cands.includes(e.tgt) || e.tgtT <= 0) {
+      cands.sort((a, b) => V.len(V.sub(a.p, e.p)) - V.len(V.sub(b.p, e.p)));
+      e.tgt = cands[Math.random() < .7 ? 0 : Math.floor(Math.random() * cands.length)]; e.tgtT = rand(5, 9);
+    }
+    return e.tgt;
+  }
   function enemyAI(e, dt) {
-    const T = e.T, toP = V.sub(player.p, e.p), dist = V.len(toP), ai = e.ai;
+    const tp = aiTarget(e, dt);
+    const T = e.T, toP = V.sub(tp.p, e.p), dist = V.len(toP), ai = e.ai;
     ai.t -= dt;
-    const threat = player.state === 'fly' && dist < 420 && V.dot(player.f, V.norm(V.sub(e.p, player.p))) > Math.cos(25 * Math.PI / 180);
+    const threat = tp.state === 'fly' && dist < 420 && V.dot(tp.f, V.norm(V.sub(e.p, tp.p))) > Math.cos(25 * Math.PI / 180);
     if (ai.mode === 'engage' && threat && Math.random() < dt * (G0.ease ? .3 : 1 + ai.skill)) { ai.mode = 'evade'; ai.t = 1.6 + Math.random() * 1.2; ai.side = Math.random() < .5 ? -1 : 1; }
     if (ai.t <= 0) {
       if (ai.mode === 'cruise') { ai.mode = 'engage'; ai.t = rand(4, 7); }
@@ -2299,13 +2412,13 @@ function bootGame() {
     let d;
     if (ai.mode === 'cruise') d = V.norm(V.add(V.norm([e.f[0], 0, e.f[2]]), V.mul(e.right, Math.sin(G0.t * .8 + ai.side) * .12)));   // a lazy weave
     else if (ai.mode === 'evade') d = V.norm(V.add(V.add(V.mul(e.right, ai.side), V.mul(e.up, .7)), V.mul(e.f, .15)));
-    else if (ai.mode === 'extend') { const away = V.norm([e.p[0] - player.p[0], 0, e.p[2] - player.p[2]]); d = V.norm(V.add(V.lerp(e.f, away, .7), [0, .12, 0])); }
+    else if (ai.mode === 'extend') { const away = V.norm([e.p[0] - tp.p[0], 0, e.p[2] - tp.p[2]]); d = V.norm(V.add(V.lerp(e.f, away, .7), [0, .12, 0])); }
     else if (ai.mode === 'pass') {                                   // aim for a point ahead of you: they cross your view
-      const ahead = V.add(player.p, V.add(V.mul(player.f, 480), V.mul(player.right, ai.side * 60)));
+      const ahead = V.add(tp.p, V.add(V.mul(tp.f, 480), V.mul(tp.right, ai.side * 60)));
       d = V.norm(V.sub(ahead, e.p));
       if (V.len(V.sub(ahead, e.p)) < 140) { ai.mode = 'engage'; ai.t = rand(4, 7); }
     } else {
-      const lead = V.add(player.p, V.mul(player.vel, dist / 650 * ai.skill));
+      const lead = V.add(tp.p, V.mul(tp.vel, dist / 650 * ai.skill));
       d = V.norm(V.sub(lead, e.p));
     }
     if (dist < 70) d = V.norm(V.add(d, V.mul(e.up, 1.4)));
@@ -2315,8 +2428,8 @@ function bootGame() {
     flyToward(e, d, T.turn * (.85 + .15 * G0.mult) * (e.turnK || 1), dt);
     move(e, dt, ai.mode === 'cruise' ? (G0.ease ? 56 : T.speed) : ai.mode === 'evade' || ai.mode === 'extend' ? T.speed + 20 : dist > 500 ? T.speed + 16 : T.speed);
     e.cool -= dt; e.cannonCool -= dt;
-    const aim = V.norm(V.sub(V.add(player.p, V.mul(player.vel, dist / 650)), e.p));
-    const onTarget = player.state === 'fly' && G0.mode === 'fly' && (ai.mode === 'engage' || ai.mode === 'pass') && dist < 560 && V.dot(e.f, aim) > Math.cos(7 * Math.PI / 180);
+    const aim = V.norm(V.sub(V.add(tp.p, V.mul(tp.vel, dist / 650)), e.p));
+    const onTarget = tp.state === 'fly' && G0.mode === 'fly' && (ai.mode === 'engage' || ai.mode === 'pass') && dist < 560 && V.dot(e.f, aim) > Math.cos(7 * Math.PI / 180);
     if (onTarget && e.cool <= 0) { fire(e, T.spread * (e.spreadK || 1) / Math.sqrt(G0.mult)); e.cool = 1 / (T.rate * (e.rateK || 1)); if (Math.random() < dt * 2.2) e.cool = .6; }
     if (onTarget && T.cannon && e.cannonCool <= 0) { fire(e, G0.ease ? 2.5 : .8, null, true); e.cannonCool = G0.ease ? 4.5 : 2.2; }
   }
@@ -2328,7 +2441,7 @@ function bootGame() {
       move(pl, dt, 50);
       if (pl.p[1] < WL + .6) {
         pl.state = 'ditched'; pl.p[1] = WL; pl.downT = 0; splash(pl.p, true); snd.boom(V.len(V.sub(pl.p, cam.pos)) * 2, false);
-        if (pl === player) gameOver(); else say('击落，落水', 1.2);
+        if (pl === player) playerDitched(); else say('击落，落水', 1.2);
       }
     } else {
       pl.speed *= Math.exp(-dt * .9); pl.vel = V.mul(pl.f, pl.speed);
@@ -2349,21 +2462,225 @@ function bootGame() {
     G0.cards = pool.slice(0, 3);
     setMode('clear'); snd.clear();
   }
+  function playerDitched() {
+    if (!MP.on) { gameOver(); return; }
+    MP.respawn = 6; say(mateList().some(m => m.state === 'fly') ? '落水了 · 队友还在战斗' : '落水了', 2.5);
+  }
+  function respawnNear(m) {
+    const fl = V.norm([m.f[0], 0, m.f[2]]), rt = V.cross(fl, [0, 1, 0]), side = MP.slot % 2 ? -1 : 1;
+    const p = V.add(m.p, V.add(V.mul(fl, -90), V.mul(rt, side * 35))); p[1] = Math.max(p[1], 150);
+    player = newPlane(KINDS[MP.slot], p, fl); player.hp = player.maxHp = W.maxHp; G0.camDir = null;
+    say('重返战场', 1.8); snd.levelStart();
+  }
+
+  // ── online co-op ──
+  async function hostRoom() {
+    await NET.connect(); if (!NET.kind) return;
+    const code = String(1000 + Math.floor(Math.random() * 9000)), { room, inLobby } = await NET.join('jb-' + code);
+    Object.assign(MP, { on: true, host: true, code, room, inLobby, slot: 0, slots: {}, epoch: 0, run: 0, dealt: {}, acks: {}, took: [], off: {}, eid: 1, pid: 1, picked: false, pendingStart: false });
+    MP.mates.clear(); W = newWeapons(); G0.score = 0; clearWorld(); setMode('room');
+  }
+  async function joinRoom(code) {
+    await NET.connect(); if (!NET.kind) return;
+    const ad = NET.lobby.peers().map(q => q.st.ad).find(a => a && a.c === code);
+    const { room } = await NET.join('jb-' + code, !!(ad && ad.v));   // the same kind of room the host opened
+    Object.assign(MP, { on: true, host: false, code, room, slot: 1, slots: {}, seenEpoch: -1, seenRun: -1, dealt: {}, acks: {}, took: [], off: {}, hostSeen: performance.now(), hostSt: null, hostId: null, picked: false });
+    MP.mates.clear(); W = newWeapons(); G0.score = 0; clearWorld(); setMode('room');
+  }
+  function leaveRoom(why) {
+    if (MP.room) MP.room.leave();
+    if (NET.lobby) NET.lobby.set({ ad: null });
+    Object.assign(MP, { on: false, host: false, room: null, code: '', respawn: 0, pendingStart: false }); MP.mates.clear();
+    G0.beam = null; snd.beam(false); snd.stopMusic(); W = newWeapons(); G0.score = 0;
+    clearWorld(); setMode(why ? 'lobby' : 'title'); if (why) say(why, 3);
+  }
+  const r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
+  function clockOf(id, sent, now) {                                  // their clock to ours: the smallest gap seen, creeping up slowly
+    const o = MP.off[id], d = now - sent; MP.off[id] = o === undefined ? d : Math.min(d, o + .0005); return sent + MP.off[id];
+  }
+  function snap(o, q, t) {                                            // keep the last few poses, to draw them 110 ms late and smooth
+    const last = o.snaps[o.snaps.length - 1];
+    if (last && (t <= last.t || V.len(V.sub(last.p, q.p)) > 250)) { if (t <= last.t) return; o.snaps.length = 0; }   // a jump (respawn, new level): no smear
+    o.snaps.push({ t, p: q.p, f: q.f, u: q.u, v: q.v }); if (o.snaps.length > 10) o.snaps.shift();
+  }
+  function sample(o, now) {
+    const a = o.snaps; if (!a.length) return;
+    const tr = now - .11; let q;
+    if (tr <= a[0].t) q = a[0];
+    else if (tr >= a[a.length - 1].t) { const L = a[a.length - 1], k = Math.min(.25, tr - L.t); q = { p: V.add(L.p, V.mul(L.f, L.v * k)), f: L.f, u: L.u, v: L.v }; }
+    else {
+      let i = 1; while (a[i].t < tr) i++;
+      const A = a[i - 1], B = a[i], k = (tr - A.t) / Math.max(1e-4, B.t - A.t);
+      q = { p: V.lerp(A.p, B.p, k), f: V.lerp(A.f, B.f, k), u: V.lerp(A.u, B.u, k), v: A.v + (B.v - A.v) * k };
+    }
+    o.p = q.p.slice(); o.f = V.norm(q.f); o.up = V.norm(q.u); orthonorm(o); o.speed = q.v; o.vel = V.mul(o.f, q.v);
+  }
+  function netRecv(dt) {
+    const now = performance.now() / 1000, ps = MP.room.peers(), seen = new Set();
+    let hostP = null;
+    for (const q of ps) {
+      if (q.me) { MP.myId = q.id; continue; }
+      if (q.st.g && (!hostP || q.id < hostP.id)) hostP = q;
+      const st = q.st; if (!Array.isArray(st.p) || !Array.isArray(st.f) || !Array.isArray(st.u)) continue;
+      seen.add(q.id);
+      let m = MP.mates.get(q.id);
+      if (!m) {
+        const sl = clamp(st.s | 0, 0, 3);
+        m = newPlane(KINDS[sl], st.p, st.f);
+        Object.assign(m, { mate: true, peer: q.id, snaps: [], gn: st.gn | 0, rk: st.rk | 0, sk: st.sk | 0, slot: sl, wl: 1, lastSt: null, state: STATE_N.includes(st.st) ? st.st : 'fly' });
+        MP.mates.set(q.id, m); if (G0.mode !== 'lobby') say(CALL[sl] + ' 加入了', 1.8);
+      }
+      if (st !== m.lastSt) {
+        m.lastSt = st;
+        snap(m, st, clockOf(q.id, typeof st.t === 'number' ? st.t : now, now));
+        m.slot = clamp(st.s | 0, 0, 3); m.kind = KINDS[m.slot]; m.wl = clamp(st.wl | 0, 1, 30);
+        m.hp = Number(st.hp) || 0; m.maxHp = Math.max(1, Number(st.mh) || 12);
+        m.la = Array.isArray(st.la) ? st.la : null; m.bm = Array.isArray(st.bm) ? st.bm : null;
+        const state = STATE_N.includes(st.st) ? st.st : 'fly';
+        if (state !== m.state) {
+          if (state === 'down' && m.state === 'fly') { explode(m); snd.boom(V.len(V.sub(m.p, cam.pos)), false); say(CALL[m.slot] + ' 被击落', 1.8); }
+          if (state === 'ditched') splash(m.p, true);
+          m.state = state;
+        }
+        if (m.state === 'fly') {
+          for (let n = Math.min(4, (st.gn | 0) - m.gn); n > 0; n--) fireMate(m);
+          if ((st.rk | 0) > m.rk) launch(m, WS(m.wl).rockets || 2, false);
+          if ((st.sk | 0) > m.sk) launch(m, 12, true);
+        }
+        m.gn = st.gn | 0; m.rk = st.rk | 0; m.sk = st.sk | 0;
+      }
+      sample(m, now);
+    }
+    for (const [id, m] of MP.mates) if (!seen.has(id)) { MP.mates.delete(id); delete MP.acks[id]; if (G0.mode !== 'lobby') say(CALL[m.slot] + ' 离开了', 1.8); }
+    if (MP.host) hostRecv(); else guestRecv(hostP, now);
+  }
+  function hostRecv() {
+    for (const id of MP.mates.keys()) if (MP.slots['p' + id] === undefined) {                // seats: the host is 白鹭, the rest get the first free one
+      const used = new Set(Object.values(MP.slots)); for (let k = 1; k < 4; k++) if (!used.has(k)) { MP.slots['p' + id] = k; break; }
+    }
+    for (const k in MP.slots) if (!MP.mates.has(k.slice(1))) delete MP.slots[k];
+    for (const [id, m] of MP.mates) {                                  // their hits on the rivals, and the crates they took
+      const st = m.lastSt; if (!st) continue;
+      const ack = MP.acks[id] || (MP.acks[id] = {});
+      if (st.dm && typeof st.dm === 'object') for (const k in st.dm) {
+        const tot = Number(st.dm[k]) || 0, d = tot - (ack[k] || 0); ack[k] = tot;
+        const e = d > 0 && enemies.find(o => 'e' + o.id === k);
+        if (e && e.state === 'fly') damage(e, Math.min(d, 40), e.p, false, true);
+      }
+      if (Array.isArray(st.tk)) for (const kid of st.tk) { const i = pickups.findIndex(k => k.id === kid); if (i >= 0) pickups.splice(i, 1); }
+    }
+    if (G0.mode === 'clear' && MP.pendingStart && (mateList().every(m => m.lastSt && m.lastSt.pd === MP.epoch) || G0.modeT > 25)) startLevel(G0.level + 1);
+  }
+  function waveSay() {
+    const list = levelDef(G0.level).waves[G0.wave - 1] || [];
+    say(list.includes('ace') ? TYPES.ace.name + '来了' : G0.waves > 1 ? `第 ${G0.wave} 波 / 共 ${G0.waves} 波` : '它们来了', 2.4);
+    if (list.includes('ace')) snd.aceHorn();
+  }
+  function guestStart(g) {
+    Object.assign(G0, { level: g.lv, waves: g.ws, wave: g.w, levelName: String(g.nm).slice(0, 12), mult: g.mu, ease: !!g.ez, msgs: [], combo: 1, comboT: 0 });
+    Wsaved = { ...W }; MP.picked = false; MP.respawn = 0; MP.dealt = {}; MP.took = [];
+    clearWorld(); setMode(g.m === 'fly' ? 'fly' : g.m === 'clear' ? 'clear' : g.m === 'over' ? 'over' : 'brief');
+    if (g.m === 'clear') { G0.cards = []; MP.picked = true; }
+    snd.start(); snd.levelStart();
+  }
+  function guestClear() {
+    G0.unlocked = Math.max(G0.unlocked, G0.level + 1); store.set('jb-level', G0.unlocked);
+    if (G0.score > G0.best) { G0.best = G0.score; store.set('jb-best', G0.best); }
+    G0.cards = PERKS.filter(p => !p.ok || p.ok(W)).sort(() => Math.random() - .5).slice(0, 3);
+    MP.picked = false; setMode('clear'); snd.clear();
+  }
+  function ghostDown(e) {                                             // the host says a rival went down: the same fireworks here
+    explode(e); G0.shake = Math.max(G0.shake, .3); G0.stop = .07; snd.boom(V.len(V.sub(e.p, cam.pos)), e.type === 'ace');
+    popups.push({ p: e.p.slice(), text: '+' + e.T.score * Math.max(1, G0.combo), age: 0 });
+    gainXP(e.T.xp);
+  }
+  function guestRecv(hp, now) {
+    if (!hp || !hp.st.g) { if (performance.now() - MP.hostSeen > 4000) leaveRoom('房主已离开'); return; }
+    MP.hostSeen = performance.now(); MP.hostId = hp.id;
+    const st = hp.st, g = st.g;
+    const sl = st.sl && MP.myId ? st.sl['p' + MP.myId] : undefined;
+    if (sl !== undefined && sl !== MP.slot) { MP.slot = clamp(sl | 0, 1, 3); player.kind = KINDS[MP.slot]; }
+    if (g.m !== 'room' && g.ep !== MP.seenEpoch) {                     // a level starts, or starts again
+      if (g.rs !== MP.seenRun) { if (MP.seenRun !== -1) W = newWeapons(); MP.seenRun = g.rs; }
+      else if (G0.mode === 'over') W = { ...Wsaved };
+      else if (G0.mode === 'clear' && !MP.picked && G0.cards.length) { const c = G0.cards[Math.floor(Math.random() * G0.cards.length)]; c.apply(W); }
+      MP.seenEpoch = g.ep; guestStart(g);
+      const hm = MP.mates.get(hp.id);
+      if (g.m === 'fly' && hm) respawnNear(hm);                        // joined mid-level: in behind the host
+    }
+    G0.score = g.sc | 0; G0.combo = g.cb | 0 || 1; G0.mult = g.mu || 1;
+    if (g.w !== G0.wave) { G0.wave = g.w; if (G0.wave > 0 && G0.mode === 'fly') waveSay(); }
+    if (g.m === 'fly' && G0.mode === 'brief') setMode('fly');
+    if (g.m === 'clear' && G0.mode === 'fly') guestClear();
+    if (g.m === 'over' && G0.mode !== 'over' && G0.mode !== 'room') { setMode('over'); snd.breathe(); if (G0.score > G0.best) { G0.best = G0.score; store.set('jb-best', G0.best); } }
+    if (st !== MP.hostSt) {                                           // the rivals and the crates, as the host has them
+      MP.hostSt = st; const tt = clockOf(hp.id, typeof st.t === 'number' ? st.t : now, now), ids = new Set();
+      for (const row of Array.isArray(st.e) ? st.e : []) {
+        if (!Array.isArray(row) || row.length < 17) continue;
+        const [id, ti, si, hpv, mh, x, y, z, fx, fy, fz, ux, uy, uz, sp, fc, cc] = row, type = TYPE_N[ti], state = STATE_N[si];
+        if (!type || !state) continue;
+        ids.add(id);
+        let e = enemies.find(o => o.id === id);
+        if (!e) { e = newPlane(TYPES[type].kind, [x, y, z], [fx, fy, fz], type); Object.assign(e, { T: TYPES[type], id, ghost: true, snaps: [], fc, cc, state }); enemies.push(e); }
+        e.hp = hpv; e.maxHp = mh; e.spreadK = G0.ease ? 1.9 : 1;
+        snap(e, { p: [x, y, z], f: [fx, fy, fz], u: [ux, uy, uz], v: sp }, tt);
+        if (state !== e.state) {
+          if (state === 'down' && e.state === 'fly') ghostDown(e);
+          if (state === 'ditched') { splash(e.p, true); snd.boom(V.len(V.sub(e.p, cam.pos)) * 2, false); say('击落，落水', 1.2); }
+          e.state = state;
+        }
+        if (state === 'fly') {                                         // their guns fire here too, and can hit you
+          for (let n = Math.min(3, fc - e.fc); n > 0; n--) fire(e, e.T.spread * e.spreadK / Math.sqrt(G0.mult || 1));
+          if (cc > e.cc) fire(e, G0.ease ? 2.5 : .8, null, true);
+        }
+        e.fc = fc; e.cc = cc;
+      }
+      for (let i = enemies.length - 1; i >= 0; i--) if (!ids.has(enemies[i].id)) enemies.splice(i, 1);
+      for (const k in MP.dealt) if (!ids.has(Number(k))) delete MP.dealt[k];
+      pickups = (Array.isArray(st.k) ? st.k : []).filter(r => Array.isArray(r) && !MP.took.includes(r[0])).map(r => {
+        const old = pickups.find(k => k.id === r[0]); return { id: r[0], type: r[1] ? 'ammo' : 'repair', p: old ? old.p : [r[2], r[3], r[4]], t: r[5] };
+      });
+    }
+    for (const e of enemies) sample(e, now);
+  }
+  function netSend() {
+    const ms = performance.now(); if (ms - MP.lastSend < 33) return; MP.lastSend = ms;
+    const pl = player, dm = {};
+    for (const k in MP.dealt) dm['e' + k] = r2(MP.dealt[k]);
+    const st = { t: r3(ms / 1000), s: MP.slot, p: pl.p.map(r2), f: pl.f.map(r3), u: pl.up.map(r3), v: r2(pl.speed), st: pl.state, hp: r2(Math.max(0, pl.hp)), mh: pl.maxHp,
+      wl: W.wl, gn: MP.shots, rk: MP.rk, sk: MP.sk, la: G0.lead && G0.lock && pl.state === 'fly' ? G0.lead.map(r2) : null, bm: G0.beam ? G0.beam.b.map(r2) : null,
+      dm, tk: MP.took.slice(-8), pd: MP.picked ? MP.seenEpoch : -1 };
+    if (MP.host) {
+      st.g = { m: G0.mode, lv: G0.level, w: G0.wave, ws: G0.waves, nm: G0.levelName, sc: G0.score, cb: G0.combo, ez: G0.ease ? 1 : 0, mu: G0.mult, ep: MP.epoch, rs: MP.run };
+      st.e = enemies.slice(0, 8).map(e => [e.id, TYPE_N.indexOf(e.type), STATE_N.indexOf(e.state), r2(Math.max(0, e.hp)), e.maxHp, ...e.p.map(r2), ...e.f.map(r3), ...e.up.map(r3), r2(e.speed), e.shots || 0, e.cshots || 0]);
+      st.k = pickups.slice(0, 8).map(k => [k.id, k.type === 'ammo' ? 1 : 0, ...k.p.map(r2), r2(k.t)]);
+      st.sl = MP.slots;
+      if (ms - MP.lastAd > 1000) { MP.lastAd = ms; NET.lobby.set({ ad: { c: MP.code, n: 1 + MP.mates.size, lv: G0.level, v: MP.inLobby ? 1 : 0 } }); }
+    }
+    MP.room.set(st);
+  }
+
   function update(dt) {
     G0.t += dt; G0.modeT += dt;
+    if (MP.on && MP.room) netRecv(dt);
     if (G0.mode !== 'fly' && G0.beam) { G0.beam = null; snd.beam(false); }
-    if (G0.mode === 'title' || G0.mode === 'clear') {                  // a lazy circle over the sea
+    if (['title', 'clear', 'lobby', 'room'].includes(G0.mode)) {         // a lazy circle over the sea
       const c = [0, 240, 0], r = V.sub(player.p, c); r[1] = 0;
       const tang = V.norm(V.cross([0, 1, 0], V.norm(r)));
       flyToward(player, V.norm(V.add(V.mul(tang, -1), V.mul(V.norm(r), (V.len(r) - 600) / -900))), .5, dt);
       move(player, dt, 64);
     } else {
+      const guest = MP.on && !MP.host;                                   // a guest's rivals are the host's: drawn, not flown
       if (player.state === 'fly') { if (G0.mode === 'brief') { move(player, dt, 66); } else control(dt); } else fallAndDitch(player, dt);
-      if (G0.mode === 'brief' && G0.modeT > 2.8) { setMode('fly'); spawnWave(); }
+      if (!guest && G0.mode === 'brief' && G0.modeT > 2.8) { setMode('fly'); spawnWave(); }
       if (player.p[1] < 2.5 && player.state === 'fly') { player.state = 'down'; explode(player); }
-      for (const e of enemies) if (e.state === 'fly') enemyAI(e, dt); else fallAndDitch(e, dt);
-      for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].state === 'ditched' && enemies[i].downT > 9) enemies.splice(i, 1);
-      if (G0.mode === 'fly' && !enemies.some(e => e.state === 'fly')) {
+      if (!guest) for (const e of enemies) if (e.state === 'fly') enemyAI(e, dt); else fallAndDitch(e, dt);
+      if (!guest) for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].state === 'ditched' && enemies[i].downT > 9) enemies.splice(i, 1);
+      if (MP.on && G0.mode === 'fly') {                                // down in a crew: back in after a breath, behind someone still flying
+        if (player.state === 'ditched' && MP.respawn > 0 && (MP.respawn -= dt) <= 0) { const m = mateList().find(q => q.state === 'fly'); if (m) respawnNear(m); else MP.respawn = .5; }
+        if (MP.host) { MP.wipeT = player.state === 'ditched' && mateList().every(m => m.state !== 'fly') ? MP.wipeT + dt : 0; if (MP.wipeT > 3) { MP.wipeT = 0; gameOver(); } }
+      }
+      if (!guest && G0.mode === 'fly' && !enemies.some(e => e.state === 'fly')) {
         if (G0.nextWave <= 0) G0.nextWave = 2.6;
         G0.nextWave -= dt;
         if (G0.nextWave <= 0) { if (G0.wave < G0.waves) spawnWave(); else levelClear(); G0.nextWave = 0; }
@@ -2376,7 +2693,7 @@ function bootGame() {
       const b = bullets[i]; b.prev = b.p; b.p = V.add(b.p, V.mul(b.v, dt)); b.life -= dt;
       let gone = b.life <= 0;
       const ab = V.sub(b.p, b.prev), abl = Math.max(V.dot(ab, ab), 1e-6);
-      const targets = b.owner === player ? enemies : [player];
+      const targets = b.owner === player ? enemies : b.owner.mate ? [] : [player];
       for (const tg of targets) {
         if (gone || tg.state === 'ditched' || tg === b.owner || (b.hits && b.hits.includes(tg))) continue;
         const s = clamp(V.dot(V.sub(tg.p, b.prev), ab) / abl, 0, 1), hp = V.add(b.prev, V.mul(ab, s));
@@ -2411,19 +2728,19 @@ function bootGame() {
       m.v = V.mul(dir, sp); m.p = V.add(m.p, V.mul(m.v, dt));
       m.trail.unshift({ p: m.p.slice(), t: G0.t }); if (m.trail.length > 18) m.trail.pop();
       if (m.tg && V.len(V.sub(m.tg.p, m.p)) < 7) {
-        damage(m.tg, m.dmg, m.p);
+        if (!m.ghost) damage(m.tg, m.dmg, m.p);
         puff(m.p, V.mul(m.tg.vel, .4), 1.2, 9, .9, 1, .35, 1, 3); rings.push({ p: m.p.slice(), age: .2, r: 18, col: m.col });
         snd.pop(V.len(V.sub(m.p, cam.pos))); m.dead = .45;
       } else if (m.age > 4 || m.p[1] < 0) m.dead = .45;
     }
     for (let i = bolts.length - 1; i >= 0; i--) { bolts[i].age += dt; if (bolts[i].age > .22) bolts.splice(i, 1); }
-    if (player.state === 'fly' && tierOf(W).phoenix) for (let k = 0; k < 2; k++) puff(P(player, [rand(-4, 4), rand(-.3, .6), rand(-3, 1)]), V.add(V.mul(player.vel, .75), [rand(-2, 2), rand(0, 3), rand(-2, 2)]), .45, 1.4, 1, .85, .6, 1, 2);
+    for (const fp of [player, ...mateList()]) if (fp.state === 'fly' && WS(fp === player ? W.wl : fp.wl).phoenix) for (let k = 0; k < 2; k++) puff(P(fp, [rand(-4, 4), rand(-.3, .6), rand(-3, 1)]), V.add(V.mul(fp.vel, .75), [rand(-2, 2), rand(0, 3), rand(-2, 2)]), .45, 1.4, 1, .85, .6, 1, 2);
     // pickups: fly through them
     for (let i = pickups.length - 1; i >= 0; i--) {
       const k = pickups[i]; k.t += dt; k.p[1] += Math.sin(G0.t * 2 + i) * .02;
       if (k.t > 20) { pickups.splice(i, 1); continue; }
       if (player.state === 'fly' && V.len(V.sub(k.p, player.p)) < 18) {
-        pickups.splice(i, 1);
+        pickups.splice(i, 1); if (MP.on && !MP.host) MP.took.push(k.id);
         if (k.type === 'ammo' && W.wl < 30) { gainXP(4); if (!G0.msgs.some(m => m.big)) say('弹药 +4', 1.4); }
         else { player.hp = Math.min(player.maxHp, player.hp + 5); say('修理完成', 1.6); }
         snd.pickupSound(k.type); popups.push({ p: k.p.slice(), text: k.type === 'ammo' ? '弹药' : '修理', age: 0 });
@@ -2431,7 +2748,7 @@ function bootGame() {
       }
     }
     // smoke from the hurt and the falling, spray from anything low and fast, samples for wakes and vapour
-    for (const pl of [player, ...enemies]) {
+    for (const pl of [player, ...mateList(), ...enemies]) {
       pl.muzzle -= dt; pl.flash = Math.max(0, pl.flash - dt * 7);
       const hurt = pl.hp <= pl.maxHp * .5 || pl.state === 'down';
       if (hurt && pl.state !== 'ditched' && (pl.smokeT -= dt) <= 0) {
@@ -2462,6 +2779,7 @@ function bootGame() {
     G0.comboT = Math.max(0, G0.comboT - dt); if (!G0.comboT) G0.combo = 1;
     for (const m of G0.msgs) m.age += dt;
     G0.msgs = G0.msgs.filter(m => m.age < m.life);
+    if (MP.on && MP.room) netSend();
   }
 
   // ── camera ──
@@ -2469,8 +2787,11 @@ function bootGame() {
   function updateCamera(dt) {
     const pl = player;
     let want, look, up, fov;
-    if (G0.mode === 'title' || G0.mode === 'clear') {
+    let spect = null;
+    if (['title', 'clear', 'lobby', 'room'].includes(G0.mode)) {
       const a = G0.t * .07; want = V.add(pl.p, [Math.cos(a) * 26, 6 + Math.sin(a * .7) * 2, Math.sin(a) * 26]); look = pl.p; up = [0, 1, 0]; fov = 50;
+    } else if (pl.state === 'ditched' && (spect = MP.on && mateList().find(q => q.state === 'fly'))) {
+      const fl = V.norm([spect.f[0], 0, spect.f[2]]); want = V.add(spect.p, V.add(V.mul(fl, -28), [0, 7, 0])); look = V.add(spect.p, V.mul(fl, 30)); up = [0, 1, 0]; fov = 56;
     } else if (pl.state !== 'fly') {
       const a = G0.t * .1; want = V.add(pl.p, [Math.cos(a) * 32, 10, Math.sin(a) * 32]); look = pl.p; up = [0, 1, 0]; fov = 52;
     } else if (SET.cam) {                                              // dynamic: rolls with the plane
@@ -2485,7 +2806,7 @@ function bootGame() {
       look = V.add(pl.p, V.mul(dir, 26));
       up = V.norm(V.lerp([0, 1, 0], pl.up, .12)); fov = 56 + (pl.speed - 66) * .1;
     }
-    const k = 1 - Math.exp(-dt * (pl.state === 'fly' && G0.mode !== 'title' && G0.mode !== 'clear' ? 7 : 1.6));
+    const k = 1 - Math.exp(-dt * (spect ? 4 : pl.state === 'fly' && !['title', 'clear', 'lobby', 'room'].includes(G0.mode) ? 7 : 1.6));
     cam.pos = V.lerp(cam.pos, want, k); cam.target = V.lerp(cam.target, look, Math.min(1, k * 1.4));
     cam.up = V.norm(V.lerp(cam.up, up, k)); cam.fov += (fov - cam.fov) * k;
     if (cam.pos[1] < 1.5) cam.pos[1] = 1.5;
@@ -2496,7 +2817,8 @@ function bootGame() {
   // ── the scene for the renderer ──
   const matOfP = pl => [...pl.right, ...pl.up, ...pl.f];
   function scene(frameNo) {
-    const planes = [player, ...enemies].slice(0, 6).map(pl => ({ p: pl.p, m: matOfP(pl), kind: pl.kind, prop: pl.prop, flash: pl.flash * .8 }));
+    const friends = [player, ...mateList()], foes = enemies.slice().sort((a, b) => (a.state === 'fly' ? 0 : 1) - (b.state === 'fly' ? 0 : 1) || V.len(V.sub(a.p, cam.pos)) - V.len(V.sub(b.p, cam.pos)));
+    const planes = [...friends, ...foes].slice(0, 8).map(pl => ({ p: pl.p, m: matOfP(pl), kind: pl.kind, prop: pl.prop, flash: pl.flash * .8 }));
     const puffs = parts.map(q => { const k = q.age / q.life; return { p: q.p, r: q.r + q.grow * q.age, g: q.g, a: q.a * (1 - k) * Math.min(1, q.age * 12), warm: q.warm * (1 - k * .7) }; });
     for (const k of pickups) {                                          // a glowing crate: a warm core that pulses
       const blink = k.t > 16 ? (Math.sin(k.t * 20) > 0 ? 1 : .2) : 1;
@@ -2505,8 +2827,9 @@ function bootGame() {
     puffs.sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos)));
     const segs = [];
     for (const b of bullets) segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), b.heavy ? .045 : .03 + (b.owner === player ? W.wl * .0012 : 0))), b: b.p, heat: b.heat, w: b.w, col: b.col });
-    for (const pl of [player, ...enemies]) {
-      if (pl.muzzle > 0) for (let g = 0; g < (pl === player ? tierOf(W).guns : 2); g++) { const m = P(pl, GUN_POS[g]), big = pl === player ? 1 + W.wl * .03 : 1; segs.push({ a: m, b: V.add(m, V.mul(pl.f, big)), heat: 1.3 * big, w: .16 * big, col: pl === player && W.wl >= 5 ? tierOf(W).col : undefined }); }
+    for (const pl of [...friends, ...enemies]) {
+      const wl = pl === player ? W.wl : pl.mate ? pl.wl : 0;
+      if (pl.muzzle > 0) for (let g = 0; g < (wl ? WS(wl).guns : 2); g++) { const m = P(pl, GUN_POS[g]), big = wl ? 1 + wl * .03 : 1; segs.push({ a: m, b: V.add(m, V.mul(pl.f, big)), heat: 1.3 * big, w: .16 * big, col: wl >= 5 ? WS(wl).col : undefined }); }
       for (let i = 1; i < pl.tips.length; i++) {
         const t0 = pl.tips[i - 1], t1 = pl.tips[i], age = G0.t - t1.t; if (age > .55) break;
         const st = Math.min(t0.st, t1.st) * (1 - age / .55);
@@ -2531,15 +2854,18 @@ function bootGame() {
         segs.push({ a: prev, b: q, heat: 1.8 * (1 - bo.age / .22), w: .12, col: [.6, .9, 1] }); prev = q;
       }
     }
-    if (G0.beam) {                                                     // the beam: a white core in a coloured glow, shimmering
-      const col = tierOf(W).col, fl = .85 + .15 * Math.sin(G0.t * 90);
-      segs.push({ a: G0.beam.a, b: G0.beam.b, heat: 2.2 * fl, w: .28, col: [1, 1, 1] });
-      segs.push({ a: G0.beam.a, b: G0.beam.b, heat: .7 * fl, w: .9, col });
+    const beams = G0.beam ? [[G0.beam.a, G0.beam.b, W.wl]] : [];
+    for (const m of mateList()) if (m.bm && m.state === 'fly') beams.push([P(m, [0, -.02, 4.8]), m.bm, m.wl]);
+    for (const [ba, bb, wl] of beams) {                                // the beam: a white core in a coloured glow, shimmering
+      const col = WS(wl).col, fl = .85 + .15 * Math.sin(G0.t * 90);
+      segs.push({ a: ba, b: bb, heat: 2.2 * fl, w: .28, col: [1, 1, 1] });
+      segs.push({ a: ba, b: bb, heat: .7 * fl, w: .9, col });
     }
-    if (player.state === 'fly' && tierOf(W).aura) {                    // wings of light
-      const col = tierOf(W).col;
-      for (let i = 1; i < player.tips.length; i++) {
-        const t0 = player.tips[i - 1], t1 = player.tips[i], age = G0.t - t1.t; if (age > .45) break;
+    for (const fp of friends) {                                        // wings of light
+      const T = WS(fp === player ? W.wl : fp.wl); if (fp.state !== 'fly' || !T.aura) continue;
+      const col = T.col;
+      for (let i = 1; i < fp.tips.length; i++) {
+        const t0 = fp.tips[i - 1], t1 = fp.tips[i], age = G0.t - t1.t; if (age > .45) break;
         const k = (1 - age / .45) * .8 * camFade(t1.a); if (k < .02) continue;
         segs.push({ a: t1.a, b: t0.a, heat: k, w: .14, col }); segs.push({ a: t1.b, b: t0.b, heat: k, w: .14, col });
       }
@@ -2566,7 +2892,7 @@ function bootGame() {
       segs.push({ a: P(player, [side * .5, .16, zc - .14]), b: P(player, [side * .6, .15, zc - .14 - .35 * fl * (input.boost ? 1.8 : 1)]), heat: .45 * fl * (input.boost ? 1.6 : 1), w: .045 });
     }
     const wakes = [];
-    for (const pl of [player, ...enemies]) for (let i = 1; i < pl.wake.length; i++) {
+    for (const pl of [...friends, ...enemies]) for (let i = 1; i < pl.wake.length; i++) {
       const w1 = pl.wake[i], w0 = pl.wake[i - 1]; if (w1.s < .02) continue;
       wakes.push({ a: [w0.x, w0.z], b: [w1.x, w1.z], s: w1.s, age: G0.t - w1.t });
     }
@@ -2602,6 +2928,7 @@ function bootGame() {
       if (!R.baked) { small('正在绘制天空…', h * .5, .8, 15); return; }
       const bw = 210 * u, bh = 42 * u;
       button(c, u, w / 2 - bw / 2, h * .47, bw, bh, '起飞 · 第 1 关', 'start', true);
+      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 140 * u, 34 * u, '联机 · 合作', 'net');
       if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, h * .47 + bh + 12 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
       small(MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速', h * .74);
       if (G0.best) small('最高分 ' + G0.best, h * .79, .45);
@@ -2624,6 +2951,39 @@ function bootGame() {
       }
       return;
     }
+    if (G0.mode === 'lobby') {
+      c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
+      title('联机 · 合作', h * .18, big * .75);
+      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 100 * u, 34 * u, '‹ 返回', 'back');
+      const bw = 260 * u, bh = 38 * u;
+      if (NET.status !== 'ok' && NET.status !== 'none') small('正在连接…', h * .36, .75, 14);
+      else if (!NET.kind) small('这里连不上联机服务', h * .36, .75, 14);
+      else {
+        const ads = NET.lobby.peers().filter(q => !q.me && q.st.ad && /^\d{4}$/.test(q.st.ad.c)).map(q => q.st.ad).slice(0, 3);
+        button(c, u, w / 2 - bw / 2, h * .3, bw, bh, '开一个房间', 'host', !ads.length);
+        small(ads.length ? '或者加入朋友的房间' : '还没有别人开的房间', h * .3 + bh + 16 * u, .6, 13);
+        ads.forEach((a, i) => {
+          const n = clamp(a.n | 0, 1, 4), full = n >= 4;
+          button(c, u, w / 2 - bw / 2, h * .3 + bh + 32 * u + i * (bh + 8 * u), bw, bh, `房间 ${a.c} · 第 ${clamp(a.lv | 0, 1, 99)} 关 · ${n}/4 人${full ? ' · 满' : ''}`, full ? 'noop' : 'join:' + a.c, true);
+        });
+      }
+      small(NET.kind === 'local' ? '这里只连得到同一浏览器里的其他标签页；在 claude.ai 上打开这个页面并分享给朋友，就能一起飞' : '把这个页面分享给朋友：他们打开后点「联机 · 合作」，就能看到你的房间', h - (26 + INS.b) * u, .5, 12);
+      return;
+    }
+    if (G0.mode === 'room') {
+      c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
+      small('联机 · 合作', h * .12, .6, 13); title('房间 ' + MP.code, h * .2, big * .75);
+      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 110 * u, 34 * u, '离开房间', 'leave');
+      const crew = [{ slot: MP.slot, me: true, host: MP.host }, ...mateList().map(m => ({ slot: m.slot, me: false, host: m.peer === MP.hostId }))].sort((a, b) => a.slot - b.slot);
+      crew.forEach((q, i) => { c.textAlign = 'center'; c.fillStyle = MCOL[q.slot]; c.font = serif(Math.round(16 * u)); c.fillText(CALL[q.slot] + (q.me ? '（你）' : '') + (q.host ? ' · 房主' : ''), w / 2, h * .31 + i * 24 * u); });
+      const bw = 210 * u, bh = 40 * u, y0 = h * .31 + 4 * 24 * u + 6 * u;
+      if (MP.host) {
+        button(c, u, w / 2 - bw / 2, y0, bw, bh, '起飞 · 第 1 关', 'start', true);
+        if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, y0 + bh + 10 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
+      } else small('等待房主起飞…', y0 + bh / 2, .75, 15);
+      small('最多四人 · 敌机随人数变得更耐打 · 落水的人会在队友身后重返', h - (26 + INS.b) * u, .5, 12);
+      return;
+    }
     if (G0.mode === 'brief') {
       const a = Math.min(1, G0.modeT * 2) * (1 - smooth(2.2, 2.8, G0.modeT));
       c.globalAlpha = a; small('第 ' + G0.level + ' 关', h * .36, .75, 15); title(G0.levelName, h * .44, big * .8);
@@ -2632,7 +2992,8 @@ function bootGame() {
     if (G0.mode === 'clear') {
       c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
       small('第 ' + G0.level + ' 关 完成', h * .16, .75, 15); title(G0.levelName, h * .24, big * .7);
-      small(`奖励 +${G0.clearBonus}  ·  总分 ${G0.score}`, h * .32, .7);
+      small(MP.on && !MP.host ? `总分 ${G0.score}` : `奖励 +${G0.clearBonus}  ·  总分 ${G0.score}`, h * .32, .7);
+      if (MP.on && !G0.cards.length) small(MP.host ? '等待队友选择…' : '等待房主…', h * .5, .7, 15);
       if (G0.modeT > .8) {
         small('选一项，带进下一关', h * .41, .6);
         const n = G0.cards.length, narrow = w < h, cw = narrow ? Math.min(w * .8, 300 * u) : Math.min(w * .27, 220 * u), ch = narrow ? 64 * u : 108 * u, gap = 14 * u;
@@ -2652,7 +3013,9 @@ function bootGame() {
       const a = smooth(.3, 1.6, G0.modeT);
       c.fillStyle = `rgba(20, 8, 30, ${.3 * a})`; c.fillRect(0, 0, w, h);
       c.globalAlpha = a; title('深呼吸。', h * .38, big); small(`第 ${G0.level} 关 · 得分 ${G0.score} · 最高 ${G0.best}`, h * .47, .75, 14); c.globalAlpha = 1;
-      if (G0.modeT > 1.4) { const bw = 230 * u, bh = 42 * u; button(c, u, w / 2 - bw / 2, h * .55, bw, bh, '再试第 ' + G0.level + ' 关', 'retry', true); button(c, u, w / 2 - bw / 2, h * .55 + bh + 12 * u, bw, bh, 'from the start', 'start'); }
+      if (G0.modeT > 1.4 && (!MP.on || MP.host)) { const bw = 230 * u, bh = 42 * u; button(c, u, w / 2 - bw / 2, h * .55, bw, bh, '再试第 ' + G0.level + ' 关', 'retry', true); button(c, u, w / 2 - bw / 2, h * .55 + bh + 12 * u, bw, bh, '从第 1 关开始', 'start'); }
+      else if (G0.modeT > 1.4) small('等待房主…', h * .58, .7, 15);
+      if (MP.on) button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 110 * u, 34 * u, '离开房间', 'leave');
       return;
     }
     // hurt: a violet-red breath around the edges; low health pulses it
@@ -2663,6 +3026,15 @@ function bootGame() {
     c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(21 * u), false); c.fillText(String(G0.score), L0, T0 + 26 * u);
     if (G0.combo > 1) { c.fillStyle = `rgba(255, 205, 110, ${.6 + .4 * G0.comboT / 5})`; c.font = serif(Math.round(18 * u)); c.fillText('×' + G0.combo, L0 + c.measureText(String(G0.score)).width + 60 * u, T0 + 26 * u); }
     c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`第 ${G0.level} 关 · ${G0.levelName} · 第 ${Math.max(1, G0.wave)}/${G0.waves} 波`, L0, T0 + 47 * u);
+    if (MP.on) {                                                       // the crew: callsign and armour
+      c.fillStyle = cream(.45); c.fillText(`房间 ${MP.code} · ${1 + MP.mates.size} 人`, L0, T0 + 66 * u);
+      mateList().sort((a, b) => a.slot - b.slot).forEach((m, i) => {
+        const y = T0 + (84 + i * 16) * u; c.fillStyle = MCOL[m.slot]; c.fillText(CALL[m.slot], L0, y);
+        if (m.state === 'fly') { c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(L0 + 38 * u, y - 2 * u, 60 * u, 4 * u); c.fillStyle = MCOL[m.slot]; c.fillRect(L0 + 38 * u, y - 2 * u, 60 * u * clamp(m.hp / m.maxHp, 0, 1), 4 * u); }
+        else { c.fillStyle = cream(.4); c.fillText('落水', L0 + 38 * u, y); }
+      });
+      if (player.state === 'ditched' && G0.mode === 'fly') small(MP.respawn > 0 && mateList().some(q => q.state === 'fly') ? `${Math.ceil(MP.respawn)} 秒后重返战场` : '等待队友…', h * .34, .8, 16);
+    }
     // health, boost, ammunition
     const bw = 130 * u, bx = w - bw - (18 + INS.r) * u, by = (18 + INS.t) * u;
     c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by, bw, 7 * u); c.fillRect(bx, by + 13 * u, bw, 4 * u);
@@ -2720,6 +3092,12 @@ function bootGame() {
       }
     };
     for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? 'rgba(255, 110, 90, .95)' : 'rgba(255, 205, 110, .9)', Math.round(V.len(V.sub(e.p, player.p))) + ' 米', true);
+    for (const m of mateList()) {                                     // wingmen: a name over the plane, an arrow when off screen
+      if (m.state === 'ditched') continue;
+      const sp = project(V.add(m.p, [0, 3.5, 0]));
+      if (sp && sp[0] > 0 && sp[0] < w && sp[1] > 0 && sp[1] < h) { c.textAlign = 'center'; c.fillStyle = MCOL[m.slot]; c.font = serif(Math.round(11 * u), false); c.fillText(CALL[m.slot], sp[0], sp[1] - clamp(600 / sp[2], 4, 30) * u); }
+      else mark(m.p, MCOL[m.slot], null, false);
+    }
     for (const k of pickups) mark(k.p, k.type === 'ammo' ? 'rgba(255, 220, 130, .95)' : 'rgba(150, 255, 170, .9)', k.type === 'ammo' ? '弹药' : '修理', false);
     // score popups where the planes were hit
     for (const pu of popups) { const sp = project(V.add(pu.p, [0, pu.age * 12, 0])); if (!sp) continue; c.textAlign = 'center'; c.fillStyle = `rgba(255, 225, 160, ${1 - pu.age / 1.4})`; c.font = serif(Math.round(17 * u)); c.fillText(pu.text, sp[0], sp[1]); }
@@ -2758,7 +3136,7 @@ function bootGame() {
     drawHUD();
   };
   requestAnimationFrame(loop);
-  window.GAME = { G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
+  window.GAME = { MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
 }
 
 // ───────────────────────── live: the film (or, with ?play, the game) ─────────────────────────
