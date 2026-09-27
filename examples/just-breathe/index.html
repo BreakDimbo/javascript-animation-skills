@@ -1767,7 +1767,7 @@ function bootGame() {
   stage.style.cssText = 'width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto;';
   document.body.style.overscrollBehavior = 'none';
   const R = createRenderer(glv, { fast: true });
-  if (!R) { stage.textContent = 'This game needs WebGL2.'; return; }
+  if (!R) { stage.textContent = '这个游戏需要 WebGL2。'; return; }
   R.bakeStart([0, 150, 0], MOBILE);
   const dyn = makeDynRes(MOBILE ? .5 : .75, .3, 1);
   const hud = canvas, hx = hud.getContext('2d');
@@ -1806,36 +1806,36 @@ function bootGame() {
   const TYPES = {
     rookie:  { hp: 4,  skill: .3,  turn: .72, rate: 7,  spread: 2.8, speed: 64, kind: 1, score: 100,  drop: .3 },
     veteran: { hp: 7,  skill: .7,  turn: .98, rate: 9,  spread: 1.8, speed: 72, kind: 1, score: 200,  drop: .45 },
-    ace:     { hp: 30, skill: 1,   turn: 1.22, rate: 11, spread: 1.2, speed: 80, kind: 2, score: 1000, drop: 1, cannon: true, name: 'the gold nose' },
+    ace:     { hp: 30, skill: 1,   turn: 1.22, rate: 11, spread: 1.2, speed: 80, kind: 2, score: 1000, drop: 1, cannon: true, name: '金鼻子' },
   };
   const LEVELS = [
-    { name: 'first light',      waves: [['rookie'], ['rookie', 'rookie']] },
-    { name: 'the strait',       waves: [['rookie', 'rookie'], ['veteran', 'rookie'], ['veteran', 'veteran']] },
-    { name: 'the gold nose',    waves: [['veteran', 'rookie'], ['ace']] },
-    { name: 'the long evening', waves: [['veteran', 'veteran', 'rookie'], ['veteran', 'veteran', 'veteran'], ['ace', 'veteran']] },
-    { name: 'last light',       waves: [['veteran', 'veteran', 'veteran', 'veteran'], ['ace', 'ace']] },
+    { name: '初光',       waves: [['rookie'], ['rookie']] },                                  // levels 1-3 are gentle (see ease)
+    { name: '海峡',       waves: [['rookie'], ['rookie', 'rookie'], ['veteran']] },
+    { name: '金鼻子',     waves: [['rookie', 'rookie'], ['ace']] },
+    { name: '漫长的黄昏', waves: [['veteran', 'veteran', 'rookie'], ['veteran', 'veteran', 'veteran'], ['ace', 'veteran']] },
+    { name: '最后的光',   waves: [['veteran', 'veteran', 'veteran', 'veteran'], ['ace', 'ace']] },
   ];
   function levelDef(n) {                                              // after the fifth: an endless, harder evening
-    if (n <= LEVELS.length) return { ...LEVELS[n - 1], mult: 1 };
+    if (n <= LEVELS.length) return { ...LEVELS[n - 1], mult: 1, ease: n <= 3 };
     const k = n - LEVELS.length;
-    return { name: 'evening ' + (k + 1), waves: [['veteran', 'veteran', 'veteran'], ['veteran', 'veteran', 'veteran', 'veteran'], ['ace', 'veteran', 'veteran']], mult: 1 + .15 * k };
+    return { name: '黄昏 ' + (k + 1), ease: false, waves: [['veteran', 'veteran', 'veteran'], ['veteran', 'veteran', 'veteran', 'veteran'], ['ace', 'veteran', 'veteran']], mult: 1 + .15 * k };
   }
   // ammunition tiers: climbed with crates dropped by beaten planes
   const TIERS = [
-    { name: 'standard rounds',   guns: 2, dmg: 1,   col: [1, .92, .6] },
-    { name: 'incendiary rounds', guns: 2, dmg: 1.5, col: [1, .55, .25], burn: true },
-    { name: 'four guns',         guns: 4, dmg: 1.5, col: [1, .55, .25], burn: true },
-    { name: 'explosive rounds',  guns: 4, dmg: 2,   col: [.7, .88, 1], boom: true },
+    { name: '普通弹',     guns: 2, dmg: 1,   col: [1, .92, .6] },
+    { name: '燃烧弹',     guns: 2, dmg: 1.5, col: [1, .55, .25], burn: true },
+    { name: '四联机枪',   guns: 4, dmg: 1.5, col: [1, .55, .25], burn: true },
+    { name: '高爆弹',     guns: 4, dmg: 2,   col: [.7, .88, 1], boom: true },
   ];
   const ROMAN = ['I', 'II', 'III', 'IV'];
   const PERKS = [
-    { name: 'faster guns',   desc: 'fire a quarter faster',          apply: W => { W.rate *= 1.25; } },
-    { name: 'hot barrels',   desc: 'every round hits harder',        apply: W => { W.dmg += .35; } },
-    { name: 'long rounds',   desc: 'faster bullets, longer reach',   apply: W => { W.speed *= 1.2; W.life += .2; } },
-    { name: 'thicker skin',  desc: 'four more points of armour',     apply: W => { W.maxHp += 4; } },
-    { name: 'afterburner',   desc: 'half again as much boost',       apply: W => { W.boostCap *= 1.5; } },
-    { name: 'magnet sights', desc: 'the guns find targets sooner',   apply: W => { W.assist += 5; } },
-    { name: 'ammo crate',    desc: 'one ammunition tier up',         apply: W => { W.tier = Math.min(4, W.tier + 1); }, ok: W => W.tier < 4 },
+    { name: '射速提升',   desc: '开火快四分之一',          apply: W => { W.rate *= 1.25; } },
+    { name: '炽热枪管',   desc: '每一发都更疼',        apply: W => { W.dmg += .35; } },
+    { name: '远射弹',     desc: '子弹更快，射程更远',   apply: W => { W.speed *= 1.2; W.life += .2; } },
+    { name: '加厚装甲',   desc: '装甲 +4',     apply: W => { W.maxHp += 4; } },
+    { name: '加力燃烧',   desc: '加速槽多一半',       apply: W => { W.boostCap *= 1.5; } },
+    { name: '磁吸瞄准',   desc: '自动吸附范围更大',   apply: W => { W.assist += 5; } },
+    { name: '弹药箱',     desc: '弹药升一级',         apply: W => { W.tier = Math.min(4, W.tier + 1); }, ok: W => W.tier < 4 },
   ];
   const newWeapons = () => ({ tier: 1, rate: 11, speed: 650, life: 1.35, dmg: 1, assist: 12, boostCap: 1, maxHp: 12 });
   const tierOf = W => TIERS[W.tier - 1];
@@ -1885,7 +1885,7 @@ function bootGame() {
   function newRun(level) { W = newWeapons(); G0.score = 0; startLevel(level); }
   function startLevel(n) {
     const L = levelDef(n);
-    Object.assign(G0, { level: n, wave: 0, waves: L.waves.length, levelName: L.name, mult: L.mult, msgs: [], combo: 1, comboT: 0, nextWave: 0 });
+    Object.assign(G0, { level: n, wave: 0, waves: L.waves.length, levelName: L.name, mult: L.mult, ease: L.ease, msgs: [], combo: 1, comboT: 0, nextWave: 0 });
     Wsaved = { ...W }; scoreSaved = G0.score;
     clearWorld();
     setMode('brief'); snd.start(); snd.levelStart();
@@ -1893,16 +1893,24 @@ function bootGame() {
   function spawnWave() {
     const L = levelDef(G0.level), list = L.waves[G0.wave];
     for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].state === 'ditched') enemies.splice(i, 1);   // the ditched sink
+    // they appear straight ahead: in the gentle levels flying away from you (easy to catch), later head-on
+    const fl = V.norm([player.f[0], 0, player.f[2]]), rt = V.cross(fl, [0, 1, 0]);
     list.forEach((type, i) => {
-      const T = TYPES[type], a = Math.random() * Math.PI * 2 + i * .7, p = V.add(player.p, [Math.cos(a) * 1100, 0, Math.sin(a) * 1100]);
-      p[1] = clamp(player.p[1] + rand(-80, 200), 150, 700);
-      const e = newPlane(T.kind, p, V.sub(player.p, p), type);
-      e.hp = e.maxHp = Math.round(T.hp * L.mult); e.T = T;
-      e.ai.side = Math.random() < .5 ? -1 : 1; e.ai.skill = Math.min(1, T.skill * Math.sqrt(L.mult));
+      const T = TYPES[type], side = (i - (list.length - 1) / 2) * (L.ease ? 45 : 70);
+      const dist = L.ease ? rand(350, 450) : rand(650, 800);
+      const p = V.add(player.p, V.add(V.mul(fl, dist), V.mul(rt, side)));
+      p[1] = clamp(player.p[1] + rand(-15, 30), 120, 900);
+      const e = newPlane(T.kind, p, L.ease ? fl : V.mul(fl, -1), type);
+      e.T = T;
+      e.hp = e.maxHp = Math.round(T.hp * L.mult * (L.ease ? (type === 'ace' ? .55 : .7) : 1));
+      e.rateK = L.ease ? .55 : 1; e.spreadK = L.ease ? 1.9 : 1; e.turnK = L.ease ? .8 : 1;
+      e.speed = L.ease ? 58 : T.speed; e.vel = V.mul(e.f, e.speed);
+      e.ai.side = Math.random() < .5 ? -1 : 1; e.ai.skill = Math.min(1, T.skill * Math.sqrt(L.mult) * (L.ease ? .6 : 1));
+      e.ai.mode = 'cruise'; e.ai.t = L.ease ? rand(3.5, 5) : 1.5;
       enemies.push(e);
     });
     G0.wave++;
-    say(list.includes('ace') ? TYPES.ace.name + ' is here' : G0.waves > 1 ? `wave ${G0.wave} of ${G0.waves}` : 'here they come', 2.4);
+    say(list.includes('ace') ? TYPES.ace.name + '来了' : G0.waves > 1 ? `第 ${G0.wave} 波 / 共 ${G0.waves} 波` : '它们来了', 2.4);
     if (list.includes('ace')) snd.aceHorn();
   }
 
@@ -1930,7 +1938,7 @@ function bootGame() {
     pl.gun = (pl.gun + 1) % guns;
     const m = P(pl, heavy ? [0, -.1, 4.6] : GUN_POS[pl.gun]);
     let dir = pl.f;
-    if (aimAt) dir = V.norm(V.lerp(dir, V.norm(V.sub(aimAt, m)), .65));
+    if (aimAt) dir = V.norm(V.lerp(dir, V.norm(V.sub(aimAt, m)), pw ? 1 : .65));          // your rounds converge on the lock
     const s = spreadDeg * Math.PI / 180;
     dir = V.norm(V.add(dir, V.add(V.mul(pl.right, rand(-s, s)), V.mul(pl.up, rand(-s, s)))));
     const speed = pw ? W.speed : heavy ? 520 : 650;
@@ -1939,12 +1947,12 @@ function bootGame() {
     pl.muzzle = .06;
     snd.gun(pl, heavy || (pw && T.boom));
   }
-  function assistTarget() {                                           // the nearest rival within a narrow cone, with lead
+  function assistTarget(cone = W.assist) {                           // the nearest rival within a cone, with lead
     let best = null, bd = 1e9; G0.lock = null;
     for (const e of enemies) {
       if (e.state !== 'fly') continue;
       const d = V.sub(e.p, player.p), dist = V.len(d);
-      if (dist > 800 || V.dot(V.norm(d), player.f) < Math.cos(W.assist * Math.PI / 180)) continue;
+      if (dist > 900 || V.dot(V.norm(d), player.f) < Math.cos(cone * Math.PI / 180)) continue;
       if (dist < bd) { bd = dist; best = V.add(e.p, V.mul(e.vel, dist / W.speed)); G0.lock = e; }
     }
     if (!best) G0.lock = null;
@@ -2128,15 +2136,24 @@ function bootGame() {
   const WL = .72;
   // arcade controls: left/right turns (the plane banks by itself, never past 60°), up/down sets a climb or
   // dive of up to 40° and letting go levels out. No rolls, no loops: the horizon never goes round.
-  function steerArcade(pl, dt) {
+  function steerArcade(pl, dt, lead) {
     let psi = Math.atan2(-pl.f[0], -pl.f[2]), th = Math.asin(clamp(pl.f[1], -1, 1));
     const boosting = input.boost && pl.boost > .02;
     let turn = input.sx * (boosting ? .85 : 1.05);                   // rad/s, + = right
+    // aim snap: with a rival locked, the nose drifts onto the point to shoot at; your own stick always wins
+    let snapClimb = null;
+    if (lead) {
+      const d = V.norm(V.sub(lead, pl.p));
+      let dpsi = Math.atan2(-d[0], -d[2]) - psi; dpsi = Math.atan2(Math.sin(dpsi), Math.cos(dpsi));
+      turn += clamp(-dpsi * 3, -.8, .8) * (1 - Math.abs(input.sx)) * .85;
+      snapClimb = clamp(Math.asin(clamp(d[1], -1, 1)), -.6, .6);
+    }
     const dh = Math.hypot(pl.p[0], pl.p[2]);
     if (dh > 3000) { let diff = Math.atan2(pl.p[0], pl.p[2]) - psi; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); turn = clamp(turn - diff * .8, -1.05, 1.05); }
     pl.turn += (turn - pl.turn) * (1 - Math.exp(-dt * 6));
     psi -= pl.turn * dt;
     let thT = input.sy * .7;
+    if (snapClimb !== null) thT += (snapClimb - thT) * (1 - Math.abs(input.sy)) * .85;
     if (pl.p[1] < 70) thT = Math.max(thT, (70 - pl.p[1]) / 70 * .35);
     if (pl.p[1] > 1400) thT = Math.min(thT, 0);
     th += (thT - th) * (1 - Math.exp(-dt * 2.4));
@@ -2167,11 +2184,12 @@ function bootGame() {
     readInput();
     if (Math.abs(input.sx) > .3) G0.didSteer = true;
     if (input.fire) G0.didFire = true;
-    (SET.pilot ? steerPilot : steerArcade)(pl, dt);
+    const aim = assistTarget(W.assist + 8);                            // the snap reaches a little wider than the guns
+    G0.lead = aim;
+    if (SET.pilot) steerPilot(pl, dt); else steerArcade(pl, dt, aim);
     pl.boost = clamp(pl.boost + (input.boost ? -.28 / W.boostCap : .12 / W.boostCap) * dt, 0, 1);
     move(pl, dt, input.boost && pl.boost > .02 ? 104 : 66);
     pl.cool -= dt;
-    const aim = assistTarget();
     if ((input.fire || (SET.auto && aim)) && pl.cool <= 0) { fire(pl, .5, aim); pl.cool = 1 / (W.rate * tierOf(W).guns / 2); }
   }
   // rivals don't sit on your tail forever: they engage for a few seconds, break off and extend, then turn
@@ -2180,14 +2198,16 @@ function bootGame() {
     const T = e.T, toP = V.sub(player.p, e.p), dist = V.len(toP), ai = e.ai;
     ai.t -= dt;
     const threat = player.state === 'fly' && dist < 420 && V.dot(player.f, V.norm(V.sub(e.p, player.p))) > Math.cos(25 * Math.PI / 180);
-    if (ai.mode === 'engage' && threat && Math.random() < dt * (1 + ai.skill)) { ai.mode = 'evade'; ai.t = 1.6 + Math.random() * 1.2; ai.side = Math.random() < .5 ? -1 : 1; }
+    if (ai.mode === 'engage' && threat && Math.random() < dt * (G0.ease ? .3 : 1 + ai.skill)) { ai.mode = 'evade'; ai.t = 1.6 + Math.random() * 1.2; ai.side = Math.random() < .5 ? -1 : 1; }
     if (ai.t <= 0) {
-      if (ai.mode === 'engage') { ai.mode = 'extend'; ai.t = rand(2.2, 3.4); }
+      if (ai.mode === 'cruise') { ai.mode = 'engage'; ai.t = rand(4, 7); }
+      else if (ai.mode === 'engage') { ai.mode = 'extend'; ai.t = rand(2.2, 3.4); }
       else if (ai.mode === 'extend') { ai.mode = 'pass'; ai.t = 7; }
       else { ai.mode = 'engage'; ai.t = rand(4, 7) * (.7 + .5 * ai.skill); }
     }
     let d;
-    if (ai.mode === 'evade') d = V.norm(V.add(V.add(V.mul(e.right, ai.side), V.mul(e.up, .7)), V.mul(e.f, .15)));
+    if (ai.mode === 'cruise') d = V.norm(V.add(V.norm([e.f[0], 0, e.f[2]]), V.mul(e.right, Math.sin(G0.t * .8 + ai.side) * .12)));   // a lazy weave
+    else if (ai.mode === 'evade') d = V.norm(V.add(V.add(V.mul(e.right, ai.side), V.mul(e.up, .7)), V.mul(e.f, .15)));
     else if (ai.mode === 'extend') { const away = V.norm([e.p[0] - player.p[0], 0, e.p[2] - player.p[2]]); d = V.norm(V.add(V.lerp(e.f, away, .7), [0, .12, 0])); }
     else if (ai.mode === 'pass') {                                   // aim for a point ahead of you: they cross your view
       const ahead = V.add(player.p, V.add(V.mul(player.f, 480), V.mul(player.right, ai.side * 60)));
@@ -2201,13 +2221,13 @@ function bootGame() {
     for (const o of enemies) if (o !== e && o.state === 'fly') { const s = V.sub(e.p, o.p), sd = V.len(s); if (sd < 60) d = V.norm(V.add(d, V.mul(s, .6 / Math.max(sd, 1)))); }
     if (e.p[1] < 120) d = V.norm(V.add(d, [0, (120 - e.p[1]) / 60, 0]));
     if (Math.hypot(e.p[0], e.p[2]) > 3200) d = V.norm(V.add(d, V.mul(V.norm([-e.p[0], 0, -e.p[2]]), .8)));
-    flyToward(e, d, T.turn * (.85 + .15 * G0.mult), dt);
-    move(e, dt, ai.mode === 'evade' || ai.mode === 'extend' ? T.speed + 20 : dist > 500 ? T.speed + 16 : T.speed);
+    flyToward(e, d, T.turn * (.85 + .15 * G0.mult) * (e.turnK || 1), dt);
+    move(e, dt, ai.mode === 'cruise' ? (G0.ease ? 56 : T.speed) : ai.mode === 'evade' || ai.mode === 'extend' ? T.speed + 20 : dist > 500 ? T.speed + 16 : T.speed);
     e.cool -= dt; e.cannonCool -= dt;
     const aim = V.norm(V.sub(V.add(player.p, V.mul(player.vel, dist / 650)), e.p));
     const onTarget = player.state === 'fly' && G0.mode === 'fly' && (ai.mode === 'engage' || ai.mode === 'pass') && dist < 560 && V.dot(e.f, aim) > Math.cos(7 * Math.PI / 180);
-    if (onTarget && e.cool <= 0) { fire(e, T.spread / Math.sqrt(G0.mult)); e.cool = 1 / T.rate; if (Math.random() < dt * 2.2) e.cool = .6; }
-    if (onTarget && T.cannon && e.cannonCool <= 0) { fire(e, .8, null, true); e.cannonCool = 2.2; }
+    if (onTarget && e.cool <= 0) { fire(e, T.spread * (e.spreadK || 1) / Math.sqrt(G0.mult)); e.cool = 1 / (T.rate * (e.rateK || 1)); if (Math.random() < dt * 2.2) e.cool = .6; }
+    if (onTarget && T.cannon && e.cannonCool <= 0) { fire(e, G0.ease ? 2.5 : .8, null, true); e.cannonCool = G0.ease ? 4.5 : 2.2; }
   }
   function fallAndDitch(pl, dt) {
     pl.downT += dt;
@@ -2217,7 +2237,7 @@ function bootGame() {
       move(pl, dt, 50);
       if (pl.p[1] < WL + .6) {
         pl.state = 'ditched'; pl.p[1] = WL; pl.downT = 0; splash(pl.p, true); snd.boom(V.len(V.sub(pl.p, cam.pos)) * 2, false);
-        if (pl === player) gameOver(); else say('splash', 1.2);
+        if (pl === player) gameOver(); else say('击落，落水', 1.2);
       }
     } else {
       pl.speed *= Math.exp(-dt * .9); pl.vel = V.mul(pl.f, pl.speed);
@@ -2270,7 +2290,7 @@ function bootGame() {
         const s = clamp(V.dot(V.sub(tg.p, b.prev), ab) / abl, 0, 1), hp = V.add(b.prev, V.mul(ab, s));
         const miss = V.len(V.sub(hp, tg.p));
         if (miss < (tg === player ? 3.6 : 4.8)) {
-          gone = true; damage(tg, b.dmg, hp);
+          gone = true; damage(tg, tg === player && G0.ease ? b.dmg * .5 : b.dmg, hp);
           if (b.owner === player && tierOf(W).boom) {                 // explosive rounds: a small burst that also hurts neighbours
             puff(hp, V.mul(tg.vel, .5), 1, 7, .95, 1, .3, 1, 3);
             for (const o of enemies) if (o !== tg && o.state === 'fly' && V.len(V.sub(o.p, hp)) < 16) damage(o, .6, o.p);
@@ -2287,8 +2307,8 @@ function bootGame() {
       if (player.state === 'fly' && V.len(V.sub(k.p, player.p)) < 18) {
         pickups.splice(i, 1);
         if (k.type === 'ammo' && W.tier < 4) { W.tier++; say(ROMAN[W.tier - 1] + ' · ' + tierOf(W).name, 2.4, true); }
-        else { player.hp = Math.min(player.maxHp, player.hp + 5); say('repaired', 1.6); }
-        snd.pickupSound(k.type); popups.push({ p: k.p.slice(), text: k.type === 'ammo' ? 'ammo' : 'repair', age: 0 });
+        else { player.hp = Math.min(player.maxHp, player.hp + 5); say('修理完成', 1.6); }
+        snd.pickupSound(k.type); popups.push({ p: k.p.slice(), text: k.type === 'ammo' ? '弹药' : '修理', age: 0 });
         rings.push({ p: k.p.slice(), age: 0, r: 30, col: 1 });
       }
     }
@@ -2409,7 +2429,7 @@ function bootGame() {
     const w = hud.width, h = hud.height;
     return [w / 2 + V.dot(d, camB.r) / z * camB.focal * h / 2, h / 2 - V.dot(d, camB.u) / z * camB.focal * h / 2, z];
   }
-  const serif = (px, it = true) => `${it ? 'italic ' : ''}${px}px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`;
+  const serif = px => `${px}px "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif`;   // a Chinese serif, upright
   const cream = a => `rgba(255, 244, 226, ${a})`;
   function button(c, u, x, y, w, h, label, act, strong) {
     c.fillStyle = strong ? 'rgba(255, 214, 150, .22)' : 'rgba(40, 20, 50, .35)'; c.strokeStyle = cream(strong ? .8 : .45); c.lineWidth = 1.2 * u;
@@ -2428,16 +2448,16 @@ function bootGame() {
     const big = Math.min(w, h * 1.6) * .06;
     if (G0.mode === 'title') {
       c.fillStyle = 'rgba(20, 8, 30, .25)'; c.fillRect(0, 0, w, h);
-      title('just breathe.', h * .36, big);
-      if (!R.baked) { small('painting the sky…', h * .5, .8, 15); return; }
+      title('深呼吸。', h * .36, big);
+      if (!R.baked) { small('正在绘制天空…', h * .5, .8, 15); return; }
       const bw = 210 * u, bh = 42 * u;
-      button(c, u, w / 2 - bw / 2, h * .47, bw, bh, 'fly · level 1', 'start', true);
-      if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, h * .47 + bh + 12 * u, bw, bh, 'continue · level ' + G0.unlocked, 'continue');
-      small(MOBILE ? 'left thumb steers · right thumb fires · small button boosts' : 'arrows / WASD steer · space fires · shift boosts', h * .74);
-      if (G0.best) small('best ' + G0.best, h * .79, .45);
+      button(c, u, w / 2 - bw / 2, h * .47, bw, bh, '起飞 · 第 1 关', 'start', true);
+      if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, h * .47 + bh + 12 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
+      small(MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速', h * .74);
+      if (G0.best) small('最高分 ' + G0.best, h * .79, .45);
       { // comfort settings
         const sw = 150 * u, sh = 30 * u, gap = 10 * u, y0 = h - (48 + INS.b) * u - (MOBILE && h > w ? 0 : 0);
-        const items = [[SET.cam ? 'camera · dynamic' : 'camera · steady', 'set-cam'], [SET.pilot ? 'controls · pilot' : 'controls · arcade', 'set-ctl'], [SET.auto ? 'fire · auto' : 'fire · hold', 'set-fire']];
+        const items = [[SET.cam ? '镜头 · 动感' : '镜头 · 平稳', 'set-cam'], [SET.pilot ? '操作 · 飞行员' : '操作 · 街机', 'set-ctl'], [SET.auto ? '开火 · 自动' : '开火 · 按住', 'set-fire']];
         const tw = items.length * sw + (items.length - 1) * gap, narrow = tw > w * .95;
         items.forEach(([label, act], i) => {
           const x = narrow ? w / 2 - sw / 2 : w / 2 - tw / 2 + i * (sw + gap), y = narrow ? h * .58 + i * (sh + gap) + 60 * u : y0;
@@ -2447,24 +2467,24 @@ function bootGame() {
           G0.buttons.push({ x, y, w: sw, h: sh, act });
         });
       }
-      if (MOBILE && h > w) small('turn your phone sideways for a wider sky', h * .69, .75, 14);
+      if (MOBILE && h > w) small('把手机横过来，天空更宽', h * .69, .75, 14);
       if (!standalone() && !isFull()) {
-        if (fsOK()) { const fw = 140 * u, fh = 34 * u; button(c, u, w - fw - (16 + INS.r) * u, (14 + INS.t) * u, fw, fh, 'full screen', 'full'); }
-        else if (IPHONE) small('for full screen: Share → Add to Home Screen', h * .9, .6, 12);
+        if (fsOK()) { const fw = 140 * u, fh = 34 * u; button(c, u, w - fw - (16 + INS.r) * u, (14 + INS.t) * u, fw, fh, '全屏', 'full'); }
+        else if (IPHONE) small('全屏：点「分享」→「添加到主屏幕」', h * .9, .6, 12);
       }
       return;
     }
     if (G0.mode === 'brief') {
       const a = Math.min(1, G0.modeT * 2) * (1 - smooth(2.2, 2.8, G0.modeT));
-      c.globalAlpha = a; small('level ' + G0.level, h * .36, .75, 15); title(G0.levelName, h * .44, big * .8);
-      small(`${G0.waves} wave${G0.waves > 1 ? 's' : ''} · ${ROMAN[W.tier - 1]} ${tierOf(W).name}`, h * .52, .6); c.globalAlpha = 1;
+      c.globalAlpha = a; small('第 ' + G0.level + ' 关', h * .36, .75, 15); title(G0.levelName, h * .44, big * .8);
+      small(`${G0.waves} 波敌机 · ${ROMAN[W.tier - 1]} ${tierOf(W).name}`, h * .52, .6); c.globalAlpha = 1;
     }
     if (G0.mode === 'clear') {
       c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
-      small('level ' + G0.level + ' clear', h * .16, .75, 15); title(G0.levelName, h * .24, big * .7);
-      small(`bonus +${G0.clearBonus}  ·  score ${G0.score}`, h * .32, .7);
+      small('第 ' + G0.level + ' 关 完成', h * .16, .75, 15); title(G0.levelName, h * .24, big * .7);
+      small(`奖励 +${G0.clearBonus}  ·  总分 ${G0.score}`, h * .32, .7);
       if (G0.modeT > .8) {
-        small('choose one for the next level', h * .41, .6);
+        small('选一项，带进下一关', h * .41, .6);
         const n = G0.cards.length, narrow = w < h, cw = narrow ? Math.min(w * .8, 300 * u) : Math.min(w * .27, 220 * u), ch = narrow ? 64 * u : 108 * u, gap = 14 * u;
         G0.cards.forEach((card, i) => {
           const x = narrow ? w / 2 - cw / 2 : w / 2 - (n * cw + (n - 1) * gap) / 2 + i * (cw + gap), y = narrow ? h * .47 + i * (ch + gap) : h * .5;
@@ -2481,8 +2501,8 @@ function bootGame() {
     if (G0.mode === 'over') {
       const a = smooth(.3, 1.6, G0.modeT);
       c.fillStyle = `rgba(20, 8, 30, ${.3 * a})`; c.fillRect(0, 0, w, h);
-      c.globalAlpha = a; title('just breathe.', h * .38, big); small(`level ${G0.level} · score ${G0.score} · best ${G0.best}`, h * .47, .75, 14); c.globalAlpha = 1;
-      if (G0.modeT > 1.4) { const bw = 230 * u, bh = 42 * u; button(c, u, w / 2 - bw / 2, h * .55, bw, bh, 'try level ' + G0.level + ' again', 'retry', true); button(c, u, w / 2 - bw / 2, h * .55 + bh + 12 * u, bw, bh, 'from the start', 'start'); }
+      c.globalAlpha = a; title('深呼吸。', h * .38, big); small(`第 ${G0.level} 关 · 得分 ${G0.score} · 最高 ${G0.best}`, h * .47, .75, 14); c.globalAlpha = 1;
+      if (G0.modeT > 1.4) { const bw = 230 * u, bh = 42 * u; button(c, u, w / 2 - bw / 2, h * .55, bw, bh, '再试第 ' + G0.level + ' 关', 'retry', true); button(c, u, w / 2 - bw / 2, h * .55 + bh + 12 * u, bw, bh, 'from the start', 'start'); }
       return;
     }
     // hurt: a violet-red breath around the edges; low health pulses it
@@ -2492,7 +2512,7 @@ function bootGame() {
     const L0 = (18 + INS.l) * u, T0 = INS.t * u;
     c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(21 * u), false); c.fillText(String(G0.score), L0, T0 + 26 * u);
     if (G0.combo > 1) { c.fillStyle = `rgba(255, 205, 110, ${.6 + .4 * G0.comboT / 5})`; c.font = serif(Math.round(18 * u)); c.fillText('×' + G0.combo, L0 + c.measureText(String(G0.score)).width + 60 * u, T0 + 26 * u); }
-    c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`level ${G0.level} · ${G0.levelName} · wave ${Math.max(1, G0.wave)}/${G0.waves}`, L0, T0 + 47 * u);
+    c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`第 ${G0.level} 关 · ${G0.levelName} · 第 ${Math.max(1, G0.wave)}/${G0.waves} 波`, L0, T0 + 47 * u);
     // health, boost, ammunition
     const bw = 130 * u, bx = w - bw - (18 + INS.r) * u, by = (18 + INS.t) * u;
     c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by, bw, 7 * u); c.fillRect(bx, by + 13 * u, bw, 4 * u);
@@ -2510,7 +2530,9 @@ function bootGame() {
     }
     // reticle, with a hit marker when rounds land
     if (player.state === 'fly') {
-      const rp = project(V.add(player.p, V.mul(player.f, 400)));
+      const free = project(V.add(player.p, V.mul(player.f, 400))), snap = G0.lead && G0.lock && G0.lock.state === 'fly' ? project(G0.lead) : null;
+      if (free) { const tgt = snap || free; G0.ret = G0.ret ? [G0.ret[0] + (tgt[0] - G0.ret[0]) * .35, G0.ret[1] + (tgt[1] - G0.ret[1]) * .35] : tgt.slice(0, 2); }
+      const rp = free ? G0.ret : null;
       if (rp) {
         const locked = G0.lock && G0.lock.state === 'fly';
         c.strokeStyle = locked ? 'rgba(255, 205, 110, .95)' : cream(.75); c.lineWidth = 1.4 * u; c.beginPath(); c.arc(rp[0], rp[1], 13 * u, 0, Math.PI * 2);
@@ -2528,7 +2550,7 @@ function bootGame() {
     }
     if (G0.level === 1 && G0.mode === 'fly' && (!G0.didSteer || !G0.didFire)) {
       c.textAlign = 'center'; c.fillStyle = cream(.7 + .2 * Math.sin(G0.t * 3)); c.font = serif(Math.round(15 * u));
-      c.fillText(!G0.didSteer ? (MOBILE ? 'drag on the left side to turn and climb' : 'arrows or WASD to turn and climb') : (MOBILE ? 'hold the right side to fire' : 'hold space to fire'), w / 2, h - (40 + INS.b) * u);
+      c.fillText(!G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火（准星会自动吸附）' : '按住空格开火（准星会自动吸附）'), w / 2, h - (40 + INS.b) * u);
     }
     // rivals and crates: brackets on screen, arrows at the edge
     const mark = (p, col, label, brackets) => {
@@ -2545,13 +2567,13 @@ function bootGame() {
         c.save(); c.translate(ex, ey); c.rotate(a); c.fillStyle = col; c.beginPath(); c.moveTo(12 * u, 0); c.lineTo(-6 * u, -8 * u); c.lineTo(-6 * u, 8 * u); c.closePath(); c.fill(); c.restore();
       }
     };
-    for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? 'rgba(255, 110, 90, .95)' : 'rgba(255, 205, 110, .9)', Math.round(V.len(V.sub(e.p, player.p))) + ' m', true);
-    for (const k of pickups) mark(k.p, k.type === 'ammo' ? 'rgba(255, 220, 130, .95)' : 'rgba(150, 255, 170, .9)', k.type, false);
+    for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? 'rgba(255, 110, 90, .95)' : 'rgba(255, 205, 110, .9)', Math.round(V.len(V.sub(e.p, player.p))) + ' 米', true);
+    for (const k of pickups) mark(k.p, k.type === 'ammo' ? 'rgba(255, 220, 130, .95)' : 'rgba(150, 255, 170, .9)', k.type === 'ammo' ? '弹药' : '修理', false);
     // score popups where the planes were hit
     for (const pu of popups) { const sp = project(V.add(pu.p, [0, pu.age * 12, 0])); if (!sp) continue; c.textAlign = 'center'; c.fillStyle = `rgba(255, 225, 160, ${1 - pu.age / 1.4})`; c.font = serif(Math.round(17 * u)); c.fillText(pu.text, sp[0], sp[1]); }
     // warnings and messages
     c.textAlign = 'center';
-    const warn = player.state === 'fly' && player.p[1] < 70 && player.f[1] < -.1 ? 'pull up' : Math.hypot(player.p[0], player.p[2]) > 2900 ? 'turn back to the fight' : player.hp <= player.maxHp * .3 && player.state === 'fly' ? 'badly hit' : '';
+    const warn = player.state === 'fly' && player.p[1] < 70 && player.f[1] < -.1 ? '拉起！' : Math.hypot(player.p[0], player.p[2]) > 2900 ? '回到战场' : player.hp <= player.maxHp * .3 && player.state === 'fly' ? '重创' : '';
     if (warn) { c.fillStyle = `rgba(255, 150, 120, ${.6 + .4 * Math.sin(G0.t * 8)})`; c.font = serif(Math.round(15 * u)); c.fillText(warn, w / 2, h * .28); }
     G0.msgs.forEach((m, i) => { const a = Math.min(1, m.age * 4) * (1 - smooth(m.life - .5, m.life, m.age)); c.fillStyle = cream(.92 * a); c.font = serif(Math.round((m.big ? 26 : 18) * u)); c.fillText(m.text, w / 2, h * .2 + i * 26 * u); });
     // touch controls
@@ -2560,7 +2582,7 @@ function bootGame() {
       c.strokeStyle = cream(st ? .5 : .22); c.lineWidth = 1.5 * u; c.beginPath(); c.arc(base[0], base[1], 56 * u, 0, Math.PI * 2); c.stroke();
       const kx = st ? clamp(st.x - st.ox, -64, 64) : 0, ky = st ? clamp(st.y - st.oy, -64, 64) : 0;
       c.fillStyle = cream(st ? .5 : .2); c.beginPath(); c.arc(base[0] + kx * u, base[1] + ky * u, 20 * u, 0, Math.PI * 2); c.fill();
-      for (const [btn, label, on] of [[fireBtn(), 'fire', input.firePtr !== null], [boostBtn(), 'boost', input.boostPtr !== null]]) {
+      for (const [btn, label, on] of [[fireBtn(), '开火', input.firePtr !== null], [boostBtn(), '加速', input.boostPtr !== null]]) {
         const bx2 = (btn.x - r.left) * u, by2 = (btn.y - r.top) * u;
         c.fillStyle = on ? 'rgba(255, 200, 140, .35)' : 'rgba(40, 20, 50, .25)'; c.strokeStyle = cream(.55);
         c.beginPath(); c.arc(bx2, by2, btn.r * u, 0, Math.PI * 2); c.fill(); c.stroke();
@@ -2617,7 +2639,7 @@ function bootFilm() {
   R.bakeStart([-150, 100, 150], MOBILE);
   const dyn = makeDynRes(MOBILE ? .55 : .8, .3, 1);
   let start = 0, audio = null;
-  const play = document.createElement('button'); play.className = 'jb-btn'; play.textContent = 'fly ›';
+  const play = document.createElement('button'); play.className = 'jb-btn'; play.textContent = '起飞 ›';
   play.style.cssText = 'right: 14px; bottom: 14px;'; stage.appendChild(play);
   play.addEventListener('click', e => { e.stopPropagation(); location.search = '?play'; });
   stage.addEventListener('click', () => {
