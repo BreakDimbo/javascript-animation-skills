@@ -2,7 +2,7 @@
 
 A 43-second sunset dogfight over the sea, in the manner of a hand-painted anime sky: a white fighter with elliptical wings, green-white-red roundels and a tricolour rudder, a navy rival diving out of the light, violet cumulus with gold edges, a sea full of sun, and at the end, the words *just breathe.*
 
-This one is **3D**. `index.html` (213 KB) is a WebGL2 raymarcher: one fragment shader draws the planes (signed-distance models, cel-shaded, with an ink outline), the clouds (piles of spheres with flat bases and billow noise, rendered as a soft shell), the sea (wave normals, reflections, sun glitter), the tracers, smoke and spray. The waltz, the engines and the guns are synthesized in the same file with Web Audio. Nothing is loaded.
+This one is **3D**. `index.html` (215 KB) is a WebGL2 raymarcher: one fragment shader draws the planes (signed-distance models, cel-shaded, with an ink outline), the clouds (piles of spheres with flat bases and billow noise, rendered as a soft shell), the sea (wave normals, reflections, sun glitter), the tracers, smoke and spray. The waltz, the engines and the guns are synthesized in the same file with Web Audio. Nothing is loaded.
 
 It keeps the pack's contract (`window.draw(frame)`, `FRAMES`, `FPS`, `CUES`, `SCORE`), so the pack's scripts render and check it unchanged:
 

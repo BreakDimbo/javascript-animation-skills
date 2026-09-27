@@ -2972,10 +2972,10 @@ function bootGame() {
   }
   const serif = px => `${px}px "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif`;   // a Chinese serif, upright
   const cream = a => `rgba(255, 244, 226, ${a})`;
-  function button(c, u, x, y, w, h, label, act, strong) {
+  function button(c, u, x, y, w, h, label, act, strong, size = 16) {
     c.fillStyle = strong ? 'rgba(255, 214, 150, .22)' : 'rgba(40, 20, 50, .35)'; c.strokeStyle = cream(strong ? .8 : .45); c.lineWidth = 1.2 * u;
     c.beginPath(); c.roundRect ? c.roundRect(x, y, w, h, h / 2) : c.rect(x, y, w, h); c.fill(); c.stroke();
-    c.fillStyle = cream(.95); c.font = serif(Math.round(16 * u)); c.textAlign = 'center'; c.fillText(label, x + w / 2, y + h / 2);
+    c.fillStyle = cream(.95); c.font = serif(Math.round(size * u)); c.textAlign = 'center'; c.fillText(label, x + w / 2, y + h / 2);
     G0.buttons.push({ x, y, w, h, act });
   }
   function drawHUD() {
@@ -2986,34 +2986,60 @@ function bootGame() {
     c.textBaseline = 'middle'; c.lineCap = 'round'; G0.buttons = [];
     const title = (text, y, size) => { c.textAlign = 'center'; c.shadowColor = 'rgba(60, 20, 50, .6)'; c.shadowBlur = 16 * u; c.fillStyle = cream(.96); c.font = serif(Math.round(size)); c.fillText(text, w / 2, y); c.shadowBlur = 0; };
     const small = (text, y, a = .6, size = 13) => { c.textAlign = 'center'; c.fillStyle = cream(a); c.font = serif(Math.round(size * u), false); c.fillText(text, w / 2, y); };
-    const big = Math.min(w, h * 1.6) * .06;
+    const big = h > w ? Math.min(w * .1, 64 * u) : Math.min(w, h * 1.6) * .06;   // headings: sized to the narrow side on a phone held upright
+    // a note that wraps at its own punctuation to fit the width, its last line sitting at yBottom
+    const note = (text, yBottom, a = .5, size = 12) => {
+      c.font = serif(Math.round(size * u), false);
+      const maxW = w - 40 * u, lines = []; let line = '';
+      for (const tok of text.split(/(?<=[·；，：])/)) {
+        if (line && c.measureText(line + tok).width > maxW) { lines.push(line.trim()); line = tok.trimStart(); } else line += tok;
+      }
+      if (line) lines.push(line.trim());
+      lines.forEach((l, i) => small(l, yBottom - (lines.length - 1 - i) * (size + 7) * u, a, size));
+    };
     if (G0.mode === 'title') {
-      c.fillStyle = 'rgba(20, 8, 30, .25)'; c.fillRect(0, 0, w, h);
-      title('深呼吸。', h * .36, big);
-      if (!R.baked) { small('正在绘制天空…', h * .5, .8, 15); return; }
-      const bw = 210 * u, bh = 42 * u;
-      button(c, u, w / 2 - bw / 2, h * .47, bw, bh, '起飞 · 第 1 关', 'start', true);
-      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 176 * u, 34 * u, '联机 · 合作 / 对战', 'net');
-      if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, h * .47 + bh + 12 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
-      small(MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速', h * .74);
-      if (G0.best) small('最高分 ' + G0.best, h * .79, .45);
-      { // comfort settings
-        const sw = 150 * u, sh = 30 * u, gap = 10 * u, y0 = h - (48 + INS.b) * u - (MOBILE && h > w ? 0 : 0);
-        const items = [[SET.cam ? '镜头 · 动感' : '镜头 · 平稳', 'set-cam'], [SET.pilot ? '操作 · 飞行员' : '操作 · 街机', 'set-ctl'], [SET.auto ? '开火 · 自动' : '开火 · 按住', 'set-fire']];
-        const tw = items.length * sw + (items.length - 1) * gap, narrow = tw > w * .95;
-        items.forEach(([label, act], i) => {
-          const x = narrow ? w / 2 - sw / 2 : w / 2 - tw / 2 + i * (sw + gap), y = narrow ? h * .58 + i * (sh + gap) + 60 * u : y0;
-          c.fillStyle = 'rgba(40, 20, 50, .35)'; c.strokeStyle = cream(.35); c.lineWidth = u;
-          c.beginPath(); c.roundRect ? c.roundRect(x, y, sw, sh, sh / 2) : c.rect(x, y, sw, sh); c.fill(); c.stroke();
-          c.fillStyle = cream(.75); c.font = serif(Math.round(13 * u)); c.textAlign = 'center'; c.fillText(label, x + sw / 2, y + sh / 2);
-          G0.buttons.push({ x, y, w: sw, h: sh, act });
-        });
-      }
-      if (MOBILE && h > w) small('把手机横过来，天空更宽', h * .69, .75, 14);
-      if (!standalone() && !isFull()) {
-        if (fsOK()) { const fw = 140 * u, fh = 34 * u; button(c, u, w - fw - (16 + INS.r) * u, (14 + INS.t) * u, fw, fh, '全屏', 'full'); }
-        else if (IPHONE) small('全屏：点「分享」→「添加到主屏幕」', h * .9, .6, 12);
-      }
+      // laid out in rows from the top and from the bottom, so nothing can land on anything else in either orientation
+      const portrait = h > w, left = (16 + INS.l) * u, right = w - (16 + INS.r) * u, top = (14 + INS.t) * u, bot = h - (18 + INS.b) * u;
+      const veil = c.createLinearGradient(0, 0, 0, h);
+      veil.addColorStop(0, 'rgba(20, 8, 30, .38)'); veil.addColorStop(.42, 'rgba(20, 8, 30, .06)'); veil.addColorStop(1, 'rgba(20, 8, 30, .62)');
+      c.fillStyle = veil; c.fillRect(0, 0, w, h);
+      // top bar: online on the left, full screen on the right
+      const tbh = 34 * u;
+      if (R.baked) button(c, u, left, top, 150 * u, tbh, '联机 · 合作 / 对战', 'net', false, 13);
+      if (!standalone() && !isFull() && fsOK()) button(c, u, right - 84 * u, top, 84 * u, tbh, '全屏', 'full', false, 13);
+      // the title, and its words underneath
+      const ts = portrait ? Math.min(w * .12, 64 * u) : big * 1.15, ty = portrait ? h * .28 : h * .27;
+      title('深呼吸。', ty, ts);
+      c.textAlign = 'center'; c.fillStyle = cream(.55); c.font = `italic ${Math.round(ts * .36)}px "Iowan Old Style", Palatino, Georgia, serif`;
+      c.fillText('just breathe.', w / 2, ty + ts * .78);
+      c.strokeStyle = cream(.25); c.lineWidth = u; c.beginPath(); c.moveTo(w / 2 - ts * 1.1, ty + ts * 1.22); c.lineTo(w / 2 + ts * 1.1, ty + ts * 1.22); c.stroke();
+      if (!R.baked) { small('正在绘制天空…', ty + ts * 1.8, .8, 15); return; }
+      // the main buttons
+      const bw = Math.min(w * .7, 250 * u), bh = 44 * u;
+      let y = Math.max(ty + ts * 1.6, portrait ? h * .44 : h * .43);
+      button(c, u, w / 2 - bw / 2, y, bw, bh, '起飞 · 第 1 关', 'start', true); y += bh + 10 * u;
+      if (G0.unlocked > 1) { button(c, u, w / 2 - bw / 2, y, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue'); y += bh + 10 * u; }
+      // the bottom row: the comfort settings as one segmented strip
+      const items = [[SET.cam ? '镜头 · 动感' : '镜头 · 平稳', 'set-cam'], [SET.pilot ? '操作 · 飞行员' : '操作 · 街机', 'set-ctl'], [SET.auto ? '开火 · 自动' : '开火 · 按住', 'set-fire']];
+      const sw = Math.min(right - left, 420 * u), sh = 32 * u, sx = w / 2 - sw / 2, sy = bot - sh, seg = sw / items.length;
+      c.fillStyle = 'rgba(30, 14, 42, .45)'; c.strokeStyle = cream(.3); c.lineWidth = u;
+      c.beginPath(); c.roundRect ? c.roundRect(sx, sy, sw, sh, sh / 2) : c.rect(sx, sy, sw, sh); c.fill(); c.stroke();
+      items.forEach(([label, act], i) => {
+        if (i) { c.strokeStyle = cream(.18); c.beginPath(); c.moveTo(sx + seg * i, sy + 7 * u); c.lineTo(sx + seg * i, sy + sh - 7 * u); c.stroke(); }
+        c.fillStyle = cream(.8); c.font = serif(Math.round((seg < 110 * u ? 12 : 13) * u)); c.textAlign = 'center'; c.fillText(label, sx + seg * (i + .5), sy + sh / 2);
+        G0.buttons.push({ x: sx + seg * i, y: sy, w: seg, h: sh, act });
+      });
+      // notes stack up from the bottom row; hints flow down from the buttons, and give way if they would meet
+      let ny = sy - 14 * u;
+      const notes = [];
+      if (!standalone() && !isFull() && !fsOK() && IPHONE) notes.push('全屏：点「分享」→「添加到主屏幕」');
+      if (MOBILE && portrait) notes.push('把手机横过来，天空更宽');
+      for (const n of notes) { small(n, ny, .6, 12); ny -= 20 * u; }
+      const hints = [MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速'];
+      if (G0.best) hints.push('最高分 ' + G0.best);
+      y += 14 * u;
+      if (y + (hints.length - 1) * 20 * u <= ny - 12 * u) for (const t of hints) { small(t, y, t.startsWith('最高分') ? .45 : .6, 12.5); y += 20 * u; }
+      else if (y <= ny - 12 * u) small(hints.join('  ·  '), y, .55, 12.5);   // short of room: one line
       return;
     }
     if (G0.mode === 'lobby') {
@@ -3032,7 +3058,7 @@ function bootGame() {
           button(c, u, w / 2 - bw / 2, h * .3 + bh + 32 * u + i * (bh + 8 * u), bw, bh, `房间 ${a.c} · ${a.vs ? '对战' : '合作 · 第 ' + clamp(a.lv | 0, 1, 99) + ' 关'} · ${n}/4 人${full ? ' · 满' : ''}`, full ? 'noop' : 'join:' + a.c, true);
         });
       }
-      small(NET.kind === 'local' ? '这里只连得到同一浏览器里的其他标签页；在 claude.ai 上打开这个页面并分享给朋友，就能一起飞' : '把这个页面分享给朋友：他们打开后点「联机」，就能看到你的房间', h - (26 + INS.b) * u, .5, 12);
+      note(NET.kind === 'local' ? '这里只连得到同一浏览器里的其他标签页；在 claude.ai 上打开这个页面并分享给朋友，就能一起飞' : '把这个页面分享给朋友：他们打开后点「联机」，就能看到你的房间', h - (26 + INS.b) * u);
       return;
     }
     if (G0.mode === 'room') {
@@ -3050,7 +3076,7 @@ function bootGame() {
           if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, y0 + bh + 10 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
         }
       } else small('等待房主起飞…', y0 + bh / 2, .75, 15);
-      small(MP.vs ? `对战：先击落 ${VS_GOAL} 架获胜 · 被击落 3 秒后重返 · 武器从 Lv.8 起步，击落就升级` : '合作：最多四人 · 敌机随人数变得更耐打 · 落水的人会在队友身后重返', h - (26 + INS.b) * u, .5, 12);
+      note(MP.vs ? `对战：先击落 ${VS_GOAL} 架获胜 · 被击落 3 秒后重返 · 武器从 Lv.8 起步，击落就升级` : '合作：最多四人 · 敌机随人数变得更耐打 · 落水的人会在队友身后重返', h - (26 + INS.b) * u);
       return;
     }
     if (G0.mode === 'brief') {
@@ -3165,7 +3191,7 @@ function bootGame() {
     }
     if (!G0.vs && G0.level === 1 && G0.mode === 'fly' && (!G0.didSteer || !G0.didFire)) {
       c.textAlign = 'center'; c.fillStyle = cream(.7 + .2 * Math.sin(G0.t * 3)); c.font = serif(Math.round(15 * u));
-      c.fillText(!G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火（准星会自动吸附）' : '按住空格开火（准星会自动吸附）'), w / 2, h - (40 + INS.b) * u);
+      c.fillText(!G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火（准星会自动吸附）' : '按住空格开火（准星会自动吸附）'), w / 2, h - ((h > w ? 220 : 40) + INS.b) * u);   // upright: above the stick and the buttons
     }
     // rivals and crates: brackets on screen, arrows at the edge
     const mark = (p, col, label, brackets) => {
