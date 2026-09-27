@@ -1,55 +1,26 @@
 # 雨停之后 / After the Rain: storyboard
 
-90 s, 16:9, 24 fps. 80 bpm in 4/4: a beat is 0.75 s, a bar is 3 s, and every cut falls on a beat.
-The picture and the score both read the same `SHOTS`, `EVENTS`, `RAIN(t)` and `SUN(t)` from the page.
+90 s, 3:4 portrait (1080×1440), 24 fps. 80 bpm in 4/4: a beat is 0.75 s, a bar is 3 s, and every cut falls on a beat.
+The picture and the score both read the same `SHOTS`, `EVENTS` and `RAIN(t)` from the page.
 
-**Story in one line:** on a rainy morning by the river, a small myna shelters under a café umbrella and peers through a warm window at a latte being poured. The steam turns into a cloud, the sky opens, and in the sunshine the myna steals a piece of muffin and flies off into the cumulus.
+Each shot is a camera move over one painted plate, with the moving parts computed on top. There are no people: they are cropped out of the street and brunch paintings.
 
-No people appear. The myna is the only character, painted naturalistically with no outlines. The style follows a single reference still: soft gouache, warm sunlight, blue-grey leaf shadows on rough stucco, and a khaki canvas umbrella.
-
-**Source photos** (in `/images`) and where each one shows up:
-
-| Photo | Used for |
-|---|---|
-| 01 café terrace street | the slate café with pink shutters, the black COFFEE ROASTERS umbrellas |
-| 02 coffee bar counter | shots 6–8: the warm brass-and-walnut light of the room behind the glass |
-| 03 brunch table | the cup with a heart in the foam |
-| 04 café interior seating | the walnut of the sill and table |
-| 05 riverside walkway | the riverside trees whose leaves open shot 2 |
-| 06 riverside terrace with boat | shots 1, 10 and 18: the bumboat, white footbridge, lamp posts, grass bed |
-| 07 latte and brunch close-up | shot 7: the cup at table height, steam in warm light |
-| 08 myna on the umbrella | shots 3, 13 and 15: the myna on the maroon umbrella against the white wall |
-| 09 myna on the table | shots 12–17: the heist, with the orange juice and two straws and the muffin |
-
-## Shots
-
-Every shot is either a side-on, eye-level view in parallax layers, or a close-up of the myna or of one object. No deep-perspective streets, no interiors, and no top-down shots of many objects.
-
-| # | Time (s) | Framing / camera | What happens | Sound |
-|---|---|---|---|---|
-| 1 | 0 – 9 | Wide across the river, slow drift | Rain on the river, pastel shophouses with warm windows on the far bank, the bumboat; title 雨停之后 | rain, sparse high piano |
-| 2 | 9 – 15 | Crane down out of dripping leaves | The camera sinks past the leaves onto the maroon umbrella and the small, soaked myna | drips |
-| 3 | 15 – 21 | Close on the myna | A drip lands on its head (18.75); its tuft rises, it shakes off the water, and it calls | plop, flutter, chirp |
-| 4 | 21 – 27 | Push in on the café's upper window | It flutters up to the glowing window with pink shutters and geraniums, lands, hops closer | wingbeats, landings; piano melody |
-| 5 | 27 – 30 | Close on the sill | Warm light on its face; its eyes go wide with sparkles (28.4) | celesta *ting* |
-| 6 | 30 – 36 | Over its shoulder, through the rainy pane | A cup steaming on the inside sill; it tilts its head one way, then the other | two curious chirps |
-| 7 | 36 – 42 | The cup, close | Steam dances up in the warm light while the day brightens outside | piano and strings |
-| 8 | 42 – 45 | Tilt up with the steam | The steam gathers into a small cumulus | a rising shimmer |
-| 9 | 45 – 48 | Dissolve into the sky | The cloud deck tears open and the sun breaks through | held chord, celesta run, flash |
-| 10 | 48 – 54 | Wide over the river in sun | Everything glitters, steam rises from the ground; the myna flies across | birds, the river, wingbeats; melody on strings |
-| 11 | 54 – 60 | Medium on the umbrella in sun | It shakes itself dry (a spray of glinting drops), preens, then a glint below catches its eye | flutter, preening, a trill, *ting* |
-| 12 | 60 – 64.5 | Side-on at table height | The table below: a muffin, a coffee and an orange juice with two straws, left in the sun | sparkles |
-| 13 | 64.5 – 67.5 | Push into the eye | A double-take, a glint (66), then a determined look down | *ting* |
-| 14 | 67.5 – 70.5 | Push in on the muffin, iris closing | The prize, twinkling | pizzicato, a rest |
-| 15 | 70.5 – 72 | Close | It crouches and launches; the umbrella bounces | wingbeats |
-| 16 | 72 – 76.5 | Side-on at table height | It lands beside the muffin, pecks three times, grabs a piece | a thump, pecks, a call |
-| 17 | 76.5 – 78.75 | Close | It puffs up with the crumb held high, tuft raised; then it's off | a trill, whoosh |
-| 18 | 78.75 – 84 | Tracking alongside over the river | It flies with the crumb, past the bumboat, and glides | wingbeats; melody an octave up |
-| 19 | 84 – 90 | Crane up into the cumulus | A speck against the clouds; 完 | final D chord, a last call |
+| # | Time (s) | Plate | Camera | What moves | Sound |
+|---|---|---|---|---|---|
+| 1 | 0 – 9 | Rainy street | Pan from the trees and the tower to the café with pink shutters | Two layers of rain, window and lamp glow flickering, cool light breathing through the leaves; title 雨停之后 set vertically | rain, sparse high piano |
+| 2 | 9 – 15 | Rainy street | Push in on the lit window | The window's warmth grows until it fills the frame | rain |
+| 3 | 15 – 27 | Riverside terrace | Slow push toward the boat and the footbridge | Drops falling from both umbrella edges, rings and a wobbling reflection in the puddle, the river moving; the rain stops and at 21 s the sun breaks through with rays and glints | plops; the piano theme enters at 21 s |
+| 4 | 27 – 36 | Roastery | Slow drift left | Dust turning in the sunbeams, light breathing on the wall and floor, pendant lights glowing | room tone |
+| 5 | 36 – 45 | Brunch | Pull back from the latte to the whole table | Steam curling off the coffee, leaf light drifting across the table | piano |
+| 6 | 45 – 54 | Myna on the umbrella | Push in | Light breathing on the wall; it blinks twice; a call | a held chord, then the strings |
+| 7 | 54 – 60 | Myna on the umbrella | Close on its head | Its eye catches the light (55.3 s): it has seen something below; a blink | *ting* |
+| 8 | 60 – 66 | Brunch | Slow drift | Its shadow sweeps across the table (61.1 s); a leaf turns over in the wind of it; the steam is torn sideways | wings, whoosh |
+| 9 | 66 – 75 | Myna at the neighbours' table | Push in on the bird | Crumbs fall at each peck, drops fall from the chain, the river glitters, steam off the coffee, blinks | pizzicato, pecks, a call |
+| 10 | 75 – 78 | Myna at the neighbours' table | Close on the bill | The crumb glints; more crumbs fall | peck, *ting* |
+| 11 | 78 – 90 | Myna at the neighbours' table (top of the painting) | Tilt up over the river | The myna flies off with its crumb toward the far bridge, a dark shape against the light, shrinking; the river moves and glitters; 完 | wingbeats, the theme an octave up, a last call |
 
 ## Continuity
 
-- **Screen direction:** the myna faces left in the rain and flies right to the window; from the launch on it moves left to right in every shot.
-- **One perch, twice:** shots 3 and 13 are the same place, in rain and then in sun.
-- **Match cut:** the cup's steam becomes a cloud (8), and that cloud dissolves into the sky that opens (9).
-- **Weather is global:** `RAIN(t)` eases from 1 to about 0.1 between 21 and 27 s and ends at 45 s; `SUN(t)` rises from 45.4 to 48 s. Rain, ripples, droplets on glass and the rain in the mix all follow these curves.
+- **Weather:** `RAIN(t)` is 1 until 16 s and eases to 0 by 26 s. Rain, puddle rings, the wobble in the puddle and the rain in the mix all follow it. The sun breaks at 21 s, on the downbeat where the theme enters.
+- **The eyeline carries the cut:** the myna's eye catches the light (shot 7), its shadow crosses our table (shot 8), and it lands at the next table (shot 9).
+- **Screen direction:** it crosses the brunch table left to right, and flies away from us into the upper left of the last painting.
