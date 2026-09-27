@@ -1,6 +1,6 @@
 # 雨停之后 / After the Rain
 
-A 90-second film in a hand-painted anime style, made from the nine photos in [`/images`](../../images). There are no people in it: the lead is a small myna, drawn as an anime character. On a rainy morning by the river it shelters under a café umbrella and peers through a warm window at a steaming cup of coffee. The steam turns into a cloud, the sky opens, and in the sunshine the myna steals a piece of muffin and flies off into the cumulus.
+A 90-second film painted in the manner of a Ghibli-style still: soft gouache and watercolour, warm sunlight, cool blue-grey leaf shadows on rough stucco. It was made from the nine photos in [`/images`](../../images). There are no people in it: the lead is a Javan myna, painted naturalistically. On a rainy morning by the river it shelters under a café umbrella and peers through a warm window at a steaming cup of coffee. The steam turns into a cloud, the sky opens, and in the sunshine the myna steals a piece of muffin and flies off into the cumulus.
 
 Every frame is drawn in JavaScript on a canvas, and the soundtrack (piano, strings, celesta, pizzicato, rain, the river and the myna's calls) is synthesized in the same file with Web Audio. The film uses no image files, fonts or libraries. The photos were used only as reference for places, colours and food; none of their pixels are in the film.
 
@@ -9,9 +9,10 @@ Every frame is drawn in JavaScript on a canvas, and the soundtrack (piano, strin
 
 ## Look
 
-- **An anime lead.** The myna has a round body, a big glossy eye with two highlights, a curly forehead tuft and a slate blue-black coat with sheen and rim light. Its expressions: wet and fluffed, wide-eyed, a sweat drop, determined, and eyes shut in a grin.
-- **Painted backgrounds.** Pastel shophouses with red-tiled roofs, lobed cumulus with crisp sunlit caps, scalloped foliage, and a gouache texture and soft bloom over every frame. Figures are cel-shaded and move on twos; the camera moves on every frame.
-- **Camera and transitions.** The film sticks to what hand-painted anime does best: side-on views in parallax layers, big skies, and close-ups of the myna or of one object. A crane down out of dripping leaves, a push in on a window, an over-the-shoulder shot through a rainy pane, steam that becomes a cloud and dissolves into the sky, a push in on the muffin, a tracking flight over the river and a crane up into the clouds.
+- **The reference.** The look is matched to a single painted still of a myna on a canvas umbrella against a sunlit stucco wall. It has no outlines; the palette is muted cream, slate and olive; the light is warm with soft, blue-grey diagonal leaf shadows; the leaves are translucent against the sun.
+- **The myna, painted.** The head and body form one silhouette. The volume comes from broad washes (a lit breast, a shaded back, the near-black head melting into the neck), with low-contrast feather strokes and soft mottling over them and tufts breaking the rim. The wing is brown-black with pale-edged flight feathers. The eye is amber, the bill and legs yellow, the forehead tuft spiky, and the tail tip white and ragged. The bird is painted on its own layer and set down slightly softened, like a brushed edge.
+- **Painted plates.** Stucco with grain, the khaki canvas umbrella with folds and a rolled hem, a branch of sunlit leaves, soft cumulus, muted shophouses on the far bank. Every plate is softened slightly, and the whole frame gets gouache texture, bloom and a slight desaturation.
+- **Camera.** The film keeps to what a painted still does well: side-on views in parallax layers, big skies, and close-ups of the myna or of one object. A crane down out of dripping leaves, a push in on a window, an over-the-shoulder shot through a rainy pane, steam that becomes a cloud and dissolves into the sky, a push in on the muffin, a tracking flight over the river and a crane up into the clouds.
 
 ## Sound
 

@@ -5,7 +5,7 @@ The picture and the score both read the same `SHOTS`, `EVENTS`, `RAIN(t)` and `S
 
 **Story in one line:** on a rainy morning by the river, a small myna shelters under a café umbrella and peers through a warm window at a latte being poured. The steam turns into a cloud, the sky opens, and in the sunshine the myna steals a piece of muffin and flies off into the cumulus.
 
-No people appear. The myna is the only character, drawn as an anime lead (a round body, a big glossy eye, several expressions). The backgrounds are painted in a hand-painted anime style: gouache texture, soft bloom, pastel shophouses with red-tiled roofs, and big lobed cumulus.
+No people appear. The myna is the only character, painted naturalistically with no outlines. The style follows a single reference still: soft gouache, warm sunlight, blue-grey leaf shadows on rough stucco, and a khaki canvas umbrella.
 
 **Source photos** (in `/images`) and where each one shows up:
 
@@ -37,14 +37,14 @@ Every shot is either a side-on, eye-level view in parallax layers, or a close-up
 | 8 | 42 – 45 | Tilt up with the steam | The steam gathers into a small cumulus | a rising shimmer |
 | 9 | 45 – 48 | Dissolve into the sky | The cloud deck tears open and the sun breaks through | held chord, celesta run, flash |
 | 10 | 48 – 54 | Wide over the river in sun | Everything glitters, steam rises from the ground; the myna flies across | birds, the river, wingbeats; melody on strings |
-| 11 | 54 – 60 | Medium on the umbrella in sun | It shakes itself dry (a spray of glinting drops), preens, grins, then a glint below catches its eye | flutter, preening, a happy trill, *ting* |
+| 11 | 54 – 60 | Medium on the umbrella in sun | It shakes itself dry (a spray of glinting drops), preens, then a glint below catches its eye | flutter, preening, a trill, *ting* |
 | 12 | 60 – 64.5 | Side-on at table height | The table below: a muffin, a coffee and an orange juice with two straws, left in the sun | sparkles |
 | 13 | 64.5 – 67.5 | Push into the eye | A double-take, a glint (66), then a determined look down | *ting* |
 | 14 | 67.5 – 70.5 | Push in on the muffin, iris closing | The prize, twinkling | pizzicato, a rest |
 | 15 | 70.5 – 72 | Close | It crouches and launches; the umbrella bounces | wingbeats |
 | 16 | 72 – 76.5 | Side-on at table height | It lands beside the muffin, pecks three times, grabs a piece | a thump, pecks, a call |
-| 17 | 76.5 – 78.75 | Close | Eyes shut in a grin, crumb held high, sparkles; then it's off | a happy trill, whoosh |
-| 18 | 78.75 – 84 | Tracking alongside over the river | It flies with the crumb, past the bumboat, grinning as it glides | wingbeats; melody an octave up |
+| 17 | 76.5 – 78.75 | Close | It puffs up with the crumb held high, tuft raised; then it's off | a trill, whoosh |
+| 18 | 78.75 – 84 | Tracking alongside over the river | It flies with the crumb, past the bumboat, and glides | wingbeats; melody an octave up |
 | 19 | 84 – 90 | Crane up into the cumulus | A speck against the clouds; 完 | final D chord, a last call |
 
 ## Continuity
