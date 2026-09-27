@@ -18,7 +18,7 @@
 :root{
   --ink:#1A1033;
   --bgA:#2F7A3E; --bgB:#0A1F12; --ray:rgba(184,255,154,.2); --glow:#7DFF6A; --tl:#A6FF86; --tm:#45C653;
-  --fx:50%; --fy:50%; --fr:10vmax; --cx:50%; --cy:60%; --hx:50%; --hy:42%;
+  
   --en:'Titan One','Lilita One',system-ui,sans-serif;
   --zh:'ZCOOL KuaiLe','Titan One',"PingFang SC","Microsoft YaHei","WenQuanYi Zen Hei",sans-serif;
   --metal-steel:linear-gradient(160deg,#F4F7FC 0%,#B9C2D3 30%,#7D879C 48%,#C9D1DF 62%,#8A94A8 82%,#D7DEEA 100%);
@@ -35,35 +35,24 @@ body{font-family:var(--zh);color:#fff}
 .layer{position:absolute;inset:0;pointer-events:none}
 canvas.layer{width:100%;height:100%}
 
-/* ---------- background: tier gradient + three soft conic ray layers ---------- */
-#bg .grad{position:absolute;inset:0;background:radial-gradient(120% 85% at var(--cx) var(--cy),var(--bgA) 0%,var(--bgB) 72%)}
-.rays{position:absolute;left:var(--cx);top:var(--cy);width:230vmax;height:230vmax;margin:-115vmax 0 0 -115vmax;mix-blend-mode:screen;
-  -webkit-mask-image:radial-gradient(circle,#000 0%,rgba(0,0,0,.55) 16%,rgba(0,0,0,0) 40%);mask-image:radial-gradient(circle,#000 0%,rgba(0,0,0,.55) 16%,rgba(0,0,0,0) 40%)}
-.rays.r1{background:repeating-conic-gradient(from 0deg,rgba(0,0,0,0) 0deg,color-mix(in srgb,var(--ray) 40%,transparent) 4deg,var(--ray) 7.5deg,color-mix(in srgb,var(--ray) 40%,transparent) 11deg,rgba(0,0,0,0) 15deg)}
-.rays.r2{opacity:.75;background:repeating-conic-gradient(from 9deg,rgba(0,0,0,0) 0deg,color-mix(in srgb,var(--ray) 35%,transparent) 8deg,var(--ray) 15deg,color-mix(in srgb,var(--ray) 35%,transparent) 22deg,rgba(0,0,0,0) 30deg)}
-.rays.r3{opacity:.5;background:repeating-conic-gradient(from 2deg,rgba(0,0,0,0) 0deg,var(--ray) 2.5deg,rgba(0,0,0,0) 5deg)}
-#bg .vig{position:absolute;inset:0;background:radial-gradient(130% 100% at 50% 55%,rgba(0,0,0,0) 45%,rgba(6,2,16,.65) 100%)}
-
-/* ---------- reveal curtain: clean gradient + slow soft light ---------- */
-#curtain{opacity:0;background:radial-gradient(80% 62% at var(--hx) var(--hy),#FFE9B0 0%,#F4B24C 32%,#B95A1A 66%,#4A1806 100%)}
-#curtain .soft{position:absolute;left:var(--hx);top:var(--hy);width:180vmax;height:180vmax;margin:-90vmax 0 0 -90vmax;mix-blend-mode:screen;
-  background:conic-gradient(from 0deg,rgba(255,248,220,0) 0deg,rgba(255,248,220,.26) 28deg,rgba(255,248,220,0) 62deg,rgba(255,248,220,0) 118deg,rgba(255,248,220,.2) 150deg,rgba(255,248,220,0) 184deg,rgba(255,248,220,0) 238deg,rgba(255,248,220,.24) 270deg,rgba(255,248,220,0) 304deg,rgba(255,248,220,0) 360deg);
-  -webkit-mask-image:radial-gradient(circle,#000 0%,#000 10%,rgba(0,0,0,0) 50%);mask-image:radial-gradient(circle,#000 0%,#000 10%,rgba(0,0,0,0) 50%)}
+/* ---------- background + reveal curtain: one low-res canvas (soft gradients upscale cleanly) ---------- */
+#bgCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 
 /* ---------- light pillar: 7 blurred beams + soft core ---------- */
-#beams{position:absolute;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none}
-.beam{position:absolute;bottom:0;transform-origin:50% 100%;border-radius:50% 50% 0 0;mix-blend-mode:screen;filter:blur(9px);
+#beams{position:absolute;left:0;top:0;width:0;height:0;opacity:0;visibility:hidden;pointer-events:none}
+.beam{position:absolute;bottom:0;transform-origin:50% 100%;border-radius:50% 50% 0 0;mix-blend-mode:screen;
   background:linear-gradient(to top,color-mix(in srgb,var(--glow) 70%,#fff) 0%,color-mix(in srgb,var(--glow) 55%,transparent) 30%,rgba(0,0,0,0) 100%);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 32%,#000 68%,transparent);mask-image:linear-gradient(90deg,transparent,#000 32%,#000 68%,transparent)}
-.beam-core{position:absolute;width:300px;height:220px;left:-150px;top:-120px;border-radius:50%;mix-blend-mode:screen;filter:blur(14px);
+.beam-core{position:absolute;width:300px;height:220px;left:-150px;top:-120px;border-radius:50%;mix-blend-mode:screen;
   background:radial-gradient(closest-side,rgba(255,255,255,.95),color-mix(in srgb,var(--glow) 70%,transparent) 45%,rgba(0,0,0,0) 100%)}
 
 #shadow{position:absolute;left:0;top:0;width:100px;height:26px;margin:-13px 0 0 -50px;border-radius:50%;
   background:radial-gradient(closest-side,rgba(8,3,20,.62),rgba(8,3,20,.34) 55%,rgba(8,3,20,0) 100%)}
-#heroGlow{position:absolute;left:0;top:0;width:10px;height:10px;opacity:0;border-radius:50%;filter:blur(8px);
+#heroGlowPos{position:absolute;left:0;top:0;width:0;height:0}
+#heroGlow{position:absolute;left:0;top:0;width:10px;height:10px;opacity:0;visibility:hidden;border-radius:50%;
   background:radial-gradient(closest-side,rgba(255,255,240,1) 0%,rgba(255,240,170,.95) 50%,rgba(255,205,90,.55) 74%,rgba(255,170,40,0) 100%)}
-#flash{opacity:0;mix-blend-mode:screen;
-  background:radial-gradient(circle at var(--fx) var(--fy),color-mix(in srgb,var(--glow) 25%,#fff) 0,color-mix(in srgb,var(--glow) 70%,#fff) calc(var(--fr)*.18),color-mix(in srgb,var(--glow) 40%,transparent) calc(var(--fr)*.55),rgba(0,0,0,0) var(--fr))}
+#flash{position:absolute;left:0;top:0;width:64vmax;height:64vmax;margin:-32vmax 0 0 -32vmax;border-radius:50%;opacity:0;visibility:hidden;mix-blend-mode:screen;pointer-events:none;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--glow) 25%,#fff) 0,color-mix(in srgb,var(--glow) 70%,#fff) 18%,color-mix(in srgb,var(--glow) 40%,transparent) 55%,rgba(0,0,0,0) 100%)}
 
 /* ---------- UI ---------- */
 #ui{position:absolute;inset:0;pointer-events:none;z-index:5}
@@ -198,14 +187,13 @@ canvas.layer{width:100%;height:100%}
 <body>
 <div id="app">
   <div id="stage">
-    <div id="bg" class="layer"><div class="grad"></div><div class="rays r1"></div><div class="rays r2"></div><div class="rays r3"></div><div class="vig"></div></div>
-    <div id="curtain" class="layer"><div class="soft"></div></div>
+    <div id="bg" class="layer"><canvas id="bgCanvas"></canvas></div>
     <div id="beams"></div>
-    <div class="layer"><div id="shadow"></div><div id="heroGlow"></div></div>
+    <div class="layer"><div id="shadow"></div><div id="heroGlowPos"><div id="heroGlow"></div></div></div>
     <canvas id="fxBack" class="layer"></canvas>
     <canvas id="gl" class="layer"></canvas>
     <canvas id="fxFront" class="layer"></canvas>
-    <div id="flash" class="layer"></div>
+    <div class="layer" style="overflow:hidden"><div id="flash"></div></div>
   </div>
   <div id="ui">
     <div id="title">
@@ -296,7 +284,7 @@ const TIERS = [
 const CURRENCY_GEM = { base: '#FF5AA8', shade: '#C21F72', hi: '#FFD1EA' };
 
 /* ---------- DOM ---------- */
-const elApp = $('#app'), elStage = $('#stage'), elBg = $('#bg'), elCurtain = $('#curtain'), elBeams = $('#beams');
+const elApp = $('#app'), elStage = $('#stage'), elBeams = $('#beams'), elGlowPos = $('#heroGlowPos');
 const elShadow = $('#shadow'), elGlow = $('#heroGlow'), elFlash = $('#flash');
 const elTitle = $('#title'), elTitleMain = $('.title-main'), elPlate = $('.plate'), elPlateTxt = $('.plate-txt');
 const elPips = [...document.querySelectorAll('.pip')], elCards = $('#cards'), elPanel = $('#panel');
@@ -1039,6 +1027,13 @@ function drawBadge(c, elem) {
 }
 const FIGURES = { coin: drawCoins, gem: drawGems };
 const SHADOWS = { coin: [250, 660, 190, 26, 0.45], gem: [250, 662, 160, 22, 0.4] };
+const scratchPool = new Map();
+function scratch(tag, w, h) {
+  let c = scratchPool.get(tag);
+  if (!c) { c = mk(w, h); scratchPool.set(tag, c); return c; }
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; return c; }   // resizing frees the old backing store
+  const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, w, h); return c;
+}
 function drawArt(cv, kind) {
   const c = cv.getContext('2d'), s = cv.width / ART_W;
   const ch = CHARS[kind];
@@ -1046,10 +1041,10 @@ function drawArt(cv, kind) {
   if (kind === 'back') { drawBack(c); }
   else {
     const sh = ch ? [250, 634, 132, 24, 0.45] : SHADOWS[kind]; groundShadow(c, sh[0], sh[1], sh[2], sh[3], sh[4]);
-    const layer = mk(cv.width, cv.height), lc = layer.getContext('2d'); lc.setTransform(s, 0, 0, s, 0, 0);
+    const layer = scratch('layer', cv.width, cv.height), lc = layer.getContext('2d'); lc.setTransform(s, 0, 0, s, 0, 0);
     if (ch) { lc.translate(250, 632); lc.scale(1.12, 1.12); lc.translate(-250, -632); }
     if (ch) (ch.draw ? ch.draw(lc) : drawChibi(lc, ch.look, ch.elem)); else FIGURES[kind](lc);
-    const tint = mk(cv.width, cv.height), tc = tint.getContext('2d'); tc.drawImage(layer, 0, 0); tc.globalCompositeOperation = 'source-in'; tc.fillStyle = INK; tc.fillRect(0, 0, tint.width, tint.height);
+    const tint = scratch('tint', cv.width, cv.height), tc = tint.getContext('2d'); tc.drawImage(layer, 0, 0); tc.globalCompositeOperation = 'source-in'; tc.fillStyle = INK; tc.fillRect(0, 0, tint.width, tint.height);
     c.setTransform(1, 0, 0, 1, 0, 0);
     const R = 8.5 * s; for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; c.drawImage(tint, Math.cos(a) * R, Math.sin(a) * R); }
     for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + 0.2; c.drawImage(tint, Math.cos(a) * R * 0.5, Math.sin(a) * R * 0.5); }
@@ -1117,7 +1112,9 @@ class FX {
     p.rot += p.vr * dt; p.spin += p.vs * dt;
   }
   draw() {
-    const c = this.c; c.setTransform(PR, 0, 0, PR, 0, 0); c.clearRect(0, 0, W, H);
+    const c = this.c;
+    if (!this.ps.length) { if (this.dirty) { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.cv.width, this.cv.height); this.dirty = false; } return; }
+    this.dirty = true; c.setTransform(PR, 0, 0, PR, 0, 0); c.clearRect(0, 0, W, H);
     c.globalCompositeOperation = 'source-over';
     for (const p of this.ps) if (!p.add && p.age >= 0) this.drawP(c, p);
     c.globalCompositeOperation = 'lighter';
@@ -1180,11 +1177,74 @@ class FX {
 const fxBack = new FX($('#fxBack')), fxFront = new FX($('#fxFront'));
 
 /* =====================================================================
+   BACKGROUND: tier gradient, three rotating soft ray layers and the reveal
+   curtain in ONE canvas at half resolution. The rays and curtain are soft
+   gradients, so upscaling is invisible, and this replaces four huge rotating
+   CSS layers (~470 MB of compositor memory on a 3x phone) with ~0.3 MB.
+   ===================================================================== */
+const bgCv = $('#bgCanvas'), bgx = bgCv.getContext('2d');
+const rayCv = document.createElement('canvas'), rx = rayCv.getContext('2d');
+const lobeCv = document.createElement('canvas'), lx = lobeCv.getContext('2d');
+const BG_RES = 0.5;
+const hasConic = typeof bgx.createConicGradient === 'function';
+const BGS = { curtain: 0, cx: 0, cy: 0, hx: 0, hy: 0, a: hexRgb(TIERS[0].bgA), b: hexRgb(TIERS[0].bgB), ray: hexRgb(TIERS[0].ray) };
+const RAYS = [{ n: 24, speed: TAU / 70, alpha: 1, mid: 0.4, off: 0 }, { n: 12, speed: -TAU / 110, alpha: 0.75, mid: 0.35, off: 0.157 }, { n: 72, speed: TAU / 160, alpha: 0.5, mid: null, off: 0.035 }];
+const LOBES = [[0, 0], [28, 0.26], [62, 0], [118, 0], [150, 0.2], [184, 0], [238, 0], [270, 0.24], [304, 0], [360, 0]];
+function bgResize() { gradCache.clear(); const w = Math.max(2, Math.round(W * BG_RES)), h = Math.max(2, Math.round(H * BG_RES)); for (const c of [bgCv, rayCv, lobeCv]) { c.width = w; c.height = h; } }
+const rgbaA = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+/* gradients are built around (0,0) once and re-used by translating/rotating the context,
+   so a frame allocates nothing unless the tier colours are mid-transition */
+const gradCache = new Map();
+function cached(key, make) { let g = gradCache.get(key); if (!g) { if (gradCache.size > 48) gradCache.clear(); g = make(); gradCache.set(key, g); } return g; }
+function conicGrad(ctx, key, stops) { return cached(key, () => { const g = ctx.createConicGradient(0, 0, 0); for (const [o, col] of stops) g.addColorStop(o, col); return g; }); }
+function conicFill(ctx, key, cx, cy, ang, stops, w, h) {
+  const R = Math.hypot(w, h);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+  if (hasConic) { ctx.fillStyle = conicGrad(ctx, key, stops()); ctx.fillRect(-R, -R, R * 2, R * 2); }
+  else { const st = stops(); for (let i = 1; i < st.length - 1; i++) { const a0 = st[i - 1][0] * TAU, a1 = st[i + 1][0] * TAU; ctx.fillStyle = st[i][1]; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0 + (a1 - a0) * 0.25, a1 - (a1 - a0) * 0.25); ctx.closePath(); ctx.fill(); } }
+  ctx.restore();
+}
+function radialMask(ctx, key, cx, cy, R, stops, w, h) {
+  const g = cached(key + R.toFixed(1), () => { const r = ctx.createRadialGradient(0, 0, 0, 0, 0, R); for (const [o, a] of stops) r.addColorStop(o, `rgba(0,0,0,${a})`); return r; });
+  ctx.globalCompositeOperation = 'destination-in'; ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = g; ctx.fillRect(-cx, -cy, w, h); ctx.restore(); ctx.globalCompositeOperation = 'source-over';
+}
+function ellipseGrad(ctx, key, cx, cy, rX, rY, stops, w, h) {
+  const g = cached(key + rY.toFixed(1), () => { const r = ctx.createRadialGradient(0, 0, 0, 0, 0, rY); for (const [o, c] of stops()) r.addColorStop(o, c); return r; });
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(rX / rY, 1); ctx.fillStyle = g; ctx.fillRect(-cx * rY / rX, -cy, w * rY / rX, h); ctx.restore();
+}
+function rayStops(L, c) {
+  const col = rgbaA(c, 0.22), mid = L.mid != null ? rgbaA(c, 0.22 * L.mid) : null, z = rgbaA(c, 0), st = [];
+  for (let i = 0; i < L.n; i++) { const b = i / L.n, d = 1 / L.n; st.push([b, z]); if (mid) st.push([b + d * 0.267, mid]); st.push([b + d * 0.5, col]); if (mid) st.push([b + d * 0.733, mid]); }
+  st.push([1, z]); return st;
+}
+const LOBE_STOPS = () => LOBES.map(([d, a]) => [d / 360, `rgba(255,248,220,${a})`]);
+function drawBG() {
+  const w = bgCv.width, h = bgCv.height, k = BG_RES, vmax = Math.max(W, H) / 100 * k, cx = BGS.cx * k, cy = BGS.cy * k;
+  const ck = (BGS.a.join() + BGS.b.join() + BGS.ray.join()).replace(/\.\d+/g, '');
+  if (BGS.curtain < 0.999) {
+    ellipseGrad(bgx, 'base' + ck, cx, cy, 1.2 * w, 0.85 * h, () => [[0, rgbaA(BGS.a, 1)], [0.72, rgbaA(BGS.b, 1)], [1, rgbaA(BGS.b, 1)]], w, h);
+    rx.clearRect(0, 0, w, h);
+    RAYS.forEach((L, i) => { rx.globalAlpha = L.alpha; conicFill(rx, 'ray' + i + ck, cx, cy, L.off + T * L.speed, () => rayStops(L, BGS.ray), w, h); });
+    rx.globalAlpha = 1; radialMask(rx, 'rm', cx, cy, 162.6 * vmax, [[0, 1], [0.16, 0.55], [0.4, 0]], w, h);
+    bgx.globalCompositeOperation = 'screen'; bgx.drawImage(rayCv, 0, 0); bgx.globalCompositeOperation = 'source-over';
+    ellipseGrad(bgx, 'vig', w * 0.5, h * 0.55, 1.3 * w, h, () => [[0, 'rgba(6,2,16,0)'], [0.45, 'rgba(6,2,16,0)'], [1, 'rgba(6,2,16,.65)']], w, h);
+  }
+  if (BGS.curtain > 0.001) {
+    const hx = BGS.hx * k, hy = BGS.hy * k;
+    ellipseGrad(rx, 'cur', hx, hy, 0.8 * w, 0.62 * h, () => [[0, '#FFE9B0'], [0.32, '#F4B24C'], [0.66, '#B95A1A'], [1, '#4A1806']], w, h);
+    lx.clearRect(0, 0, w, h); conicFill(lx, 'lobe', hx, hy, T * TAU / 40, LOBE_STOPS, w, h);
+    radialMask(lx, 'lm', hx, hy, 127.3 * vmax, [[0, 1], [0.1, 1], [0.5, 0]], w, h);
+    rx.globalCompositeOperation = 'screen'; rx.drawImage(lobeCv, 0, 0); rx.globalCompositeOperation = 'source-over';
+    bgx.globalAlpha = BGS.curtain; bgx.drawImage(rayCv, 0, 0); bgx.globalAlpha = 1;
+  }
+}
+
+/* =====================================================================
    THREE: toon chest, toon card, post-process outlines
    ===================================================================== */
 const glCanvas = $('#gl');
 let renderer;
-try { renderer = new THREE.WebGLRenderer({ canvas: glCanvas, alpha: true, antialias: false, premultipliedAlpha: true, powerPreference: 'high-performance' }); }
+try { renderer = new THREE.WebGLRenderer({ canvas: glCanvas, alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, powerPreference: 'high-performance' }); }
 catch (e) { $('#fail').style.display = 'grid'; throw e; }
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1221,15 +1281,17 @@ const MAT = {
   lidCore: new THREE.MeshBasicMaterial({ color: new THREE.Color('#2A1340') }),
   cardFrame: toon('#FFC53A'), cardEdge: toon('#FFE9A0'),
 };
+const TIER_GLOW = TIERS.map(t => new THREE.Color(t.glow));
 const CORE_DARK = new THREE.Color('#2A1340'), LID_IN = new THREE.Color('#5A3418'), WHITE = new THREE.Color('#ffffff'), _cg = new THREE.Color();
 
 /* outline registry: every mesh gets an ID for the normal/depth/ID pass */
 const outlined = []; let nextId = 1;
 const N_VS = `varying vec3 vN; varying float vD;
 void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_Position = projectionMatrix * mv; }`;
-const N_FS = `uniform float uId; varying vec3 vN; varying float vD;
-void main(){ vec3 n = normalize(vN); gl_FragColor = vec4(n.xy, uId, vD); }`;
-function reg(m) { m.userData.nMat = new THREE.ShaderMaterial({ uniforms: { uId: { value: nextId++ } }, vertexShader: N_VS, fragmentShader: N_FS }); outlined.push(m); return m; }
+const N_FS = `uniform float uId; uniform float uDN; uniform float uDR; varying vec3 vN; varying float vD;
+void main(){ vec3 n = normalize(vN); gl_FragColor = vec4(n.xy * 0.5 + 0.5, uId / 255.0, clamp((vD - uDN) / uDR, 0.0, 1.0)); }`;
+const NU = { uDN: { value: 4 }, uDR: { value: 8 } };   // linear depth window around the chest, packed into 8 bits
+function reg(m) { m.userData.nMat = new THREE.ShaderMaterial({ uniforms: { uId: { value: nextId++ }, uDN: NU.uDN, uDR: NU.uDR }, vertexShader: N_VS, fragmentShader: N_FS }); outlined.push(m); return m; }
 function mesh(geo, mat, x = 0, y = 0, z = 0, parent) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return reg(m); }
 
 /* ---------------- chest ---------------- */
@@ -1327,27 +1389,29 @@ let heroFront, heroBack;
 
 /* ---------------- post-process: normal + depth + part-ID edges ---------------- */
 const isGL2 = renderer.capabilities.isWebGL2;
-const rtColor = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: isGL2 ? 4 : 0, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
-const rtNorm = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
-const rtComp = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+/* 8-bit sRGB storage (half the memory of half-float, no visible loss); normal/ID/depth packed into RGBA8 */
+const rtColor = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace, samples: isGL2 ? 4 : 0, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+const rtNorm = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+const rtComp = new THREE.WebGLRenderTarget(4, 4, { type: THREE.UnsignedByteType, colorSpace: THREE.SRGBColorSpace, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
 const quadScene = new THREE.Scene(), quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); quad.frustumCulled = false; quadScene.add(quad);
 const Q_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const compMat = new THREE.ShaderMaterial({
   uniforms: { tColor: { value: rtColor.texture }, tNorm: { value: rtNorm.texture }, res: { value: new THREE.Vector2(4, 4) },
-    outerR: { value: 4 }, innerR: { value: 1.2 }, inR: { value: 1.5 }, lineColor: { value: new THREE.Color(INK) }, nTh: { value: 0.8 }, dTh: { value: 0.07 } },
+    outerR: { value: 4 }, innerR: { value: 1.2 }, inR: { value: 1.5 }, lineColor: { value: new THREE.Color(INK) }, nTh: { value: 0.8 }, dTh: { value: 0.07 }, uDN: NU.uDN, uDR: NU.uDR },
   vertexShader: Q_VS, depthTest: false, depthWrite: false, blending: THREE.NoBlending,
   fragmentShader: `
     uniform sampler2D tColor; uniform sampler2D tNorm; uniform vec2 res;
-    uniform float outerR; uniform float innerR; uniform float inR; uniform vec3 lineColor; uniform float nTh; uniform float dTh;
+    uniform float outerR; uniform float innerR; uniform float inR; uniform vec3 lineColor; uniform float nTh; uniform float dTh; uniform float uDN; uniform float uDR;
     varying vec2 vUv;
-    vec3 nz(vec2 xy){ return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy)))); }
+    vec3 nz(vec2 e){ vec2 xy = e * 2.0 - 1.0; return vec3(xy, sqrt(max(0.0, 1.0 - dot(xy, xy)))); }
+    const float ID1 = 0.5 / 255.0;
     float edgeTo(vec4 c, vec2 uv){
       vec4 o = texture2D(tNorm, uv);
-      if (o.b < 0.5) return 0.0;                       // background: silhouette pass handles it
-      if (abs(o.b - c.b) > 0.5) return 1.0;            // different part -> seam line
+      if (o.b < ID1) return 0.0;                       // background: silhouette pass handles it
+      if (abs(o.b - c.b) > ID1) return 1.0;            // different part -> seam line
       float e = 1.0 - smoothstep(nTh - 0.1, nTh, dot(nz(c.xy), nz(o.xy)));   // crease by normal
-      float dd = abs(o.a - c.a) / max(c.a, 0.001);     // depth: deliberately loose
+      float dd = abs(o.a - c.a) * uDR / max(c.a * uDR + uDN, 0.001);     // depth: deliberately loose
       return max(e, smoothstep(dTh, dTh * 1.5, dd));
     }
     void main(){
@@ -1381,7 +1445,7 @@ const compMat = new THREE.ShaderMaterial({
       }
       float inner = 0.0;
       vec4 c = texture2D(tNorm, vUv);
-      if (c.b > 0.5) {
+      if (c.b > ID1) {
         vec2 o = px * innerR; vec2 q = o * 0.7071;
         inner = max(inner, edgeTo(c, vUv + vec2(o.x, 0.0)));
         inner = max(inner, edgeTo(c, vUv - vec2(o.x, 0.0)));
@@ -1432,7 +1496,9 @@ function stopLoop(name) { const t = loops.get(name); if (t) { t.kill(); loops.de
 /* ---------- projection helpers ---------- */
 const _v = new THREE.Vector3();
 function toScreen(v) { _v.copy(v).project(camera); return { x: (_v.x + 1) / 2 * W, y: (1 - _v.y) / 2 * H }; }
-const local = (x, y, z) => chest.localToWorld(new THREE.Vector3(x, y, z));
+const local = (x, y, z, out = new THREE.Vector3()) => chest.localToWorld(out.set(x, y, z));
+const _a1 = new THREE.Vector3(), _a2 = new THREE.Vector3(), _a3 = new THREE.Vector3(), _hb = new THREE.Vector3();
+let glowW = 0, glowH = 0;
 function fwd() { return new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); }
 function screenToWorld(sx, sy, depth) {
   const ndc = new THREE.Vector3(sx / W * 2 - 1, -(sy / H) * 2 + 1, 0.5).unproject(camera);
@@ -1446,18 +1512,19 @@ const HERO_DEPTH = () => camDist - 1.3;
 function resize() {
   W = innerWidth; H = innerHeight; PR = Math.min(devicePixelRatio || 1, 2);
   renderer.setPixelRatio(PR); renderer.setSize(W, H);
-  let ss = TUNE.supersample; const budget = 4.6e6;
+  let ss = TUNE.supersample; const budget = matchMedia('(pointer: coarse)').matches ? 3.0e6 : 4.6e6;
   if (W * H * PR * PR * ss * ss > budget) ss = Math.max(1, Math.sqrt(budget / (W * H * PR * PR)));
   const rw = Math.round(W * PR * ss), rh = Math.round(H * PR * ss);
   rtColor.setSize(rw, rh); rtNorm.setSize(rw, rh); rtComp.setSize(rw, rh);
   compMat.uniforms.res.value.set(rw, rh);
   const k = PR * ss; compMat.uniforms.outerR.value = TUNE.outlineOuterPx * k; compMat.uniforms.innerR.value = Math.max(1, TUNE.outlineInnerPx * k); compMat.uniforms.inR.value = 1.1 * k;
   blitMat.uniforms.srcPx.value.set(1 / rw, 1 / rh);
-  fxBack.resize(); fxFront.resize();
+  fxBack.resize(); fxFront.resize(); bgResize();
   camera.aspect = W / H;
   const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2), tanH = tanV * camera.aspect;
   camDist = Math.max((1.95 / TUNE.chestScreenH) / 2 / tanV, (2.4 / TUNE.chestScreenW) / 2 / tanH);
   camera.position.set(0, 0.95 + camDist * Math.sin(0.2), camDist * Math.cos(0.2)); camera.lookAt(0, 0.95, 0);
+  NU.uDN.value = camDist - 4; NU.uDR.value = 8;
   applyCamera();
   drawHudIcons();
   if (state === 'hero') placeHeroStatic();
@@ -1480,19 +1547,20 @@ function applyRig() {
 /* ---------- per-frame DOM anchors ---------- */
 let orbitSpec = null;
 function updateAnchors() {
-  const cc = toScreen(local(0, 0.95, 0)), mouth = toScreen(local(0, BT + 0.05, 0.05));
-  elBg.style.setProperty('--cx', cc.x.toFixed(1) + 'px'); elBg.style.setProperty('--cy', cc.y.toFixed(1) + 'px');
+  const cc = toScreen(local(0, 0.95, 0, _a1)), mouth = toScreen(local(0, BT + 0.05, 0.05, _a1));
+  BGS.cx = cc.x; BGS.cy = cc.y;
   elBeams.style.transform = `translate(${mouth.x.toFixed(1)}px,${mouth.y.toFixed(1)}px)`;
   // soft ground shadow that shrinks/fades with height
-  const g0 = toScreen(new THREE.Vector3(rig.position.x, 0, 0)), gl = toScreen(new THREE.Vector3(-1.25, 0, 0)), gr = toScreen(new THREE.Vector3(1.25, 0, 0));
+  const g0 = toScreen(_a1.set(rig.position.x, 0, 0)), gl = toScreen(_a2.set(-1.25, 0, 0)), gr = toScreen(_a3.set(1.25, 0, 0));
   const h = rig.position.y, f = 1 / (1 + h * 0.9), w = (gr.x - gl.x) * f * C.pop;
   elShadow.style.transform = `translate(${g0.x.toFixed(1)}px,${g0.y.toFixed(1)}px) scale(${(w / 100).toFixed(3)},${(w / 100 * 0.9).toFixed(3)})`;
   elShadow.style.opacity = chest.visible ? (0.95 * f * f).toFixed(3) : 0;
   if (heroPivot.visible) {
     const b = heroBounds();
-    elGlow.style.transform = `translate(${(b.cx - b.w * 0.64).toFixed(1)}px,${(b.cy - b.h * 0.6).toFixed(1)}px)`;
-    elGlow.style.width = (b.w * 1.28).toFixed(1) + 'px'; elGlow.style.height = (b.h * 1.2).toFixed(1) + 'px';
-    elCurtain.style.setProperty('--hx', b.cx.toFixed(1) + 'px'); elCurtain.style.setProperty('--hy', b.cy.toFixed(1) + 'px');
+    elGlowPos.style.transform = `translate(${b.cx.toFixed(1)}px,${b.cy.toFixed(1)}px)`;
+    // resize the glow only when the card's footprint really changes (a size change repaints it)
+    if (Math.abs(b.w * 1.28 - glowW) > 3 || Math.abs(b.h * 1.2 - glowH) > 3) { glowW = b.w * 1.28; glowH = b.h * 1.2; Object.assign(elGlow.style, { width: glowW + 'px', height: glowH + 'px', left: -glowW / 2 + 'px', top: -glowH / 2 + 'px' }); }
+    BGS.hx = b.cx; BGS.hy = b.cy;
     if (orbitSpec) { orbitSpec.cx = b.cx; orbitSpec.cy = b.cy; orbitSpec.a = b.w * 0.5 * 1.62 + 22; orbitSpec.b = b.h * 0.5 * 1.36 + 22; }
   }
 }
@@ -1500,7 +1568,7 @@ function heroBounds() {
   heroPivot.updateMatrixWorld(true);
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) for (const z of [-0.07, 0.07]) {
-    const p = toScreen(heroCard.localToWorld(new THREE.Vector3(x * (CW / 2 + 0.03), y * (CH / 2 + 0.03), z)));
+    const p = toScreen(heroCard.localToWorld(_hb.set(x * (CW / 2 + 0.03), y * (CH / 2 + 0.03), z)));
     x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
   }
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
@@ -1539,7 +1607,9 @@ function paintTier(n, d) {
   const Tt = TIERS[n];
   tweenColor(MAT.plank.color, Tt.plank, d); tweenColor(MAT.metal.color, Tt.metal, d); tweenColor(MAT.gem.color, Tt.gem, d);
   tweenColor(RIM.color.value, Tt.glow, d); tweenColor(rimL.color, Tt.glow, d);
-  gsap.to(elApp, { '--bgA': Tt.bgA, '--bgB': Tt.bgB, '--ray': rgba(Tt.ray, 0.22), '--glow': Tt.glow, '--tl': Tt.light, '--tm': Tt.main, duration: d });
+  gsap.to(elApp, { '--glow': Tt.glow, '--tl': Tt.light, '--tm': Tt.main, duration: d });
+  const from = { a: BGS.a.slice(), b: BGS.b.slice(), ray: BGS.ray.slice() }, to = { a: hexRgb(Tt.bgA), b: hexRgb(Tt.bgB), ray: hexRgb(Tt.ray) }, o = { t: 0 };
+  gsap.to(o, { t: 1, duration: d, ease: 'power2.out', onUpdate: () => { for (const k of ['a', 'b', 'ray']) for (let i = 0; i < 3; i++) BGS[k][i] = from[k][i] + (to[k][i] - from[k][i]) * o.t; } });
   elPips.forEach((p, i) => { p.style.background = i <= n ? TIERS[i].main : '#3A2E55'; gsap.to(p, { scale: i === n ? 1.35 : 1, duration: 0.35, ease: 'back.out(3)' }); });
   elPlate.className = 'plate t' + n;
   const inl = n === 0 ? 'inl-rivet' : n === 3 ? 'inl-dia' : 'inl-gem';
@@ -1560,9 +1630,9 @@ function applyTier(n) {
 function flash(x, y, peak, dur = 0.8) {
   peak = Math.min(TUNE.flashMax, peak);
   gsap.killTweensOf(elFlash);
-  gsap.set(elFlash, { '--fx': x + 'px', '--fy': y + 'px', '--fr': '8vmax', opacity: 0 });
-  gsap.timeline().to(elFlash, { opacity: peak, '--fr': '62vmax', duration: 0.09, ease: 'power2.out' })
-    .to(elFlash, { opacity: 0, '--fr': '110vmax', duration: dur, ease: 'power2.out' });
+  gsap.set(elFlash, { x, y, scale: 0.25, autoAlpha: 0 });
+  gsap.timeline().to(elFlash, { autoAlpha: peak, scale: 1.94, duration: 0.09, ease: 'power2.out' })
+    .to(elFlash, { autoAlpha: 0, scale: 3.44, duration: dur, ease: 'power2.out' });
 }
 function shakeScreen(amp, dur) {
   if (RM) return;
@@ -1577,14 +1647,14 @@ const beamEls = [];
   const core = document.createElement('div'); core.className = 'beam-core'; elBeams.appendChild(core);
 }
 function showBeams(level = 1) {
-  gsap.to(elBeams, { opacity: level, duration: 0.25 });
+  gsap.to(elBeams, { autoAlpha: level, duration: 0.25 });
   gsap.fromTo(beamEls, { scaleY: 0.15 }, { scaleY: 1, duration: 0.7, ease: 'back.out(1.7)', stagger: 0.03 });
   beamEls.forEach((b, i) => setLoop('beam' + i, gsap.to(b, { opacity: () => rand(0.55, 1), duration: () => rand(0.18, 0.4), ease: 'sine.inOut', repeat: -1, repeatRefresh: true })));
   setLoop('dust', gsap.to({}, { duration: 0.08, repeat: -1, onRepeat: spawnDust }));
 }
 function hideBeams(d = 0.4) {
   beamEls.forEach((b, i) => stopLoop('beam' + i)); stopLoop('dust');
-  gsap.to(elBeams, { opacity: 0, duration: d, onComplete: () => gsap.set(beamEls, { opacity: 1 }) });
+  gsap.to(elBeams, { autoAlpha: 0, duration: d, onComplete: () => gsap.set(beamEls, { opacity: 1 }) });
 }
 function spawnDust() {
   if (RM && Math.random() < 0.6) return;
@@ -1760,7 +1830,7 @@ function heroReveal() {
       .to(heroPivot.scale, { x: tgt.S * 1.1, y: tgt.S * 1.1, z: tgt.S * 1.1, duration: 1.0, ease: 'power2.out' }, 0)
       .to(heroCard.rotation, { y: Math.PI * 4, duration: 1.25, ease: 'power3.out' }, 0)
       .to(C, { pop: 0, duration: 0.38, ease: 'back.in(2)', onComplete: () => { chest.visible = false; } }, 0.12)
-      .to(elBg, { opacity: 0, duration: 0.5 }, 0.1).to(elCurtain, { opacity: 1, duration: 0.5 }, 0.1)
+      .to(BGS, { curtain: 1, duration: 0.5 }, 0.1)
       .add(() => hideBeams(0.35), 0.1).to(elTitle, { opacity: 0, y: -16, duration: 0.25 }, 0).set('#pips', { opacity: 0 }, 0.25)
       .to(heroPivot.scale, { x: tgt.S, y: tgt.S, z: tgt.S, duration: 0.8, ease: 'elastic.out(1,0.4)' }, 1.0)
       .fromTo(heroCard.rotation, { z: 0.16 }, { z: 0, duration: 1.0, ease: 'elastic.out(1.3,0.28)', immediateRender: false }, 1.12)
@@ -1775,7 +1845,7 @@ function heroReveal() {
 function heroLand() {
   SFX.pop(); SFX.fanfare();
   const b = heroBounds(), pm = PM();
-  gsap.fromTo(elGlow, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(2)' });
+  gsap.fromTo(elGlow, { autoAlpha: 0, scale: 0.6 }, { autoAlpha: 1, scale: 1, duration: 0.5, ease: 'back.out(2)' });
   ring(fxBack, b.cx, b.cy, Math.max(b.w, b.h) * 1.1, '#FFE680', 0.7, 9);
   ring(fxBack, b.cx, b.cy, Math.max(b.w, b.h) * 1.5, '#FFFFFF', 0.85, 6, 0.08);
   for (let i = 0; i < Math.round(40 * pm); i++) { const a = rand(0, TAU), s = rand(300, 700); fxBack.add({ x: b.cx + Math.cos(a) * b.w * 0.3, y: b.cy + Math.sin(a) * b.h * 0.3, vx: Math.cos(a) * s, vy: Math.sin(a) * s, drag: 2.6, life: rand(0.6, 1.1), size: rand(2, 4), color: pick(['#FFE680', '#FFFFFF', '#FFC52E']) }); }
@@ -1824,8 +1894,8 @@ async function continueFromHero() {
   orbitStop();
   gsap.to(elHint, { opacity: 0, duration: 0.15 }); stopLoop('hintPulse'); gsap.set(elHint.firstElementChild, { scale: 1 });
   gsap.to(elPanel, { opacity: 0, y: 30, scale: 0.9, duration: 0.25, ease: 'power2.in' });
-  gsap.to(elGlow, { opacity: 0, duration: 0.3 });
-  gsap.to(elBg, { opacity: 1, duration: 0.5 }); gsap.to(elCurtain, { opacity: 0, duration: 0.5 });
+  gsap.to(elGlow, { autoAlpha: 0, duration: 0.3 });
+  gsap.to(BGS, { curtain: 0, duration: 0.5 });
   resultFrame(); gsap.set(C, { viewY: resultVY }); applyCamera();
   chest.visible = true; gsap.fromTo(C, { pop: 0 }, { pop: resScale(), duration: 0.55, ease: 'back.out(2.2)' });
   gsap.set(C, { lid: 1.92, glow: 0.9, idle: 0.35 });
@@ -2061,7 +2131,10 @@ function drawHudIcons() {
 }
 
 /* ---------- main loop ---------- */
-let last = performance.now();
+let last = performance.now(), glLost = false;
+/* mobile GPUs may drop the context under memory pressure: pause instead of crashing, rebuild on restore */
+glCanvas.addEventListener('webglcontextlost', e => { e.preventDefault(); glLost = true; });
+glCanvas.addEventListener('webglcontextrestored', () => { glLost = false; heroFront.material.map.needsUpdate = true; heroBack.material.map.needsUpdate = true; gradTex.needsUpdate = true; resize(); });
 const VT = +qs.get('vt') || 0; let vclock = 0;
 if (VT) { gsap.ticker.remove(gsap.updateRoot); gsap.ticker.lagSmoothing(0); }
 function frame(now) {
@@ -2072,7 +2145,7 @@ function frame(now) {
   const Tt = TIERS[tier];
   // seam light: dark recess -> tier glow -> white-hot while charging; capped once the lid is open
   const g = C.glow, open = Math.min(1, C.lid / 1.2);
-  _cg.copy(CORE_DARK).lerp(new THREE.Color(Tt.glow), Math.min(1, g));
+  _cg.copy(CORE_DARK).lerp(TIER_GLOW[tier], Math.min(1, g));
   if (g > 0.35) _cg.lerp(WHITE, Math.min(0.8, (g - 0.35) * 0.9) * (1 - open * 0.7));
   MAT.core.color.copy(_cg);
   MAT.lidCore.color.copy(_cg).lerp(LID_IN, open);
@@ -2082,7 +2155,8 @@ function frame(now) {
     heroSway.rotation.y = Math.sin(T * 0.9) * 0.22 * HS.float;
   }
   updateAnchors();
-  renderScene();
+  drawBG();
+  if (!glLost) renderScene();
   fxBack.update(dt); fxFront.update(dt); fxBack.draw(); fxFront.draw();
   requestAnimationFrame(frame);
 }
@@ -2096,15 +2170,12 @@ renderer.initTexture(heroFront.material.map); renderer.initTexture(heroBack.mate
 paintTier(0, 0);
 resize();
 addEventListener('resize', resize);
-gsap.to('.rays.r1', { rotation: 360, duration: 70, ease: 'none', repeat: -1 });
-gsap.to('.rays.r2', { rotation: -360, duration: 110, ease: 'none', repeat: -1 });
-gsap.to('.rays.r3', { rotation: 360, duration: 160, ease: 'none', repeat: -1 });
-gsap.to('#curtain .soft', { rotation: 360, duration: 40, ease: 'none', repeat: -1 });
 elTitleMain.textContent = TIERS[0].en;
 requestAnimationFrame(frame);
 (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { slamTitle(TIERS[0].en, TIERS[0].zh); startIdle(); drawHudIcons(); });
 
-window.__hl = { get state() { return state; }, get tier() { return tier; }, get vclock() { return vclock; }, C, TUNE, drawArt, mk, CHARS, openBook };
+const rtMB = () => { const px = rtColor.width * rtColor.height, s = rtColor.samples || 1; return { internal: `${rtColor.width}x${rtColor.height}`, ids: nextId - 1, MB: Math.round(px * (4 * s + 4 * s + 4 + 4 + 4 + 4) / 1048576) }; };
+window.__hl = { rtInfo: rtMB, get state() { return state; }, get tier() { return tier; }, get vclock() { return vclock; }, C, TUNE, drawArt, mk, CHARS, openBook };
 </script>
 </body>
 </html>

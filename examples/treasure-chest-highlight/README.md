@@ -60,3 +60,20 @@ These are all in the `TUNE` object at the top of the script:
 - **Shading:** `MeshToonMaterial` with a 4-step gradient map. There are three lights: key, hemisphere sky, and a rim light in the tier colour, plus a stepped fresnel rim added in `onBeforeCompile`.
 - **Outlines:** a second pass renders the view-space normal, part ID and linear depth of every mesh. A full-screen shader draws the thick silhouette by sampling colour-pass coverage in a ring. It draws thin seams where the part ID changes or the normals crease, and it only uses depth for large (7 %) jumps, so surfaces seen at a grazing angle don't pick up hatching. The colour pass is 4× MSAA at 1.5× resolution and is box-filtered down to the screen.
 - **2D art:** each figure has a base, a blocky shade and a highlight. Thin inner lines are stroked per part, and the thick outer contour comes from dilating the figure's silhouette. Each card has its own element background pattern (flames, zigzags, waves, dots, hexes) and a ground shadow. Textures are drawn at ≥1.5× their largest on-screen size.
+
+## Performance and memory
+
+These numbers are for a 390×844 phone at 3× device pixel ratio, measured in Chromium's layer tree. Every effect is unchanged.
+
+| | Before | After |
+|---|---|---|
+| Compositor layers | ≈ 577 MB, mostly three rotating 230vmax ray layers (130 MB each) and a 180vmax curtain light (79 MB) | ≈ 50–60 MB |
+| WebGL render targets | ≈ 226 MB (half-float, 4× MSAA) | ≈ 136 MB (8-bit sRGB, 4× MSAA, still 1.5× supersampled) |
+
+Changes:
+
+- **Background and curtain**: the tier gradient, the three rotating conic ray layers and the reveal curtain with its rotating soft light are drawn into a single half-resolution Canvas 2D. They are soft gradients, so upscaling is not visible. Their gradients are built once and reused under a rotating context transform, so a frame allocates nothing unless the tier colors are mid-transition.
+- **WebGL render targets**: color targets use 8-bit sRGB storage. The normal/part-ID/depth pass is packed into RGBA8: normal in RG, part ID in B (103 parts, 255 max), and linear depth over an 8-unit window in A. The main canvas has no depth buffer. Touch devices cap the internal resolution at 3.0 M pixels.
+- **Compositing**: the flash is a fixed-size soft disc animated only by transform. The hero glow's size is updated only when it changes by more than 3 px. Blur filters on the light beams were removed (their gradients were already soft). Invisible beams, flash and glow switch to `visibility:hidden` so they drop out of compositing.
+- **Allocations**: card art reuses two scratch canvases instead of allocating two per card. Per-frame vectors and colors are reused. Empty particle canvases are not redrawn.
+- **Context loss**: if the mobile GPU drops the WebGL context, rendering pauses and resumes when the context is restored, instead of the tab crashing.
