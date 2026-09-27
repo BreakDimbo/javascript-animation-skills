@@ -13,12 +13,28 @@ A 90-second animated painting in 3:4 portrait. It follows one morning by the Sin
   - *flash*: the roastery's window light blooms to white and fades up on the sunlit promenade;
   - *match*: the latte seen from above dissolves into the same latte seen from the side, the two cups aligned;
   - *rack*: focus pulls off the cup and onto the myna.
-- **Everything that moves is code.** On top of the plates, all computed from `t`: rain in two layers, out-of-focus lights sliding past the lens, drops forming and falling from awnings, umbrella edges and the chain, the puddle and the river redrawn in thin slices on a slow wave, wind in the leaves and leaf shadows swaying on the wall, rings on the puddle, glints, sun rays, dust in the sunbeams, steam off the coffee and the espresso machine, the myna's blinks and the catchlight in its eye, and crumbs falling at each peck.
+- **Everything that moves is code.** On top of the plates, all computed from `t`:
+  - rain in two layers, and splashes where it hits the umbrellas, the glass canopy, the puddle and the tables;
+  - raindrops on the lens: each one refracts the scene behind it upside down, and some creep and then run down the glass. The drop that opens the terrace joins them, and they dry up one by one when the sun comes out;
+  - out-of-focus lights sliding past the lens, faster than the painting behind them;
+  - drops forming and falling from awnings, umbrella edges and the chain;
+  - the puddle and the river redrawn in thin slices on a slow wave, so the water moves; wind in the leaves; leaf shadows swaying on the wall and across the tables;
+  - rings on the puddle, glints, sun rays, a lens flare when the sun breaks, shafts of sun and dust in the roastery, the wet ground steaming, leaves falling and tumbling over the promenade, pollen in the air;
+  - steam off the coffee and the espresso machine, the myna's blinks and the catchlight in its eye, and crumbs falling at each peck;
+  - a warm light leak across the push and the flash.
 - **Film finish.** A soft bloom, a little gouache texture and grain, and a vignette.
 
 ## Sound
 
-Synthesized in the page with Web Audio: 80 bpm, 4/4, so every cut lands on a beat. The theme enters on piano as the sun breaks over the terrace, continues through the roastery, moves to strings at the flash onto the promenade, and returns an octave up over the river at the end. The heist is scored with pizzicato under the pecks. Rain, room tone and the river follow the same curves as the picture, and every visible action has a sound: drips and plops, the espresso machine, cups, the whooshes of the whips, birds, the call, the glint, the pecks.
+Synthesized in the page with Web Audio: 80 bpm, 4/4, so every cut lands on a beat. The theme enters on piano as the sun breaks over the terrace, continues through the roastery, moves to strings at the flash onto the promenade, and returns an octave up over the river at the end. The heist is scored with pizzicato under the pecks.
+
+The sound effects are synthesized too, and follow the same curves as the picture:
+
+- **Rain** in four layers: a hiss, a low body, single near drops ticking left and right, and rain drumming on the umbrellas. Far thunder rolls as the film opens. Indoors the rain is muffled and a short room reverb comes up.
+- **Places:** the espresso machine's hum and its steam wand spluttering in the bar; far cups in the roastery; wind in the leaves that comes in gusts (strongest on the promenade); the river lapping and gurgling; songbirds once the rain has stopped.
+- **Actions:** water drops with a rising pitch; the drop on the lens; ceramic cups and a spoon that ring with inharmonic partials; the myna's calls, built from rising whistles, a harsh chatter and a gurgle; each peck, and the crumbs landing on the plate a second later.
+- **Transitions:** air and a high shimmer swell into the push and the flash; the sideways whip sweeps from left to right and the downward whips fall in pitch; a cup rings on the match; a low hum on the rack.
+- **Mix:** a low cut and a gentle low-shelf dip keep the bass from covering the detail.
 
 ## Files
 
