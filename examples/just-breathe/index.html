@@ -1230,7 +1230,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
   const tri = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, tri);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  const MAXI = 1024, inst = new Float32Array(MAXI * 12);
+  const MAXI = 2048, inst = new Float32Array(MAXI * 12);
   const partVAO = gl.createVertexArray(); gl.bindVertexArray(partVAO);
   const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -1804,9 +1804,9 @@ function bootGame() {
   // ── content ──
   // enemy types: health, how well they fly and shoot, what they are worth, how often they drop a crate
   const TYPES = {
-    rookie:  { hp: 4,  skill: .3,  turn: .72, rate: 7,  spread: 2.8, speed: 64, kind: 1, score: 100,  drop: .3 },
-    veteran: { hp: 7,  skill: .7,  turn: .98, rate: 9,  spread: 1.8, speed: 72, kind: 1, score: 200,  drop: .45 },
-    ace:     { hp: 30, skill: 1,   turn: 1.22, rate: 11, spread: 1.2, speed: 80, kind: 2, score: 1000, drop: 1, cannon: true, name: '金鼻子' },
+    rookie:  { hp: 4,  skill: .3,  turn: .72, rate: 7,  spread: 2.8, speed: 64, kind: 1, score: 100,  drop: .3, xp: 2 },
+    veteran: { hp: 7,  skill: .7,  turn: .98, rate: 9,  spread: 1.8, speed: 72, kind: 1, score: 200,  drop: .45, xp: 3 },
+    ace:     { hp: 30, skill: 1,   turn: 1.22, rate: 11, spread: 1.2, speed: 80, kind: 2, score: 1000, drop: 1, xp: 10, cannon: true, name: '金鼻子' },
   };
   const LEVELS = [
     { name: '初光',       waves: [['rookie'], ['rookie']] },                                  // levels 1-3 are gentle (see ease)
@@ -1820,14 +1820,20 @@ function bootGame() {
     const k = n - LEVELS.length;
     return { name: '黄昏 ' + (k + 1), ease: false, waves: [['veteran', 'veteran', 'veteran'], ['veteran', 'veteran', 'veteran', 'veteran'], ['ace', 'veteran', 'veteran']], mult: 1 + .15 * k };
   }
-  // ammunition tiers: climbed with crates dropped by beaten planes
-  const TIERS = [
-    { name: '普通弹',     guns: 2, dmg: 1,   col: [1, .92, .6] },
-    { name: '燃烧弹',     guns: 2, dmg: 1.5, col: [1, .55, .25], burn: true },
-    { name: '四联机枪',   guns: 4, dmg: 1.5, col: [1, .55, .25], burn: true },
-    { name: '高爆弹',     guns: 4, dmg: 2,   col: [.7, .88, 1], boom: true },
-  ];
-  const ROMAN = ['I', 'II', 'III', 'IV'];
+  // the weapon: 30 levels. Every level fires a little faster and hits a little harder; every few levels
+  // something new arrives, and the later it gets the hotter it all looks.
+  const UNLOCKS = [[1, '普通弹'], [5, '燃烧弹'], [8, '四联机枪'], [10, '高速曳光弹'], [12, '高爆弹'], [15, '追踪火箭'], [18, '六联机枪'],
+    [20, '等离子弹'], [22, '火箭齐射'], [24, '连锁闪电'], [25, '光翼'], [26, '光束炮'], [28, '导弹风暴'], [30, '凤凰']];
+  const rainbow = t => [0, 2.09, 4.19].map(o => .45 + .55 * (.5 + .5 * Math.cos(t + o)));
+  function WS(L) {
+    const col = L >= 30 ? rainbow(G0.t * 6) : L >= 28 ? [1, .45, .9] : L >= 24 ? [.5, .9, 1] : L >= 20 ? [.68, .52, 1] : L >= 12 ? [.7, .88, 1] : L >= 10 ? [1, .8, .45] : L >= 5 ? [1, .55, .25] : [1, .92, .6];
+    let name = UNLOCKS[0][1]; for (const [l, n] of UNLOCKS) if (L >= l) name = n;
+    return { L, name, col, guns: L >= 18 ? 6 : L >= 8 ? 4 : 2, dmg: (1 + .05 * (L - 1)) * (L >= 5 ? 1.15 : 1) * (L >= 20 ? 1.2 : 1),
+      burn: L >= 5, fast: L >= 10, boom: L >= 12, rockets: L >= 22 ? 4 : L >= 15 ? 2 : 0, pierce: L >= 20 ? 3 : 0, chain: L >= 24,
+      aura: L >= 25, laser: L >= 26, storm: L >= 30 ? 2 : L >= 28 ? 3.2 : 0, phoenix: L >= 30, w: .09 + L * .006, heat: .95 + L * .025 };
+  }
+  const tierOf = W => WS(W.wl);
+  const xpNeed = L => 1 + Math.floor(L / 4);                          // about 127 XP from level 1 to 30
   const PERKS = [
     { name: '射速提升',   desc: '开火快四分之一',          apply: W => { W.rate *= 1.25; } },
     { name: '炽热枪管',   desc: '每一发都更疼',        apply: W => { W.dmg += .35; } },
@@ -1835,11 +1841,10 @@ function bootGame() {
     { name: '加厚装甲',   desc: '装甲 +4',     apply: W => { W.maxHp += 4; } },
     { name: '加力燃烧',   desc: '加速槽多一半',       apply: W => { W.boostCap *= 1.5; } },
     { name: '磁吸瞄准',   desc: '自动吸附范围更大',   apply: W => { W.assist += 5; } },
-    { name: '弹药箱',     desc: '弹药升一级',         apply: W => { W.tier = Math.min(4, W.tier + 1); }, ok: W => W.tier < 4 },
+    { name: '军械库',     desc: '武器 +3 级',         apply: W => { W.wl = Math.min(30, W.wl + 3); W.xp = 0; }, ok: W => W.wl < 30 },
   ];
-  const newWeapons = () => ({ tier: 1, rate: 11, speed: 650, life: 1.35, dmg: 1, assist: 12, boostCap: 1, maxHp: 12 });
-  const tierOf = W => TIERS[W.tier - 1];
-  const GUN_POS = [[2.2, -.18, 1.4], [-2.2, -.18, 1.4], [1.75, -.2, 1.5], [-1.75, -.2, 1.5]];
+  const newWeapons = () => ({ wl: 1, xp: 0, rocketCool: 0, stormCool: 1, rate: 11, speed: 650, life: 1.35, dmg: 1, assist: 12, boostCap: 1, maxHp: 12 });
+  const GUN_POS = [[2.2, -.18, 1.4], [-2.2, -.18, 1.4], [1.75, -.2, 1.5], [-1.75, -.2, 1.5], [2.65, -.16, 1.3], [-2.65, -.16, 1.3]];
 
   // ── planes ──
   const P = (pl, l) => V.add(pl.p, V.add(V.add(V.mul(pl.right, l[0]), V.mul(pl.up, l[1])), V.mul(pl.f, l[2])));
@@ -1874,10 +1879,10 @@ function bootGame() {
   const G0 = { mode: 'title', t: 0, score: 0, level: 1, wave: 0, waves: 1, levelName: '', best: store.get('jb-best', 0), unlocked: store.get('jb-level', 1),
     msgs: [], hurt: 0, shake: 0, stop: 0, nextWave: 0, modeT: 0, combo: 1, comboT: 0, hitMark: 0, lowT: 0, buttons: [], cards: [], mult: 1 };
   let W = newWeapons(), Wsaved = null, scoreSaved = 0;
-  let player, enemies, bullets, parts, sparks, rings, pickups, popups;
+  let player, enemies, bullets, parts, sparks, rings, pickups, popups, missiles, bolts;
   function clearWorld() {
     player = newPlane(0, [0, 240, 700], [0, 0, -1]); player.hp = player.maxHp = W.maxHp;
-    enemies = []; bullets = []; parts = []; sparks = []; rings = []; pickups = []; popups = [];
+    enemies = []; bullets = []; parts = []; sparks = []; rings = []; pickups = []; popups = []; missiles = []; bolts = [];
   }
   clearWorld();
   const say = (text, life = 2.2, big = false) => G0.msgs.push({ text, age: 0, life, big });
@@ -1929,7 +1934,23 @@ function bootGame() {
     for (let i = 0; i < 9; i++) puff(p, V.add(V.mul(pl.vel, .25), [rand(-9, 9), rand(-2, 9), rand(-9, 9)]), 1.8, 4, .1, .85, rand(1.8, 3), 0, 1.2);
     for (let i = 0; i < 16; i++) puff(p, V.add(V.mul(pl.vel, .6), [rand(-28, 28), rand(-5, 26), rand(-28, 28)]), rand(.2, .45), 0, .05, .95, rand(1, 1.8), 0, .4, 9.8);
     rings.push({ p, age: 0, r: pl.type === 'ace' ? 90 : 60 });
+    if (pl !== player && W.wl >= 12) rings.push({ p, age: -.08, r: (pl.type === 'ace' ? 120 : 80) * (W.wl >= 30 ? 1.6 : 1), col: W.wl >= 30 ? [1, .8, .3] : WS(W.wl).col });
     hitSparks(p, pl.vel, [1, .7, .35], 14);
+  }
+
+  // ── weapon XP ──
+  function gainXP(n) {
+    if (W.wl >= 30) return;
+    W.xp += n;
+    while (W.wl < 30 && W.xp >= xpNeed(W.wl)) {
+      W.xp -= xpNeed(W.wl); W.wl++;
+      const unlock = UNLOCKS.find(([l]) => l === W.wl);
+      say('武器升级  Lv.' + W.wl, 2.2, true); if (unlock) say('解锁：' + unlock[1], 2.8, true);
+      const col = WS(W.wl).col;
+      rings.push({ p: player.p.slice(), age: 0, r: 40, col }); rings.push({ p: player.p.slice(), age: -.12, r: 70, col });
+      hitSparks(player.p, player.vel, col, 18); snd.levelUp(!!unlock);
+    }
+    if (W.wl >= 30) W.xp = 0;
   }
 
   // ── bullets ──
@@ -1941,11 +1962,35 @@ function bootGame() {
     if (aimAt) dir = V.norm(V.lerp(dir, V.norm(V.sub(aimAt, m)), pw ? 1 : .65));          // your rounds converge on the lock
     const s = spreadDeg * Math.PI / 180;
     dir = V.norm(V.add(dir, V.add(V.mul(pl.right, rand(-s, s)), V.mul(pl.up, rand(-s, s)))));
-    const speed = pw ? W.speed : heavy ? 520 : 650;
+    const speed = pw ? W.speed * (T.fast ? 1.25 : 1) : heavy ? 520 : 650;
     bullets.push({ p: m, prev: m, v: V.add(pl.vel, V.mul(dir, speed)), owner: pl, life: pw ? W.life : 1.35, dmg: pw ? W.dmg * T.dmg : heavy ? 2 : 1,
-      col: pw ? T.col : heavy ? [1, .35, .2] : [1, .92, .6], heavy, whizzed: false });
+      col: pw ? T.col : heavy ? [1, .35, .2] : [1, .92, .6], heavy, whizzed: false,
+      w: pw ? T.w : heavy ? .2 : .09, heat: pw ? T.heat : heavy ? 1.4 : .95, pierce: pw ? T.pierce : 0, hits: pw && T.pierce ? [] : null });
     pl.muzzle = .06;
     snd.gun(pl, heavy || (pw && T.boom));
+  }
+  // chain lightning: a hit arcs to up to two more rivals nearby
+  function chain(from, first) {
+    let at = from, hit = [first];
+    for (let k = 0; k < 2; k++) {
+      const next = enemies.filter(o => o.state === 'fly' && !hit.includes(o) && V.len(V.sub(o.p, at)) < 240).sort((a, b) => V.len(V.sub(a.p, at)) - V.len(V.sub(b.p, at)))[0];
+      if (!next) break;
+      bolts.push({ a: at.slice(), b: next.p.slice(), age: 0, seed: Math.random() * 100 });
+      damage(next, 1.2 * (1 + .03 * W.wl), next.p); hit.push(next); at = next.p;
+    }
+    if (hit.length > 1) snd.zap();
+  }
+  // rockets and the missile storm: they fly out, then home on a rival, leaving curling smoke
+  function launch(pl, count, storm) {
+    const alive = enemies.filter(e => e.state === 'fly'); if (!alive.length) return;
+    for (let i = 0; i < count; i++) {
+      const tg = storm ? alive[i % alive.length] : (G0.lock && G0.lock.state === 'fly' ? G0.lock : alive[0]);
+      let v0, p0;
+      if (storm) { const a = i / count * Math.PI * 2; v0 = V.add(pl.vel, V.mul(V.norm(V.add(V.mul(V.add(V.mul(pl.right, Math.cos(a)), V.mul(pl.up, Math.sin(a))), .8), pl.f)), 60)); p0 = P(pl, [Math.cos(a) * 2, Math.sin(a) * .6 + .2, 1]); }
+      else { const side = i % 2 ? 1 : -1; p0 = P(pl, [side * (1.2 + (i >> 1) * .6), -.55, .6]); v0 = V.add(pl.vel, V.add(V.mul(pl.up, -6), V.mul(pl.right, side * 9))); }
+      missiles.push({ p: p0, v: v0, tg, age: 0, arm: storm ? .35 : .15, trail: [], dead: 0, storm, col: storm ? (WS(W.wl).phoenix ? rainbow(i) : [1, .5, .9]) : [1, .75, .4], dmg: (storm ? 2 : 3) * (1 + .03 * W.wl) });
+    }
+    snd.rocket(storm);
   }
   function assistTarget(cone = W.assist) {                           // the nearest rival within a cone, with lead
     let best = null, bd = 1e9; G0.lock = null;
@@ -1958,13 +2003,17 @@ function bootGame() {
     if (!best) G0.lock = null;
     return best;
   }
-  function damage(e, amount, at) {
+  function damage(e, amount, at, soft) {
+    if (soft && G0.t - (e.softT || -1) < .08) {                       // the beam burns every frame; sparks and pings only now and then
+      e.hp -= amount; e.flash = Math.max(e.flash, .6); if (e.hp <= 0 && e.state === 'fly') goDown(e); return;
+    }
+    if (soft) e.softT = G0.t;
     e.hp -= amount; e.flash = 1;
     if (e === player) {
       G0.hurt = 1; G0.shake = Math.max(G0.shake, .45); snd.hurt(); try { navigator.vibrate && navigator.vibrate(25); } catch {}
       hitSparks(at, e.vel, [1, .8, .5]);
     } else {
-      G0.hitMark = .14; snd.tink(W.tier); hitSparks(at, e.vel, tierOf(W).col);
+      G0.hitMark = .14; snd.tink(Math.min(8, W.wl / 4)); hitSparks(at, e.vel, tierOf(W).col, 7 + Math.floor(W.wl / 4));
       if (tierOf(W).burn) puff(at, V.mul(e.vel, .5), .6, 3, 1, .8, .35, 1, 2);
       if (V.len(V.sub(e.p, cam.pos)) < 120) G0.shake = Math.max(G0.shake, .06);
     }
@@ -1977,7 +2026,8 @@ function bootGame() {
     G0.combo = G0.comboT > 0 ? Math.min(4, G0.combo + 1) : 1; G0.comboT = 5;
     const pts = pl.T.score * G0.combo; G0.score += pts;
     popups.push({ p: pl.p.slice(), text: '+' + pts + (G0.combo > 1 ? '  ×' + G0.combo : ''), age: 0 });
-    if (Math.random() < pl.T.drop) pickups.push({ p: V.add(pl.p, [0, 8, 0]), t: 0, type: W.tier < 4 && Math.random() < .7 ? 'ammo' : 'repair' });
+    gainXP(pl.T.xp);
+    if (Math.random() < pl.T.drop) pickups.push({ p: V.add(pl.p, [0, 8, 0]), t: 0, type: W.wl < 30 && Math.random() < .7 ? 'ammo' : 'repair' });
   }
 
   // ── input ──
@@ -2037,7 +2087,7 @@ function bootGame() {
 
   // ── sound design: layered guns, pings, booms, whizzes, pickups, alarms; engines; the waltz ──
   const snd = (() => {
-    let ac = null, band = null, eng = null, foeEng = null, boostN = null, nextBar = 0, bar = 0, musicOn = false, lastGun = 0, lastTink = 0, lastWhizz = 0;
+    let ac = null, band = null, eng = null, foeEng = null, boostN = null, beamN = null, beamOn = false, lastZap = 0, lastPop = 0, nextBar = 0, bar = 0, musicOn = false, lastGun = 0, lastTink = 0, lastWhizz = 0;
     const S = {};
     function tone(t, type, f0, f1, dur, amp, pan = 0, attack = .003) {
       const o = ac.createOscillator(), g = ac.createGain(), p = ac.createStereoPanner();
@@ -2068,6 +2118,12 @@ function bootGame() {
       const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();       // the afterburner roar
       src.buffer = band.noiseBuf; src.loop = true; f.type = 'bandpass'; f.frequency.value = 500; f.Q.value = .7; g.gain.value = 0;
       src.connect(f); f.connect(g); g.connect(band.sfx); src.start(); boostN = { g, f };
+      {                                                              // the beam: two detuned saws through a wobbling band-pass
+        const o1 = ac.createOscillator(), o2 = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+        o1.type = o2.type = 'sawtooth'; o1.frequency.value = 220; o2.frequency.value = 223.5; bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 2.5; g.gain.value = 0;
+        lfo.frequency.value = 11; lg.gain.value = 500; lfo.connect(lg); lg.connect(bp.frequency);
+        o1.connect(bp); o2.connect(bp); bp.connect(g); g.connect(band.sfx); o1.start(); o2.start(); lfo.start(); beamN = { g };
+      }
     };
     S.start = () => { if (!ac) return; if (!musicOn) { nextBar = ac.currentTime + .1; bar = 0; } musicOn = true; };
     S.stopMusic = () => { musicOn = false; };
@@ -2127,6 +2183,30 @@ function bootGame() {
     S.aceHorn = () => { if (!ac) return; const t = ac.currentTime; band.timp(t, 38, .2); band.timp(t + .35, 38, .2); [45, 49, 52].forEach(m => band.accordion(t + .7, m + 12, 1.2, .03)); };
     S.clear = () => { if (!ac) return; musicOn = false; const t = ac.currentTime + .1; [62, 66, 69, 74, 78].forEach((m, i) => band.piano(t + i * .11, m + 12, .08, (i - 2) * .25)); band.strings(t, 50, 3.5, .03); };
     S.breathe = () => { if (!ac) return; musicOn = false; const t = ac.currentTime + .2; [62, 66, 69, 74].forEach((m, i) => band.piano(t + i * .12, m + 12, .07, (i - 1.5) * .3)); band.strings(t, 50, 4, .03); };
+    S.levelUp = unlock => {                                         // a rising arpeggio; an unlock adds a chord and a shimmer
+      if (!ac) return; const t = ac.currentTime;
+      [62, 66, 69, 74].forEach((m, i) => band.piano(t + i * .05, m + 12, .08, (i - 1.5) * .3));
+      tone(t, 'triangle', 600, 1800, .3, .04);
+      if (unlock) { [74, 78, 81, 86].forEach(m => band.piano(t + .25, m + 12, .07)); band.strings(t + .2, 62, 1.6, .035); hiss(t + .2, 'highpass', 7000, 4000, .9, .04); }
+    };
+    S.zap = () => {                                                 // chain lightning: a crackle and a buzz
+      if (!ac) return; const t = ac.currentTime; if (t - lastZap < .1) return; lastZap = t;
+      for (let i = 0; i < 4; i++) hiss(t + i * .025, 'highpass', 3000, 5000, .04, .07, 1);
+      tone(t, 'square', 180, 90, .15, .035);
+    };
+    S.rocket = storm => {                                           // a whoosh that climbs
+      if (!ac) return; const t = ac.currentTime;
+      hiss(t, 'bandpass', 400, storm ? 2600 : 1800, storm ? .7 : .5, storm ? .14 : .1, 1.2, 0, .02);
+      tone(t, 'sawtooth', 70, 140, .3, .04);
+    };
+    S.pop = d => {                                                  // a rocket hit: a short, dry burst
+      if (!ac) return; const t = ac.currentTime; if (t - lastPop < .05) return; lastPop = t;
+      const v = clamp(90 / (d + 40), .2, 1); hiss(t, 'lowpass', 2800, 300, .35, .2 * v, .6); tone(t, 'sine', 120, 40, .25, .16 * v);
+    };
+    S.beam = on => {
+      if (!ac || !beamN || on === beamOn) return; beamOn = on;
+      beamN.g.gain.setTargetAtTime(on ? .05 : 0, ac.currentTime, on ? .03 : .08);
+    };
     S.suspend = on => { if (ac) on ? ac.suspend() : ac.resume(); };
     return S;
   })();
@@ -2180,17 +2260,28 @@ function bootGame() {
   }
   function control(dt) {
     const pl = player;
-    if (pl.state !== 'fly') return;
+    if (pl.state !== 'fly') { G0.beam = null; snd.beam(false); return; }
     readInput();
     if (Math.abs(input.sx) > .3) G0.didSteer = true;
     if (input.fire) G0.didFire = true;
     const aim = assistTarget(W.assist + 8);                            // the snap reaches a little wider than the guns
+    const T = tierOf(W), firing = !!(input.fire || (SET.auto && aim));
+    W.rocketCool -= dt; W.stormCool -= dt;
+    if (T.rockets && firing && G0.lock && W.rocketCool <= 0) { launch(pl, T.rockets, false); W.rocketCool = T.rockets >= 4 ? .9 : 1.3; }
+    if (T.storm && firing && W.stormCool <= 0 && enemies.some(e => e.state === 'fly')) { launch(pl, 12, true); W.stormCool = T.storm; }
+    G0.beam = T.laser && firing ? { a: P(pl, [0, -.02, 4.8]), b: aim ? V.add(pl.p, V.mul(V.norm(V.sub(aim, pl.p)), Math.min(900, V.len(V.sub(aim, pl.p)) + 40))) : P(pl, [0, 0, 900]) } : null;
+    if (G0.beam) for (const e of enemies) {                            // the beam burns anything it touches
+      if (e.state !== 'fly') continue;
+      const ab = V.sub(G0.beam.b, G0.beam.a), s2 = clamp(V.dot(V.sub(e.p, G0.beam.a), ab) / V.dot(ab, ab), 0, 1);
+      if (V.len(V.sub(V.add(G0.beam.a, V.mul(ab, s2)), e.p)) < 7) damage(e, 5 * (1 + .03 * W.wl) * dt, e.p, true);
+    }
+    snd.beam(!!G0.beam);
     G0.lead = aim;
     if (SET.pilot) steerPilot(pl, dt); else steerArcade(pl, dt, aim);
     pl.boost = clamp(pl.boost + (input.boost ? -.28 / W.boostCap : .12 / W.boostCap) * dt, 0, 1);
     move(pl, dt, input.boost && pl.boost > .02 ? 104 : 66);
     pl.cool -= dt;
-    if ((input.fire || (SET.auto && aim)) && pl.cool <= 0) { fire(pl, .5, aim); pl.cool = 1 / (W.rate * tierOf(W).guns / 2); }
+    if (firing && pl.cool <= 0) { fire(pl, .5, aim); pl.cool = 1 / (W.rate * (1 + .025 * (W.wl - 1)) * T.guns / 2); }
   }
   // rivals don't sit on your tail forever: they engage for a few seconds, break off and extend, then turn
   // back and pass across your nose, so the fight keeps coming into view instead of circling behind you
@@ -2260,6 +2351,7 @@ function bootGame() {
   }
   function update(dt) {
     G0.t += dt; G0.modeT += dt;
+    if (G0.mode !== 'fly' && G0.beam) { G0.beam = null; snd.beam(false); }
     if (G0.mode === 'title' || G0.mode === 'clear') {                  // a lazy circle over the sea
       const c = [0, 240, 0], r = V.sub(player.p, c); r[1] = 0;
       const tang = V.norm(V.cross([0, 1, 0], V.norm(r)));
@@ -2286,27 +2378,53 @@ function bootGame() {
       const ab = V.sub(b.p, b.prev), abl = Math.max(V.dot(ab, ab), 1e-6);
       const targets = b.owner === player ? enemies : [player];
       for (const tg of targets) {
-        if (gone || tg.state === 'ditched' || tg === b.owner) continue;
+        if (gone || tg.state === 'ditched' || tg === b.owner || (b.hits && b.hits.includes(tg))) continue;
         const s = clamp(V.dot(V.sub(tg.p, b.prev), ab) / abl, 0, 1), hp = V.add(b.prev, V.mul(ab, s));
         const miss = V.len(V.sub(hp, tg.p));
         if (miss < (tg === player ? 3.6 : 4.8)) {
-          gone = true; damage(tg, tg === player && G0.ease ? b.dmg * .5 : b.dmg, hp);
-          if (b.owner === player && tierOf(W).boom) {                 // explosive rounds: a small burst that also hurts neighbours
-            puff(hp, V.mul(tg.vel, .5), 1, 7, .95, 1, .3, 1, 3);
+          if (b.hits && b.pierce > 0) { b.pierce--; b.hits.push(tg); } else gone = true;   // plasma goes through
+          damage(tg, tg === player && G0.ease ? b.dmg * .5 : b.dmg, hp);
+          const T = tierOf(W);
+          if (b.owner === player && T.boom) {                           // explosive rounds: a burst that also hurts neighbours
+            puff(hp, V.mul(tg.vel, .5), 1 + W.wl * .03, 7, .95, 1, .3, 1, 3);
             for (const o of enemies) if (o !== tg && o.state === 'fly' && V.len(V.sub(o.p, hp)) < 16) damage(o, .6, o.p);
           }
+          if (b.owner === player && T.chain && Math.random() < .35) chain(hp, tg);
         } else if (tg === player && !b.whizzed && miss < 12) { b.whizzed = true; snd.whizz(V.dot(V.norm(V.sub(hp, cam.pos)), camB.r)); }
       }
       if (!gone && b.p[1] < 0) { gone = true; splash(b.p, false); }
       if (gone) bullets.splice(i, 1);
     }
+    // rockets and storm missiles
+    for (let i = missiles.length - 1; i >= 0; i--) {
+      const m = missiles[i];
+      if (m.dead) { m.dead -= dt; if (m.dead <= 0) missiles.splice(i, 1); continue; }
+      m.age += dt;
+      if (!m.tg || m.tg.state !== 'fly') m.tg = enemies.filter(e => e.state === 'fly').sort((a, b) => V.len(V.sub(a.p, m.p)) - V.len(V.sub(b.p, m.p)))[0];
+      const sp = Math.min(340, V.len(m.v) + 220 * dt);
+      let dir = V.norm(m.v);
+      if (m.tg && m.age > m.arm) {
+        const want = V.norm(V.sub(V.add(m.tg.p, V.mul(m.tg.vel, V.len(V.sub(m.tg.p, m.p)) / 340 * .5)), m.p));
+        const ang = Math.acos(clamp(V.dot(dir, want), -1, 1)), ax = V.cross(dir, want);
+        if (ang > 1e-3 && V.len(ax) > 1e-6) dir = V.norm(V.rot(dir, V.norm(ax), Math.min(ang, (m.storm ? 3.4 : 2.6) * dt)));
+      }
+      m.v = V.mul(dir, sp); m.p = V.add(m.p, V.mul(m.v, dt));
+      m.trail.unshift({ p: m.p.slice(), t: G0.t }); if (m.trail.length > 18) m.trail.pop();
+      if (m.tg && V.len(V.sub(m.tg.p, m.p)) < 7) {
+        damage(m.tg, m.dmg, m.p);
+        puff(m.p, V.mul(m.tg.vel, .4), 1.2, 9, .9, 1, .35, 1, 3); rings.push({ p: m.p.slice(), age: .2, r: 18, col: m.col });
+        snd.pop(V.len(V.sub(m.p, cam.pos))); m.dead = .45;
+      } else if (m.age > 4 || m.p[1] < 0) m.dead = .45;
+    }
+    for (let i = bolts.length - 1; i >= 0; i--) { bolts[i].age += dt; if (bolts[i].age > .22) bolts.splice(i, 1); }
+    if (player.state === 'fly' && tierOf(W).phoenix) for (let k = 0; k < 2; k++) puff(P(player, [rand(-4, 4), rand(-.3, .6), rand(-3, 1)]), V.add(V.mul(player.vel, .75), [rand(-2, 2), rand(0, 3), rand(-2, 2)]), .45, 1.4, 1, .85, .6, 1, 2);
     // pickups: fly through them
     for (let i = pickups.length - 1; i >= 0; i--) {
       const k = pickups[i]; k.t += dt; k.p[1] += Math.sin(G0.t * 2 + i) * .02;
       if (k.t > 20) { pickups.splice(i, 1); continue; }
       if (player.state === 'fly' && V.len(V.sub(k.p, player.p)) < 18) {
         pickups.splice(i, 1);
-        if (k.type === 'ammo' && W.tier < 4) { W.tier++; say(ROMAN[W.tier - 1] + ' · ' + tierOf(W).name, 2.4, true); }
+        if (k.type === 'ammo' && W.wl < 30) { gainXP(4); if (!G0.msgs.some(m => m.big)) say('弹药 +4', 1.4); }
         else { player.hp = Math.min(player.maxHp, player.hp + 5); say('修理完成', 1.6); }
         snd.pickupSound(k.type); popups.push({ p: k.p.slice(), text: k.type === 'ammo' ? '弹药' : '修理', age: 0 });
         rings.push({ p: k.p.slice(), age: 0, r: 30, col: 1 });
@@ -2386,23 +2504,55 @@ function bootGame() {
     }
     puffs.sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos)));
     const segs = [];
-    for (const b of bullets) segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), b.heavy ? .045 : .03)), b: b.p, heat: b.heavy ? 1.4 : .95, w: b.heavy ? .2 : .09, col: b.col });
+    for (const b of bullets) segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), b.heavy ? .045 : .03 + (b.owner === player ? W.wl * .0012 : 0))), b: b.p, heat: b.heat, w: b.w, col: b.col });
     for (const pl of [player, ...enemies]) {
-      if (pl.muzzle > 0) for (let g = 0; g < (pl === player ? tierOf(W).guns : 2); g++) { const m = P(pl, GUN_POS[g]); segs.push({ a: m, b: V.add(m, pl.f), heat: 1.3, w: .16 }); }
+      if (pl.muzzle > 0) for (let g = 0; g < (pl === player ? tierOf(W).guns : 2); g++) { const m = P(pl, GUN_POS[g]), big = pl === player ? 1 + W.wl * .03 : 1; segs.push({ a: m, b: V.add(m, V.mul(pl.f, big)), heat: 1.3 * big, w: .16 * big, col: pl === player && W.wl >= 5 ? tierOf(W).col : undefined }); }
       for (let i = 1; i < pl.tips.length; i++) {
         const t0 = pl.tips[i - 1], t1 = pl.tips[i], age = G0.t - t1.t; if (age > .55) break;
         const st = Math.min(t0.st, t1.st) * (1 - age / .55);
         if (st > .03) { segs.push({ a: t1.a, b: t0.a, heat: -st, w: .1 }); segs.push({ a: t1.b, b: t0.b, heat: -st, w: .1 }); }
       }
     }
+    const camFade = q => smooth(25, 60, V.len(V.sub(q, cam.pos)));   // trails thin out as they pass the camera
+    for (const m of missiles) {                                         // a hot head and a curling smoke trail
+      const fade = m.dead ? m.dead / .45 : 1;
+      if (!m.dead) segs.push({ a: V.sub(m.p, V.mul(m.v, .02)), b: m.p, heat: 1.6, w: .22, col: m.col });
+      for (let i = 1; i < m.trail.length; i++) {
+        const k = (1 - i / m.trail.length) * camFade(m.trail[i].p); if (k < .02) continue;
+        segs.push({ a: m.trail[i].p, b: m.trail[i - 1].p, heat: -.55 * k * fade, w: .18 + (1 - k) * .5 });
+        if (m.storm) segs.push({ a: m.trail[i].p, b: m.trail[i - 1].p, heat: .45 * k * fade, w: .07, col: m.col });
+      }
+    }
+    for (const bo of bolts) {                                          // lightning: a jagged, flickering arc
+      const n = 8, R0 = rng(Math.floor(bo.seed * 1000 + G0.t * 40)), L = V.len(V.sub(bo.b, bo.a));
+      let prev = bo.a;
+      for (let i = 1; i <= n; i++) {
+        const q = i === n ? bo.b : V.add(V.lerp(bo.a, bo.b, i / n), [(R0() - .5) * L * .12, (R0() - .5) * L * .12, (R0() - .5) * L * .12]);
+        segs.push({ a: prev, b: q, heat: 1.8 * (1 - bo.age / .22), w: .12, col: [.6, .9, 1] }); prev = q;
+      }
+    }
+    if (G0.beam) {                                                     // the beam: a white core in a coloured glow, shimmering
+      const col = tierOf(W).col, fl = .85 + .15 * Math.sin(G0.t * 90);
+      segs.push({ a: G0.beam.a, b: G0.beam.b, heat: 2.2 * fl, w: .28, col: [1, 1, 1] });
+      segs.push({ a: G0.beam.a, b: G0.beam.b, heat: .7 * fl, w: .9, col });
+    }
+    if (player.state === 'fly' && tierOf(W).aura) {                    // wings of light
+      const col = tierOf(W).col;
+      for (let i = 1; i < player.tips.length; i++) {
+        const t0 = player.tips[i - 1], t1 = player.tips[i], age = G0.t - t1.t; if (age > .45) break;
+        const k = (1 - age / .45) * .8 * camFade(t1.a); if (k < .02) continue;
+        segs.push({ a: t1.a, b: t0.a, heat: k, w: .14, col }); segs.push({ a: t1.b, b: t0.b, heat: k, w: .14, col });
+      }
+    }
     for (const q of sparks) segs.push({ a: q.p, b: V.sub(q.p, V.mul(q.v, .025)), heat: 2 * (1 - q.age / q.life), w: .1, col: q.col });
     for (const r of rings) {                                            // shockwaves: a ring of vapour facing the camera
-      const rad = 3 + r.age / .5 * r.r, st = (1 - r.age / .5) * (r.col ? .9 : .7);
+      const rad = 3 + Math.max(0, r.age) / .5 * r.r, st = (1 - Math.max(0, r.age) / .5) * (r.col ? .9 : .7);
       for (let i = 0; i < 24; i++) {
         const a0 = i / 24 * Math.PI * 2, a1 = (i + 1) / 24 * Math.PI * 2;
         const q0 = V.add(r.p, V.add(V.mul(camB.r, Math.cos(a0) * rad), V.mul(camB.u, Math.sin(a0) * rad)));
         const q1 = V.add(r.p, V.add(V.mul(camB.r, Math.cos(a1) * rad), V.mul(camB.u, Math.sin(a1) * rad)));
-        segs.push(r.col ? { a: q0, b: q1, heat: st, w: .25, col: [1, .85, .4] } : { a: q0, b: q1, heat: -st, w: .35 });
+        if (r.age < 0) continue;
+        segs.push(r.col ? { a: q0, b: q1, heat: st, w: .25, col: Array.isArray(r.col) ? r.col : [1, .85, .4] } : { a: q0, b: q1, heat: -st, w: .35 });
       }
     }
     for (const k of pickups) {                                          // and a spinning ring around the crate
@@ -2477,7 +2627,7 @@ function bootGame() {
     if (G0.mode === 'brief') {
       const a = Math.min(1, G0.modeT * 2) * (1 - smooth(2.2, 2.8, G0.modeT));
       c.globalAlpha = a; small('第 ' + G0.level + ' 关', h * .36, .75, 15); title(G0.levelName, h * .44, big * .8);
-      small(`${G0.waves} 波敌机 · ${ROMAN[W.tier - 1]} ${tierOf(W).name}`, h * .52, .6); c.globalAlpha = 1;
+      small(`${G0.waves} 波敌机 · 武器 Lv.${W.wl} · ${tierOf(W).name}`, h * .52, .6); c.globalAlpha = 1;
     }
     if (G0.mode === 'clear') {
       c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
@@ -2519,8 +2669,10 @@ function bootGame() {
     const hpk = Math.max(0, player.hp) / player.maxHp;
     c.fillStyle = hpk < .3 ? 'rgba(235, 90, 80, .95)' : cream(.9); c.fillRect(bx, by, bw * hpk, 7 * u);
     c.fillStyle = 'rgba(255, 200, 120, .85)'; c.fillRect(bx, by + 13 * u, bw * player.boost, 4 * u);
+    c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by + 41 * u, bw, 3 * u);
+    c.fillStyle = 'rgba(255, 225, 140, .9)'; c.fillRect(bx, by + 41 * u, bw * (W.wl >= 30 ? 1 : W.xp / xpNeed(W.wl)), 3 * u);
     const tc = tierOf(W).col; c.fillStyle = `rgb(${tc.map(v => Math.round(v * 255)).join(',')})`; c.beginPath(); c.arc(bx + 5 * u, by + 31 * u, 4 * u, 0, Math.PI * 2); c.fill();
-    c.fillStyle = cream(.75); c.font = serif(Math.round(12 * u)); c.textAlign = 'left'; c.fillText(ROMAN[W.tier - 1] + ' · ' + tierOf(W).name, bx + 14 * u, by + 31 * u);
+    c.fillStyle = cream(.75); c.font = serif(Math.round(12 * u)); c.textAlign = 'left'; c.fillText('武器 Lv.' + W.wl + ' · ' + tierOf(W).name, bx + 14 * u, by + 31 * u);
     // the ace's health across the top
     const ace = enemies.find(e => e.type === 'ace' && e.state === 'fly');
     if (ace) {
