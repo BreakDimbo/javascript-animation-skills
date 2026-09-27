@@ -526,15 +526,13 @@ function blush(c, y = 350, dx = 60) { c.fillStyle = 'rgba(255,110,130,.42)'; c.b
 /* ---- 可莉 (legendary, Pyro): big grin, bomb held high, Dodoco on the hip ---- */
 function drawKlee(c) {
   const R = ['#E4443C', '#A92630', '#FF9484'], HR = ['#F8E2A4', '#DDB066', '#FFF6D8'];
-  const [flL, flR] = pair((p, X) => { p.moveTo(X(176), 206); p.bezierCurveTo(X(120), 212, X(76), 262, X(50), 338); p.bezierCurveTo(X(92), 300, X(132), 280, X(178), 262); p.closePath(); });
-  cel(c, flL, ...R, { off: [5, 6] }); cel(c, flR, ...R, { off: [5, 6] });
   const [tL, tR] = pair((p, X) => { p.moveTo(X(152), 330); p.bezierCurveTo(X(116), 362, X(110), 432, X(126), 484); p.bezierCurveTo(X(134), 506, X(152), 508, X(160), 492); p.bezierCurveTo(X(150), 450, X(162), 400, X(186), 360); p.closePath(); });
   cel(c, tL, ...HR, { off: [5, 6] }); cel(c, tR, ...HR, { off: [5, 6] });
   cel(c, ell(250, 292, 120, 110), ...HR);
   for (const x of [228, 272]) cel(c, capsule(x, 560, x + (x < 250 ? -2 : 2), 610, 13), '#FFFFFF', '#CFD7E6', null, { off: [3, 3] });
   cel(c, ell(222, 620, 30, 17), '#8A4B2A', '#5E2E18', '#C07A50', { hi: ell(212, 613, 9, 4) });
   cel(c, ell(278, 620, 30, 17), '#8A4B2A', '#5E2E18', '#C07A50', { hi: ell(268, 613, 9, 4) });
-  cel(c, ell(250, 556, 48, 15), '#6E1A26', '#4A0F18', null);
+  cel(c, ell(250, 556, 48, 15), '#FFFFFF', '#D8D0E0', null);
   const coat = P2(p => { p.moveTo(214, 416); p.bezierCurveTo(196, 450, 182, 520, 172, 566); p.quadraticCurveTo(250, 592, 328, 566); p.bezierCurveTo(318, 520, 304, 450, 286, 416); p.closePath(); });
   cel(c, coat, ...R, { off: [8, 10], hi: ell(204, 480, 9, 30, 0.25) });
   cel(c, P2(p => { p.moveTo(232, 418); p.lineTo(250, 462); p.lineTo(268, 418); p.closePath(); }), '#FFFFFF', '#E0D6CC', null, { off: [3, 4] });
@@ -546,7 +544,7 @@ function drawKlee(c) {
   cel(c, P2(p => { p.moveTo(158, 532); p.quadraticCurveTo(180, 500, 202, 532); p.closePath(); }), ...R, { off: [3, 3] });
   c.fillStyle = INK; c.beginPath(); c.arc(172, 548, 3.5, 0, TAU); c.fill(); c.beginPath(); c.arc(188, 548, 3.5, 0, TAU); c.fill();
   stroke(c, 2.5, q => { q.moveTo(175, 557); q.quadraticCurveTo(180, 562, 185, 557); });
-  const [eL, eR] = pair((p, X) => { p.moveTo(X(152), 296); p.lineTo(X(100), 262); p.quadraticCurveTo(X(122), 318, X(158), 332); p.closePath(); });
+  const [eL, eR] = pair((p, X) => { p.moveTo(X(152), 292); p.lineTo(X(66), 270); p.quadraticCurveTo(X(110), 320, X(158), 334); p.closePath(); });
   cel(c, eL, ...SKIN, { off: [3, 4] }); cel(c, eR, ...SKIN, { off: [3, 4] });
   cel(c, capsule(208, 438, 190, 500, 17), ...R, { off: [4, 5] });
   cel(c, ell(189, 506, 17, 8), '#FFFFFF', '#E0D6CC', null, { off: [2, 2] });
@@ -576,110 +574,12 @@ function drawKlee(c) {
   const hat = P2(p => { p.moveTo(148, 252); p.bezierCurveTo(146, 168, 354, 168, 352, 252); p.quadraticCurveTo(250, 232, 148, 252); p.closePath(); });
   cel(c, hat, ...R, { off: [7, 8], hi: ell(206, 206, 26, 10, -0.3) });
   stroke(c, 3, q => { q.moveTo(160, 238); q.quadraticCurveTo(250, 222, 340, 238); });
+  for (const [x, y, r] of [[318, 190, 0.5], [336, 204, 0.9]]) { c.save(); c.translate(x, y); c.rotate(r); cel(c, P2(p => { p.moveTo(0, 0); p.quadraticCurveTo(10, -30, 4, -56); p.quadraticCurveTo(-12, -30, 0, 0); p.closePath(); }), '#FFFFFF', '#D4DCEA', null, { off: [2, 2], lw: 3 }); c.restore(); }
+  stroke(c, 5, q => { q.moveTo(236, 180); q.quadraticCurveTo(226, 150, 248, 146); });
   [[-8, 0], [8, 0], [0, -8], [0, 8]].forEach(([dx, dy]) => { c.fillStyle = '#5CC75A'; c.beginPath(); c.arc(196 + dx, 222 + dy, 7, 0, TAU); c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke(); });
   star4(c, 452, 360, 11); star4(c, 96, 220, 14); star4(c, 118, 420, 9);
 }
 
-/* ---- 菲谢尔 (epic, Electro): eyepatch, smug half-lidded eye, commanding Oz ---- */
-function drawFischl(c) {
-  const HR = ['#F6D97A', '#D6A53E', '#FFF3C4'], D = ['#4B3474', '#2C1D4C', '#7C5CB8'], WH = ['#F4EEFF', '#C6B6E6', '#FFFFFF'], OZ = ['#3E3456', '#1E1830', '#7A6AA8'];
-  const back = P2(p => { p.moveTo(150, 280); p.bezierCurveTo(116, 380, 118, 470, 134, 548); [[160, 530], [184, 552], [210, 530]].forEach(([x, y]) => p.lineTo(x, y));
-    p.lineTo(290, 530); [[316, 552], [340, 530], [366, 548]].forEach(([x, y]) => p.lineTo(x, y)); p.bezierCurveTo(382, 470, 384, 380, 350, 280); p.closePath(); });
-  cel(c, back, ...HR, { off: [7, 8] });
-  for (const x of [230, 270]) cel(c, capsule(x, 566, x + (x < 250 ? -2 : 2), 612, 12), '#2A2040', '#16102A', null, { off: [2, 2] });
-  cel(c, ell(226, 622, 28, 16), ...D, { hi: ell(216, 615, 8, 4) }); cel(c, ell(274, 622, 28, 16), ...D, { hi: ell(264, 615, 8, 4) });
-  const skirt = P2(p => { p.moveTo(202, 480); p.quadraticCurveTo(170, 552, 172, 580); p.quadraticCurveTo(250, 602, 328, 580); p.quadraticCurveTo(330, 552, 298, 480); p.closePath(); });
-  cel(c, skirt, ...D, { off: [8, 9] });
-  const frill = P2(p => { p.moveTo(172, 574); for (let i = 0; i <= 8; i++) { const x = 172 + i * 19.5; p.quadraticCurveTo(x + 9.75, 600 + (i % 2 ? 3 : 0), x + 19.5, 578 + Math.sin(i / 8 * Math.PI) * 10); } p.lineTo(328, 574); p.quadraticCurveTo(250, 596, 172, 574); p.closePath(); });
-  cel(c, frill, ...WH, { off: [3, 3] });
-  const bod = P2(p => { p.moveTo(214, 418); p.bezierCurveTo(204, 450, 204, 480, 208, 494); p.lineTo(292, 494); p.bezierCurveTo(296, 480, 296, 450, 286, 418); p.closePath(); });
-  cel(c, bod, ...D, { off: [5, 6], hi: ell(222, 450, 6, 18) });
-  cel(c, ell(250, 424, 42, 13), ...WH, { off: [3, 3] });
-  const bow = P2(p => { p.moveTo(250, 448); p.lineTo(224, 434); p.lineTo(226, 462); p.closePath(); p.moveTo(250, 448); p.lineTo(276, 434); p.lineTo(274, 462); p.closePath(); });
-  cel(c, bow, '#9B6BE0', '#6A3FB5', null, { off: [2, 3] }); cel(c, P2(p => p.arc(250, 448, 7, 0, TAU)), '#C77DFF', '#8C4DE0', null, { off: [1, 1] });
-  // hand on hip
-  cel(c, capsule(212, 438, 192, 498, 15), ...D, { off: [3, 4] });
-  cel(c, P2(p => p.arc(196, 506, 13, 0, TAU)), '#2A2040', '#16102A', null, { off: [2, 2] });
-  // side ringlets, ears, head
-  const [rL, rR] = pair((p, X) => { p.moveTo(X(156), 300); p.bezierCurveTo(X(140), 350, X(146), 400, X(160), 430); p.bezierCurveTo(X(170), 410, X(176), 360, X(180), 320); p.closePath(); });
-  cel(c, ell(152, 318, 12, 18), ...SKIN, { off: [2, 3] }); cel(c, ell(348, 318, 12, 18), ...SKIN, { off: [2, 3] });
-  cel(c, ell(250, 302, 104, 96), ...SKIN, { off: [6, 8] });
-  // eyepatch over her right eye, smug green left eye
-  stroke(c, 4, q => { q.moveTo(190, 300); q.lineTo(152, 272); q.moveTo(234, 300); q.lineTo(300, 256); });
-  cel(c, P2(p => { p.moveTo(188, 300); p.quadraticCurveTo(212, 288, 236, 300); p.quadraticCurveTo(240, 334, 212, 346); p.quadraticCurveTo(184, 334, 188, 300); p.closePath(); }), '#2A1F44', '#16102A', '#5A4A88', { off: [3, 4], hi: ell(202, 306, 6, 4) });
-  c.fillStyle = '#C77DFF'; c.beginPath(); c.moveTo(212, 308); c.lineTo(220, 318); c.lineTo(212, 328); c.lineTo(204, 318); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
-  animeEye(c, 288, 322, 20, 25, '#3CB878', 0.34);
-  stroke(c, 4.5, q => { q.moveTo(268, 284); q.quadraticCurveTo(290, 268, 312, 280); });
-  stroke(c, 4, q => { q.moveTo(236, 362); q.quadraticCurveTo(250, 368, 266, 356); q.lineTo(270, 352); });
-  blush(c, 350, 60);
-  const bangs = P2(p => { p.moveTo(146, 330); p.bezierCurveTo(136, 256, 186, 204, 256, 204); p.bezierCurveTo(328, 208, 366, 262, 354, 330);
-    [[342, 296], [326, 312], [318, 268], [298, 290], [280, 250], [262, 286], [240, 250], [218, 290], [196, 262], [178, 304], [162, 286]].forEach(([x, y]) => p.lineTo(x, y)); p.closePath(); });
-  cel(c, bangs, ...HR, { off: [5, 7], hi: ell(214, 236, 24, 8, -0.3) });
-  cel(c, rL, ...HR, { off: [3, 4] }); cel(c, rR, ...HR, { off: [3, 4] });
-  // arm pointing up at Oz (in front of her hair)
-  cel(c, capsule(288, 438, 364, 364, 15), ...D, { off: [3, 4] });
-  cel(c, ell(367, 361, 15, 8, -0.78), ...WH, { off: [2, 2] });
-  cel(c, P2(p => p.arc(376, 350, 13, 0, TAU)), '#2A2040', '#16102A', null, { off: [2, 2] });
-  cel(c, capsule(381, 343, 394, 322, 5), '#2A2040', '#16102A', null, { off: [1, 1], lw: 3 });
-  // bow + feather hair ornament
-  cel(c, P2(p => { p.moveTo(334, 232); p.bezierCurveTo(350, 180, 372, 176, 376, 190); p.bezierCurveTo(364, 206, 352, 222, 340, 240); p.closePath(); }), ...OZ, { off: [3, 3], lw: 3 });
-  const hb = P2(p => { p.moveTo(330, 236); p.lineTo(304, 222); p.lineTo(310, 252); p.closePath(); p.moveTo(330, 236); p.lineTo(356, 226); p.lineTo(350, 256); p.closePath(); });
-  cel(c, hb, '#7C5CB8', '#4B3474', '#B79BEA', { off: [2, 3] });
-  // Oz
-  const wing1 = P2(p => { p.moveTo(392, 214); p.bezierCurveTo(362, 160, 336, 148, 310, 156); p.bezierCurveTo(336, 176, 348, 196, 372, 226); p.closePath(); });
-  const wing2 = P2(p => { p.moveTo(404, 210); p.bezierCurveTo(414, 160, 436, 138, 460, 140); p.bezierCurveTo(446, 172, 430, 196, 414, 222); p.closePath(); });
-  cel(c, wing1, ...OZ, { off: [4, 4] });
-  cel(c, P2(p => { p.moveTo(380, 236); p.lineTo(356, 262); p.lineTo(384, 252); p.closePath(); }), ...OZ, { off: [2, 2] });
-  cel(c, ell(394, 226, 32, 22, -0.35), ...OZ, { off: [4, 4], hi: ell(384, 216, 10, 5, -0.4) });
-  cel(c, P2(p => p.arc(420, 204, 17, 0, TAU)), ...OZ, { off: [3, 3] });
-  cel(c, P2(p => { p.moveTo(434, 198); p.lineTo(454, 206); p.lineTo(434, 212); p.closePath(); }), '#F2C04A', '#C08A1A', null, { off: [1, 1], lw: 3 });
-  c.fillStyle = '#E3B6FF'; c.beginPath(); c.arc(424, 200, 4.5, 0, TAU); c.fill();
-  cel(c, wing2, ...OZ, { off: [4, 4] });
-  const bolt = (x, y, s) => { const b = P2(p => { p.moveTo(x, y - s); p.lineTo(x - s * 0.5, y + s * 0.1); p.lineTo(x, y + s * 0.05); p.lineTo(x - s * 0.2, y + s); p.lineTo(x + s * 0.5, y - s * 0.15); p.lineTo(x, y - s * 0.1); p.closePath(); }); cel(c, b, '#E6C4FF', '#A060F0', null, { off: [2, 3], lw: 3.5 }); };
-  bolt(470, 250, 18); bolt(90, 250, 20); bolt(100, 470, 14);
-}
-
-/* ---- 行秋 (rare, Hydro): calm reader's smile, open book, rain drops circling a raised finger ---- */
-function drawXingqiu(c) {
-  const HR = ['#34488C', '#1E2A5C', '#6A86D0'], WR = ['#F7F4EC', '#CFC6B4', '#FFFFFF'], BL = ['#2F74C8', '#1C4C8C', '#7FB2F0'];
-  cel(c, ell(250, 294, 118, 108), ...HR);
-  cel(c, P2(p => { p.moveTo(236, 380); p.quadraticCurveTo(250, 440, 262, 380); p.closePath(); }), ...HR, { off: [2, 3] });
-  for (const x of [230, 270]) cel(c, capsule(x, 566, x + (x < 250 ? -2 : 2), 612, 13), '#2A3A6A', '#18244A', null, { off: [2, 2] });
-  cel(c, ell(226, 622, 29, 16), '#2A2238', '#140F20', '#5A4E70', { hi: ell(216, 615, 8, 4) }); cel(c, ell(274, 622, 29, 16), '#2A2238', '#140F20', '#5A4E70', { hi: ell(264, 615, 8, 4) });
-  const robe = P2(p => { p.moveTo(212, 416); p.bezierCurveTo(196, 460, 184, 540, 180, 584); p.quadraticCurveTo(250, 600, 320, 584); p.bezierCurveTo(316, 540, 304, 460, 288, 416); p.closePath(); });
-  cel(c, robe, ...WR, { off: [8, 10] });
-  cel(c, P2(p => { p.moveTo(236, 430); p.lineTo(264, 430); p.lineTo(272, 590); p.lineTo(228, 590); p.closePath(); }), ...BL, { off: [4, 5] });
-  cel(c, P2(p => p.roundRect(200, 484, 100, 18, 6)), '#E2B04A', '#B07A1A', '#FFE7A0', { off: [2, 3] });
-  cel(c, P2(p => { p.moveTo(222, 416); p.lineTo(250, 446); p.lineTo(278, 416); p.lineTo(264, 412); p.lineTo(250, 428); p.lineTo(236, 412); p.closePath(); }), ...BL, { off: [2, 2] });
-  // left arm with open book
-  cel(c, capsule(212, 438, 206, 500, 18), ...WR, { off: [4, 5] });
-  const book = P2(p => { p.moveTo(186, 500); p.lineTo(236, 510); p.lineTo(286, 500); p.lineTo(282, 548); p.lineTo(236, 556); p.lineTo(190, 548); p.closePath(); });
-  cel(c, book, ...BL, { off: [3, 3] });
-  cel(c, P2(p => { p.moveTo(192, 504); p.lineTo(236, 514); p.lineTo(236, 550); p.lineTo(196, 543); p.closePath(); }), '#FFFBEA', '#E4D9B8', null, { off: [2, 2] });
-  cel(c, P2(p => { p.moveTo(280, 504); p.lineTo(236, 514); p.lineTo(236, 550); p.lineTo(276, 543); p.closePath(); }), '#FFFBEA', '#E4D9B8', null, { off: [2, 2] });
-  stroke(c, 2, q => { for (const y of [0, 9, 18]) { q.moveTo(200, 516 + y); q.lineTo(228, 522 + y); q.moveTo(244, 522 + y); q.lineTo(272, 516 + y); } }, '#9A8C6A');
-  cel(c, P2(p => p.arc(210, 546, 13, 0, TAU)), ...SKIN, { off: [2, 3] });
-  // right arm raised, index finger up, rain drops circling
-  cel(c, capsule(290, 438, 360, 398, 18), ...WR, { off: [4, 5] });
-  cel(c, P2(p => p.arc(370, 388, 14, 0, TAU)), ...SKIN, { off: [2, 3] });
-  cel(c, capsule(373, 378, 378, 354, 5), ...SKIN, { off: [1, 1], lw: 3 });
-  const drop = (x, y, s) => { const d = P2(p => { p.moveTo(x, y - s * 1.4); p.bezierCurveTo(x + s * 0.9, y - s * 0.2, x + s, y + s * 0.4, x, y + s); p.bezierCurveTo(x - s, y + s * 0.4, x - s * 0.9, y - s * 0.2, x, y - s * 1.4); p.closePath(); }); cel(c, d, '#7FD0FF', '#2F86E0', '#E6F8FF', { off: [2, 2], lw: 3, hi: ell(x - s * 0.3, y, s * 0.2, s * 0.35) }); };
-  stroke(c, 3, q => q.ellipse(380, 340, 58, 24, -0.2, 0, TAU), 'rgba(255,255,255,.7)');
-  drop(430, 318, 14); drop(330, 350, 10); drop(410, 366, 10); drop(378, 296, 9);
-  // head
-  cel(c, ell(152, 318, 12, 18), ...SKIN, { off: [2, 3] }); cel(c, ell(348, 318, 12, 18), ...SKIN, { off: [2, 3] });
-  stroke(c, 3, q => { q.moveTo(148, 334); q.lineTo(148, 360); });
-  cel(c, P2(p => { p.moveTo(142, 360); p.lineTo(154, 360); p.lineTo(156, 392); p.lineTo(140, 392); p.closePath(); }), '#5FD0B8', '#2C9A86', null, { off: [2, 2], lw: 3 });
-  cel(c, ell(250, 302, 104, 96), ...SKIN, { off: [6, 8] });
-  animeEye(c, 212, 322, 19, 24, '#E8A33A', 0.2); animeEye(c, 288, 322, 19, 24, '#E8A33A', 0.2);
-  stroke(c, 4, q => { q.moveTo(194, 284); q.quadraticCurveTo(210, 278, 226, 284); q.moveTo(272, 280); q.quadraticCurveTo(290, 270, 306, 278); });
-  stroke(c, 4, q => { q.moveTo(236, 358); q.quadraticCurveTo(252, 370, 268, 356); });
-  blush(c, 350, 58);
-  const bangs = P2(p => { p.moveTo(144, 336); p.bezierCurveTo(134, 256, 184, 200, 252, 200); p.bezierCurveTo(324, 202, 368, 256, 356, 336);
-    [[344, 292], [330, 306], [322, 262], [302, 286], [288, 246], [268, 282], [250, 244], [232, 280], [214, 250], [196, 300], [176, 272], [168, 330], [160, 380]].forEach(([x, y]) => p.lineTo(x, y)); p.closePath(); });
-  cel(c, bangs, ...HR, { off: [5, 7], hi: ell(222, 226, 24, 7, -0.25) });
-  stroke(c, 3, q => { q.moveTo(236, 212); q.quadraticCurveTo(252, 190, 244, 176); });
-}
 /* =====================================================================
    PARAMETRIC CHIBI: one body plan, per-character hair, face, outfit,
    pose, props and signature accessories
@@ -705,22 +605,29 @@ const BANG_TIPS = {
   spiky:  [[338, 300], [320, 318], [302, 272], [284, 300], [264, 264], [246, 298], [226, 266], [210, 304], [190, 276], [176, 318], [162, 296]],
   blunt:  [[348, 304], [330, 292], [306, 296], [282, 290], [258, 296], [234, 290], [210, 296], [186, 292], [162, 304]],
   side:   [[344, 292], [326, 276], [310, 296], [290, 250], [270, 288], [244, 246], [224, 290], [204, 262], [190, 312], [174, 300], [166, 360], [158, 396]],
+  get sideR() { return this.side.map(([x, y]) => [500 - x, y]).reverse(); },
   parted: [[340, 304], [326, 282], [306, 258], [284, 268], [262, 232], [238, 232], [216, 268], [194, 258], [174, 282], [160, 304]],
 };
+/* fade a hair shape toward its tip colour (e.g. Zhongli's amber ends, Venti's teal braids) */
+function tipShade(c, path, L, y0, y1) {
+  if (!L.tip) return;
+  c.save(); c.clip(path); const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, rgba(L.tip, 0)); g.addColorStop(1, rgba(L.tip, 0.95));
+  c.fillStyle = g; c.fillRect(0, y0, ART_W, y1 - y0 + 80); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(path);
+}
 function chibiBack(c, L) {
   const HR = L.hair, st = L.back || 'short', len = L.backLen || 540;
-  if (st === 'long') cel(c, P2(p => { p.moveTo(150, 280); p.bezierCurveTo(116, 380, 118, 470, 134, len); [[160, len - 18], [184, len + 4], [210, len - 18], [290, len - 18], [316, len + 4], [340, len - 18], [366, len]].forEach(([x, y]) => p.lineTo(x, y)); p.bezierCurveTo(382, 470, 384, 380, 350, 280); p.closePath(); }), ...HR, { off: [7, 8] });
+  if (st === 'long') { const lp = P2(p => { p.moveTo(150, 280); p.bezierCurveTo(116, 380, 118, 470, 134, len); [[160, len - 18], [184, len + 4], [210, len - 18], [290, len - 18], [316, len + 4], [340, len - 18], [366, len]].forEach(([x, y]) => p.lineTo(x, y)); p.bezierCurveTo(382, 470, 384, 380, 350, 280); p.closePath(); }); cel(c, lp, ...HR, { off: [7, 8] }); tipShade(c, lp, L, len - 160, len); }
+  if (st === 'twin' && L.bob) cel(c, P2(p => { p.moveTo(140, 300); p.bezierCurveTo(126, 364, 134, 404, 162, 414); p.lineTo(338, 414); p.bezierCurveTo(366, 404, 374, 364, 360, 300); p.closePath(); }), ...HR, { off: [5, 6] });
   if (st === 'twin') {
     const tails = pair((p, X) => { p.moveTo(X(150), 296); p.bezierCurveTo(X(98), 340, X(92), len - 90, X(110), len); p.bezierCurveTo(X(122), len + 22, X(144), len + 18, X(150), len - 8); p.bezierCurveTo(X(140), len - 80, X(152), 380, X(182), 334); p.closePath(); });
-    tails.forEach(t => cel(c, t, ...HR, { off: [5, 6] }));
+    tails.forEach(t => { cel(c, t, ...HR, { off: [5, 6] }); tipShade(c, t, L, len - 140, len + 20); });
     if (L.curls) for (const x of [118, 382]) { cel(c, P2(p => p.arc(x, len + 4, 20, 0, TAU)), ...HR, { off: [3, 4] }); stroke(c, 3, q => q.arc(x, len + 4, 9, 0.5, 5.2)); }
     if (L.tie) for (const x of [150, 350]) cel(c, P2(p => { p.moveTo(x, 322); p.lineTo(x - 18, 308); p.lineTo(x - 16, 336); p.closePath(); p.moveTo(x, 322); p.lineTo(x + 18, 308); p.lineTo(x + 16, 336); p.closePath(); }), L.tie, shadeHex(L.tie, -0.35), null, { off: [2, 2], lw: 3 });
   }
   if (st === 'pony') {
     const s = L.ponySide ?? 1, X = x => 250 + s * (x - 250);
     const t = P2(p => { p.moveTo(X(318), 236); p.bezierCurveTo(X(404), 236, X(424), 330, X(404), 424); p.bezierCurveTo(X(396), 470, X(384), 500, X(372), 524); p.bezierCurveTo(X(370), 470, X(380), 400, X(348), 318); p.closePath(); });
-    cel(c, t, ...HR, { off: [5 * s, 6] });
-    if (L.ponyTip) { c.save(); c.clip(t); c.fillStyle = L.ponyTip; c.fillRect(Math.min(X(340), X(430)), 440, 90, 100); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(t); }
+    cel(c, t, ...HR, { off: [5 * s, 6] }); tipShade(c, t, L, 380, 524);
   }
   if (st === 'bob') cel(c, P2(p => { p.moveTo(140, 300); p.bezierCurveTo(126, 364, 134, 404, 162, 414); p.lineTo(338, 414); p.bezierCurveTo(366, 404, 374, 364, 360, 300); p.closePath(); }), ...HR, { off: [5, 6] });
   cel(c, ell(250, 292, 120, 110), ...HR);
@@ -728,6 +635,7 @@ function chibiBack(c, L) {
 function chibiLegs(c, L) {
   const lg = L.legs || ['#FFFFFF', '#CFD7E6'], sh = L.shoes || ['#6A4A3A', '#3E2A1E', '#9A7A60'];
   for (const x of [228, 272]) cel(c, capsule(x, 556, x + (x < 250 ? -2 : 2), 610, 13), lg[0], lg[1], null, { off: [2, 3] });
+  if (L.socks) for (const x of [226, 274]) cel(c, capsule(x, 592, x, 606, 14), L.socks, shadeHex(L.socks, -0.2), null, { off: [1, 2], lw: 3 });
   cel(c, ell(224, 620, 29, 16), ...sh, { hi: ell(214, 613, 8, 4) });
   cel(c, ell(276, 620, 29, 16), ...sh, { hi: ell(266, 613, 8, 4) });
 }
@@ -754,7 +662,7 @@ function chibiOutfit(c, O) {
 function chibiArms(c, L, pass) {
   const S = L.sleeve || L.outfit.top, Hd = L.hand || SKIN, r = L.wide ? 21 : 16;
   const arm = (a, b, cc, d) => cel(c, capsule(a, b, cc, d, r), S[0], S[1], S[2], { off: [3, 4] });
-  const hand = (x, y, rr = 14) => cel(c, P2(p => p.arc(x, y, rr, 0, TAU)), Hd[0], Hd[1], Hd[2], { off: [2, 3] });
+  const hand = (x, y, rr = 14) => { const h = x > 250 && L.hand2 ? L.hand2 : Hd; cel(c, P2(p => p.arc(x, y, rr, 0, TAU)), h[0], h[1], h[2], { off: [2, 3] }); };
   const finger = (a, b, cc, d) => cel(c, capsule(a, b, cc, d, 5), Hd[0], Hd[1], null, { off: [1, 1], lw: 3 });
   const downL = () => { arm(208, 438, 190, 500); hand(188, 514); };
   const P = L.pose;
@@ -767,6 +675,7 @@ function chibiArms(c, L, pass) {
     else if (P === 'hold') { arm(210, 440, 236, 480); arm(290, 440, 264, 480); L.prop?.(c, [250, 478]); hand(238, 484, 13); hand(262, 484, 13); }
     else if (P === 'cheer') { arm(208, 438, 150, 372); hand(144, 360); arm(292, 438, 350, 372); hand(356, 360); }
     else if (P === 'chin') downL();
+    else if (P === 'behind') { arm(212, 438, 204, 498); arm(288, 438, 296, 498); }
   } else if (P === 'chin') { arm(290, 440, 308, 474); arm(308, 474, 290, 404); L.prop?.(c, [286, 394]); hand(286, 394, 14); }
 }
 function chibiEyes(c, L) {
@@ -775,16 +684,23 @@ function chibiEyes(c, L) {
     if (s === 'up') stroke(c, 6, q => { q.moveTo(x - 18, 330); q.quadraticCurveTo(x, 308, x + 18, 330); });
     else if (s === 'down') stroke(c, 6, q => { q.moveTo(x - 18, 318); q.quadraticCurveTo(x, 338, x + 18, 318); });
     else {
-      animeEye(c, x, 322, 20, 25, col, { lid: 0.34, calm: 0.18, sleepy: 0.56 }[s] || 0);
-      if (L.pupil === 'flower') { c.fillStyle = shadeHex(col, 0.6); for (let i = 0; i < 5; i++) { const a = i * TAU / 5 - Math.PI / 2; c.beginPath(); c.arc(x + Math.cos(a) * 5, 328 + Math.sin(a) * 5, 3.4, 0, TAU); c.fill(); } }
+      const ic = x > 250 && L.eye2 ? L.eye2 : col;
+      animeEye(c, x, 322, 20, 25, ic, { lid: 0.34, calm: 0.18, sleepy: 0.56 }[s] || 0);
+      if (L.pupil === 'diamond') { c.fillStyle = '#FFE680'; c.beginPath(); c.moveTo(x, 316); c.lineTo(x + 6, 328); c.lineTo(x, 340); c.lineTo(x - 6, 328); c.closePath(); c.fill(); }
+      if (L.pupil === 'drop') { c.fillStyle = shadeHex(ic, 0.7); c.beginPath(); c.moveTo(x, 318); c.quadraticCurveTo(x + 7, 330, x, 336); c.quadraticCurveTo(x - 7, 330, x, 318); c.fill(); }
+      if (L.pupil === 'star') star4(c, x, 330, 7, shadeHex(ic, 0.75), 0);
+      if (L.liner) { const o = x < 250 ? -1 : 1; stroke(c, 4, q => { q.moveTo(x - o * 6, 349); q.quadraticCurveTo(x + o * 12, 348, x + o * 24, 336); }, L.liner); }
+      if (L.pupil === 'flower') { c.fillStyle = '#FFFFFF'; for (let i = 0; i < 5; i++) { const a = i * TAU / 5 - Math.PI / 2; c.beginPath(); c.arc(x + Math.cos(a) * 5, 328 + Math.sin(a) * 5, 3.4, 0, TAU); c.fill(); } }
       if (L.pupil === 'plus') { c.fillStyle = shadeHex(col, 0.7); c.fillRect(x - 2, 320, 4, 16); c.fillRect(x - 8, 326, 16, 4); }
     }
   };
-  const M = { open: ['open', 'open'], lid: ['lid', 'lid'], calm: ['calm', 'calm'], sleepy: ['sleepy', 'sleepy'], wink: ['open', 'up'], happy: ['up', 'up'], closed: ['down', 'down'], patch: [null, 'calm'] }[st];
-  if (M[0]) one(212, M[0]); one(288, M[1]);
-  if (st === 'patch') {
-    stroke(c, 4, q => { q.moveTo(190, 300); q.lineTo(152, 272); q.moveTo(234, 300); q.lineTo(300, 256); });
-    cel(c, P2(p => { p.moveTo(188, 300); p.quadraticCurveTo(212, 288, 236, 300); p.quadraticCurveTo(240, 334, 212, 346); p.quadraticCurveTo(184, 334, 188, 300); p.closePath(); }), '#2A1F2A', '#140C14', '#5A4A5A', { off: [3, 4], hi: ell(202, 306, 6, 4) });
+  const M = { open: ['open', 'open'], lid: ['lid', 'lid'], calm: ['calm', 'calm'], sleepy: ['sleepy', 'sleepy'], wink: ['open', 'up'], happy: ['up', 'up'], closed: ['down', 'down'], patch: [null, L.visEye || 'calm'], patchR: [L.visEye || 'calm', null] }[st];
+  if (M[0]) one(212, M[0]); if (M[1]) one(288, M[1]);
+  if (L.mole) { c.fillStyle = INK; c.beginPath(); c.arc(L.mole === 'viewerLeft' ? 196 : 304, 352, 2.6, 0, TAU); c.fill(); }
+  if (st === 'patch' || st === 'patchR') {
+    const X = st === 'patch' ? (x => x) : (x => 500 - x), pc = L.patchColor || ['#2A1F2A', '#140C14', '#5A4A5A'];
+    stroke(c, 4, q => { q.moveTo(X(190), 300); q.lineTo(X(152), 272); q.moveTo(X(234), 300); q.lineTo(X(300), 256); });
+    cel(c, P2(p => { p.moveTo(X(188), 300); p.quadraticCurveTo(X(212), 288, X(236), 300); p.quadraticCurveTo(X(240), 334, X(212), 346); p.quadraticCurveTo(X(184), 334, X(188), 300); p.closePath(); }), pc[0], pc[1], pc[2], { off: [3, 4], hi: ell(X(202), 306, 6, 4) });
   }
 }
 function chibiMouth(c, m) {
@@ -848,156 +764,228 @@ function drawChibi(c, L, elem) {
 /* ---- signature props, accessories and companions ---- */
 const flower5 = (c, x, y, r, col, mid = '#F2C04A') => { for (let i = 0; i < 5; i++) { const a = i * TAU / 5 - Math.PI / 2; cel(c, P2(p => p.arc(x + Math.cos(a) * r * 0.62, y + Math.sin(a) * r * 0.62, r * 0.5, 0, TAU)), col, shadeHex(col, -0.25), null, { off: [1, 1], lw: 2.5 }); } cel(c, P2(p => p.arc(x, y, r * 0.3, 0, TAU)), mid, shadeHex(mid, -0.3), null, { off: [0, 0], lw: 2.5 }); };
 const leafAt = (c, x, y, s, rot, col = ['#8ACB5A', '#4E8A2E']) => { c.save(); c.translate(x, y); c.rotate(rot); cel(c, P2(p => { p.moveTo(-s, 0); p.quadraticCurveTo(0, -s * 0.8, s, 0); p.quadraticCurveTo(0, s * 0.8, -s, 0); p.closePath(); }), col[0], col[1], null, { off: [1, 2], lw: 3 }); stroke(c, 2, q => { q.moveTo(-s * 0.8, 0); q.lineTo(s * 0.8, 0); }); c.restore(); };
+/* short cape / capelet hanging behind the shoulders */
+const cape = (c, col, len = 520) => cel(c, P2(p => { p.moveTo(206, 420); p.bezierCurveTo(170, 460, 158, len - 30, 150, len); p.quadraticCurveTo(250, len + 26, 350, len); p.bezierCurveTo(342, len - 30, 330, 460, 294, 420); p.closePath(); }), ...col, { off: [5, 6] });
+const tie = (c, col, gem) => { cel(c, P2(p => { p.moveTo(250, 432); p.lineTo(240, 470); p.lineTo(250, 482); p.lineTo(260, 470); p.closePath(); }), col, shadeHex(col, -0.2), null, { off: [1, 2], lw: 3 }); if (gem) cel(c, P2(p => p.arc(250, 436, 6, 0, TAU)), gem, shadeHex(gem, -0.35), null, { off: [1, 1], lw: 2.5 }); };
 const hood = (c, col, ears) => {
   cel(c, P2(p => { p.moveTo(128, 340); p.bezierCurveTo(118, 220, 180, 170, 250, 170); p.bezierCurveTo(320, 170, 382, 220, 372, 340); p.quadraticCurveTo(360, 260, 250, 236); p.quadraticCurveTo(140, 260, 128, 340); p.closePath(); }), ...col, { off: [5, 6] });
   if (ears) pair((p, X) => p.arc(X(176), 192, 26, 0, TAU)).forEach(e => cel(c, e, ...col, { off: [3, 3] }));
 };
 
+/* small reusable pieces for signature details */
+const earring = (c, x, gem, tassel) => { stroke(c, 3, q => { q.moveTo(x, 334); q.lineTo(x, 350); }); cel(c, P2(p => p.arc(x, 356, 6, 0, TAU)), gem, shadeHex(gem, -0.35), null, { off: [1, 1], lw: 2.5 }); if (tassel) cel(c, P2(p => { p.moveTo(x - 4, 362); p.lineTo(x + 4, 362); p.lineTo(x + 6, 392); p.lineTo(x - 6, 392); p.closePath(); }), tassel, shadeHex(tassel, -0.3), null, { off: [1, 1], lw: 2.5 }); };
+const bell = (c, x, y, r) => { cel(c, P2(p => p.arc(x, y, r, 0, TAU)), '#F2C04A', '#B8801A', '#FFF0B0', { off: [2, 2], hi: ell(x - r * 0.35, y - r * 0.35, r * 0.3, r * 0.2) }); stroke(c, 2.5, q => { q.moveTo(x - r * 0.7, y); q.lineTo(x + r * 0.7, y); q.moveTo(x, y); q.lineTo(x, y + r * 0.6); }); };
+const drawOz = c => {
+  const OZ = ['#3E3456', '#1E1830', '#7A6AA8'];
+  cel(c, P2(p => { p.moveTo(392, 214); p.bezierCurveTo(362, 160, 336, 148, 310, 156); p.bezierCurveTo(336, 176, 348, 196, 372, 226); p.closePath(); }), ...OZ, { off: [4, 4] });
+  cel(c, P2(p => { p.moveTo(380, 236); p.lineTo(356, 262); p.lineTo(384, 252); p.closePath(); }), ...OZ, { off: [2, 2] });
+  cel(c, ell(394, 226, 32, 22, -0.35), ...OZ, { off: [4, 4], hi: ell(384, 216, 10, 5, -0.4) });
+  cel(c, P2(p => p.arc(420, 204, 17, 0, TAU)), ...OZ, { off: [3, 3] });
+  cel(c, P2(p => { p.moveTo(434, 198); p.lineTo(454, 206); p.lineTo(434, 212); p.closePath(); }), '#F2C04A', '#C08A1A', null, { off: [1, 1], lw: 3 });
+  c.fillStyle = '#E3B6FF'; c.beginPath(); c.arc(424, 200, 4.5, 0, TAU); c.fill();
+  cel(c, P2(p => { p.moveTo(404, 210); p.bezierCurveTo(414, 160, 436, 138, 460, 140); p.bezierCurveTo(446, 172, 430, 196, 414, 222); p.closePath(); }), ...OZ, { off: [4, 4] });
+};
+/* a hair tail with a colour fade toward the tip, drawn behind the body */
+const tail = (c, path, HR, tip, y0, y1) => { cel(c, path, ...HR, { off: [4, 5] }); if (tip) tipShade(c, path, { tip }, y0, y1); };
+const BLACK = ['#1E1E2A', '#0E0E18', '#4A4A5A'], SKIN_LEGS = SKIN;
+
 const CHARS = {
   /* ---------------- 5★ ---------------- */
   klee:    { name: '可莉', sub: '逃跑的太阳', elem: 'pyro', stars: 5, draw: drawKlee },
   zhongli: { name: '钟离', sub: '尘世闲游', elem: 'geo', stars: 5, look: {
-    hair: ['#3A2A22', '#22160F', '#6A5040'], eye: '#E8A33A', eyeStyle: 'calm', mouth: 'smile', back: 'short', bangs: 'parted',
-    outfit: { type: 'robe', top: ['#4A3226', '#2E1E16', '#7A5A48'], panel: ['#2A2020', '#150E0E'], collar: '#F2E6CC', belt: '#E2B04A' },
-    legs: ['#2A2020', '#150E0E'], shoes: ['#2A2020', '#150E0E', '#5A4A40'], pose: 'chin', hand: ['#3A2E2A', '#221A18', '#5A4E4A'],
-    body(c) { const t = P2(p => { p.moveTo(318, 330); p.bezierCurveTo(342, 380, 330, 450, 314, 522); p.bezierCurveTo(308, 542, 296, 546, 292, 532); p.bezierCurveTo(300, 470, 306, 400, 300, 350); p.closePath(); });
-      cel(c, t, '#3A2A22', '#22160F', '#6A5040', { off: [4, 5] }); c.save(); c.clip(t); c.fillStyle = '#F2C04A'; c.fillRect(280, 500, 60, 60); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(t); },
-    front(c) { stroke(c, 3, q => { q.moveTo(350, 334); q.lineTo(350, 372); }); glyph(c, 'geo', 350, 384, 0.6); } } },
+    hair: ['#3B2A20', '#22160F', '#6A5040'], tip: '#E8A33A', eye: '#F2B43C', pupil: 'diamond', liner: '#D8542A', eyeStyle: 'calm', mouth: 'smile', back: 'short', bangs: 'parted', locks: true,
+    outfit: { type: 'robe', top: ['#3E2A1E', '#24170F', '#6A4A38'], panel: ['#8A5A2A', '#5A3818'], collar: '#EFE3C8' },
+    legs: ['#1E1A1A', '#0E0B0B'], shoes: ['#1E1A1A', '#0E0B0B', '#4A4040'], pose: 'behind',
+    behind(c) { tail(c, P2(p => { p.moveTo(300, 300); p.bezierCurveTo(350, 380, 352, 480, 340, 574); p.lineTo(318, 578); p.bezierCurveTo(326, 480, 322, 390, 290, 320); p.closePath(); }), ['#3B2A20', '#22160F', '#6A5040'], '#E8A33A', 440, 578); },
+    body(c) { stroke(c, 3, q => { q.moveTo(236, 432); q.lineTo(228, 592); q.moveTo(264, 432); q.lineTo(272, 592); }, '#E2B04A'); tie(c, '#FFFFFF', '#E8A33A'); },
+    front(c) { earring(c, 350, '#E8A33A', '#E2B04A'); } } },
   venti:   { name: '温迪', sub: '风色诗人', elem: 'anemo', stars: 5, look: {
-    hair: ['#2A2E3E', '#161822', '#4E5670'], eye: '#3FD6C0', eyeStyle: 'wink', mouth: 'open', brow: 'up', back: 'bob', bangs: 'spiky',
-    outfit: { type: 'shorts', top: ['#3E8E5A', '#27613B', '#6FC08A'], bottom: ['#2E6A44', '#1C4A2E'], collar: '#FFFFFF', belt: '#6A4A2A' },
-    legs: ['#F4F2EC', '#CFC6B4'], shoes: ['#6A4A2A', '#3E2A1A', '#9A7A5A'], pose: 'hold',
-    prop(c) { const f = q => { q.moveTo(224, 430); q.quadraticCurveTo(216, 500, 250, 506); q.quadraticCurveTo(284, 500, 276, 430); q.moveTo(218, 432); q.lineTo(282, 432); }; stroke(c, 11, f); stroke(c, 5.5, f, '#F2C04A'); stroke(c, 1.5, q => { for (const x of [238, 250, 262]) { q.moveTo(x, 434); q.lineTo(x, 498); } }, '#FFF6D0'); },
-    front(c) { pair((p, X) => { p.moveTo(X(164), 300); p.bezierCurveTo(X(150), 350, X(160), 400, X(152), 432); p.lineTo(X(164), 432); p.bezierCurveTo(X(172), 400, X(162), 350, X(176), 306); p.closePath(); }).forEach(b => cel(c, b, '#4FE0C8', '#22A088', null, { off: [2, 2], lw: 3 }));
-      cel(c, P2(p => { p.ellipse(244, 214, 116, 34, -0.12, 0, TAU); }), '#2E6A44', '#1C4A2E', '#5AA070', { off: [4, 5], hi: ell(200, 204, 30, 7, -0.15) });
-      flower5(c, 318, 204, 22, '#FFFFFF', '#FFE45C');
+    hair: ['#1E2433', '#10141E', '#3E4660'], eye: '#34B6A6', eyeStyle: 'wink', mouth: 'open', brow: 'up', back: 'bob', bangs: 'spiky',
+    outfit: { type: 'shorts', top: ['#FFFFFF', '#D4DCEA', '#FFFFFF'], bottom: ['#2E7D5B', '#1C5A3E'], collar: '#FFFFFF' },
+    legs: ['#F4F2EC', '#CFC6B4'], shoes: ['#7A4E2E', '#4E2E18', '#A87A50'], pose: 'hold',
+    behind(c) { cape(c, ['#2E7D5B', '#1C5A3E', '#5AA070'], 506); },
+    body(c) { cel(c, P2(p => p.roundRect(208, 464, 84, 36, 8)), '#7A4E2E', '#4E2E18', '#A87A50', { off: [2, 3] });
+      for (const x of [228, 272]) for (const y of [570, 588]) cel(c, P2(p => { p.moveTo(x, y - 6); p.lineTo(x + 4, y); p.lineTo(x, y + 6); p.lineTo(x - 4, y); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [0, 0], lw: 2 });
+      cel(c, P2(p => { p.moveTo(250, 436); p.lineTo(232, 426); p.lineTo(234, 448); p.closePath(); p.moveTo(250, 436); p.lineTo(268, 426); p.lineTo(266, 448); p.closePath(); }), '#2A3F8A', '#1A2A60', null, { off: [1, 2] }); },
+    prop(c) { const f = q => { q.moveTo(224, 430); q.quadraticCurveTo(216, 500, 250, 506); q.quadraticCurveTo(284, 500, 276, 430); q.moveTo(218, 432); q.lineTo(282, 432); }; stroke(c, 11, f); stroke(c, 5.5, f, '#C89A5A'); stroke(c, 1.5, q => { for (const x of [238, 250, 262]) { q.moveTo(x, 434); q.lineTo(x, 498); } }, '#FFF6D0'); },
+    front(c) { pair((p, X) => { p.moveTo(X(164), 300); p.bezierCurveTo(X(150), 350, X(160), 400, X(152), 432); p.lineTo(X(164), 432); p.bezierCurveTo(X(172), 400, X(162), 350, X(176), 306); p.closePath(); }).forEach(b => { cel(c, b, '#1E2433', '#10141E', null, { off: [2, 2], lw: 3 }); tipShade(c, b, { tip: '#3FC1B5' }, 360, 432); });
+      cel(c, P2(p => { p.ellipse(244, 214, 116, 34, -0.12, 0, TAU); }), '#2E7D5B', '#1C5A3E', '#5AA070', { off: [4, 5], hi: ell(200, 204, 30, 7, -0.15) });
+      stroke(c, 3, q => q.ellipse(244, 222, 110, 22, -0.12, 0.2, 2.9), '#E2B04A');
       cel(c, P2(p => { p.moveTo(330, 190); p.quadraticCurveTo(372, 150, 388, 168); p.quadraticCurveTo(364, 190, 334, 204); p.closePath(); }), '#FFFFFF', '#C8D4DA', null, { off: [2, 2], lw: 3 });
-      const sw = q => { q.arc(420, 300, 22, 0.3, 4.6); q.moveTo(92, 360); q.arc(78, 360, 14, 0, 4.2); }; stroke(c, 7, sw); stroke(c, 3, sw, '#C8FFEE'); } } },
+      flower5(c, 318, 204, 22, '#FFFFFF', '#FFE45C'); } } },
   raiden:  { name: '雷电将军', sub: '一心净土', elem: 'electro', stars: 5, look: {
-    hair: ['#6C4BA8', '#442E78', '#9F86D8'], eye: '#9A6BE0', eyeStyle: 'lid', mouth: 'flat', back: 'long', backLen: 562, bangs: 'blunt', locks: true,
-    outfit: { type: 'robe', top: ['#5E3F96', '#3C2766', '#8C6CC8'], panel: ['#3A2A5A', '#221640'], collar: '#E8DDFF', belt: '#C23A5A' },
-    legs: ['#3C2766', '#241646'], shoes: ['#2C1D4C', '#16102A', '#5A4A88'], pose: 'wave', wide: true,
+    hair: ['#4B3A6E', '#2E2248', '#7A68A8'], tip: '#9D86C9', eye: '#9A6FD1', eyeStyle: 'lid', mouth: 'flat', mole: 'viewerLeft', back: 'long', backLen: 562, bangs: 'side', locks: true,
+    outfit: { type: 'dress', top: ['#B9A3D8', '#8A72B0', '#DCCFF0'], bottom: ['#B9A3D8', '#8A72B0'], collar: '#4B3A6E', belt: '#C23A3A', frill: '#4B3A6E' },
+    legs: ['#3A2A5A', '#22163A'], shoes: ['#7A4E2E', '#4E2E18', '#A87A50'], pose: 'wave', wide: true,
+    body(c) { for (const [x, y] of [[226, 540], [276, 560], [240, 452]]) flower5(c, x, y, 10, '#E6D8FF', '#8A72B0'); cel(c, P2(p => { p.moveTo(246, 494); p.lineTo(254, 494); p.lineTo(258, 528); p.lineTo(242, 528); p.closePath(); }), '#8C4DFF', '#5A2AB0', null, { off: [1, 1], lw: 2.5 }); },
     prop(c) { cel(c, P2(p => { p.moveTo(362, 372); p.lineTo(452, 146); p.lineTo(462, 150); p.lineTo(376, 378); p.closePath(); }), '#E8E4F4', '#9A8EC0', '#FFFFFF', { off: [2, 2], lw: 3.5 });
       cel(c, ell(368, 372, 16, 7, -1.2), '#C23A5A', '#8A1E3A', null, { off: [1, 1], lw: 3 }); cel(c, capsule(352, 398, 364, 372, 6), '#2C1D4C', '#16102A', null, { off: [1, 1], lw: 3 }); },
-    front(c) { flower5(c, 330, 232, 24, '#B79BEA', '#F2C04A'); cel(c, P2(p => { p.moveTo(344, 244); p.lineTo(372, 290); p.lineTo(352, 286); p.closePath(); }), '#C23A5A', '#8A1E3A', null, { off: [1, 1], lw: 3 }); },
+    front(c) { cel(c, P2(p => { p.moveTo(176, 238); p.arc(176, 238, 30, Math.PI * 1.05, Math.PI * 1.7); p.closePath(); }), '#E8DDFF', '#A898CC', null, { off: [2, 2], lw: 3 }); flower5(c, 162, 226, 14, '#D8C4FF', '#F2C04A'); flower5(c, 190, 214, 11, '#D8C4FF', '#F2C04A');
+      cel(c, ell(300, 434, 22, 13), '#2A2030', '#141018', '#5A5070', { off: [2, 3], hi: ell(294, 430, 6, 3) }); stroke(c, 3, q => q.ellipse(300, 434, 22, 13, 0, 0, TAU), '#E2B04A'); },
     fxAt: [[84, 250, 1], [96, 476, 0.7], [440, 470, 0.7]] } },
   ganyu:   { name: '甘雨', sub: '循循守月', elem: 'cryo', stars: 5, look: {
-    hair: ['#8FB4E8', '#5E80C0', '#D4E6FF'], eye: '#8A5BD8', eyeStyle: 'open', mouth: 'o', brow: 'worried', blush: true, back: 'long', backLen: 562, bangs: 'spiky', locks: true,
-    outfit: { type: 'dress', top: ['#2A2F4A', '#171A2E', '#4E5680'], bottom: ['#F4F2FF', '#C8C4E6'], collar: '#FFFFFF', bell: true, frill: '#8FB4E8' },
-    legs: ['#2A2F4A', '#171A2E'], shoes: ['#2A2F4A', '#171A2E', '#4E5680'], pose: 'hold',
-    front(c) { pair((p, X) => { p.moveTo(X(186), 222); p.bezierCurveTo(X(170), 188, X(150), 170, X(126), 172); p.bezierCurveTo(X(146), 180, X(158), 200, X(166), 232); p.closePath(); }).forEach(h => cel(c, h, '#7A2A3A', '#4E1422', '#B0505E', { off: [2, 3] })); } } },
+    hair: ['#86B5E0', '#5A80BE', '#CFE4FA'], tip: '#8A7FD0', eye: '#B77DC7', eyeStyle: 'open', mouth: 'smile', brow: 'worried', blush: true, back: 'long', backLen: 562, bangs: 'spiky', locks: true,
+    outfit: { type: 'dress', top: ['#F6F4FF', '#C8C4E6', '#FFFFFF'], bottom: ['#F6F4FF', '#C8C4E6'], collar: '#1E1E2E', bell: true, frill: '#4A7FD0', belt: '#E2B04A' },
+    sleeve: ['#F6F4FF', '#C8C4E6', '#FFFFFF'], hand: BLACK, legs: ['#1E1E2E', '#0E0E18'], shoes: ['#8A8A9A', '#5A5A6A', '#B8B8C8'], pose: 'hold',
+    body(c) { stroke(c, 3, q => { q.moveTo(222, 452); q.lineTo(250, 480); q.lineTo(278, 452); }, '#E2B04A'); },
+    front(c) { pair((p, X) => { p.moveTo(X(186), 222); p.bezierCurveTo(X(170), 188, X(150), 170, X(126), 172); p.bezierCurveTo(X(146), 180, X(158), 200, X(166), 232); p.closePath(); }).forEach(h => { cel(c, h, '#2A2030', '#141018', '#5A5070', { off: [2, 3] }); c.save(); c.clip(h); stroke(c, 5, q => { q.moveTo(130, 168); q.lineTo(200, 200); q.moveTo(370, 168); q.lineTo(300, 200); }, '#C23A3A'); c.restore(); });
+      stroke(c, 5, q => { q.moveTo(248, 206); q.quadraticCurveTo(238, 176, 262, 172); }); } } },
   hutao:   { name: '胡桃', sub: '雪霁梅香', elem: 'pyro', stars: 5, look: {
-    hair: ['#4A2A22', '#2C1812', '#7A4A3A'], eye: '#E0304A', pupil: 'flower', eyeStyle: 'wink', mouth: 'tongue', brow: 'up', back: 'twin', backLen: 566, bangs: 'spiky',
-    outfit: { type: 'coat', top: ['#4A3028', '#2E1C16', '#7A5244'], bottom: ['#1E1414', '#0E0808'], collar: '#2A1A18', buttons: '#E0304A' },
-    legs: ['#2A1A18', '#150C0A'], shoes: ['#2A1A18', '#150C0A', '#5A4038'], pose: 'peace',
-    front(c) { cel(c, P2(p => { p.moveTo(186, 222); p.lineTo(196, 158); p.quadraticCurveTo(250, 146, 304, 158); p.lineTo(314, 222); p.closePath(); }), '#3A2420', '#1E1210', '#6A4A40', { off: [4, 5] });
-      cel(c, ell(250, 224, 122, 20, -0.04), '#3A2420', '#1E1210', '#6A4A40', { off: [3, 4] });
-      flower5(c, 290, 188, 18, '#E0304A', '#FFE45C'); flower5(c, 314, 206, 13, '#E0304A', '#FFE45C');
-      cel(c, P2(p => p.roundRect(326, 226, 26, 64, 3)), '#F2D08A', '#C8A050', null, { off: [2, 2], lw: 3 }); stroke(c, 2.5, q => { q.moveTo(333, 238); q.lineTo(345, 250); q.lineTo(333, 262); q.lineTo(345, 276); }, '#C8303A'); },
+    hair: ['#3D2320', '#22120F', '#6A4038'], tip: '#B3262C', eye: '#D22F2F', pupil: 'flower', eyeStyle: 'wink', mouth: 'tongue', brow: 'up', back: 'twin', backLen: 566, bangs: 'sideR', locks: true,
+    outfit: { type: 'coat', top: ['#4A3028', '#2E1C16', '#7A5244'], bottom: ['#1A1414', '#0C0808'], collar: '#C8302F', buttons: '#E2B04A' },
+    legs: SKIN_LEGS, socks: '#FFFFFF', shoes: ['#1A1414', '#0C0808', '#4A4040'], pose: 'peace',
+    front(c) { cel(c, P2(p => { p.moveTo(186, 222); p.lineTo(196, 158); p.quadraticCurveTo(250, 146, 304, 158); p.lineTo(314, 222); p.closePath(); }), '#231C1E', '#100A0C', '#4A4044', { off: [4, 5] });
+      cel(c, ell(250, 224, 122, 20, -0.04), '#231C1E', '#100A0C', '#4A4044', { off: [3, 4] });
+      cel(c, P2(p => p.roundRect(236, 172, 28, 42, 3)), '#E8D0A0', '#C0A070', null, { off: [2, 2], lw: 3 }); stroke(c, 2.5, q => { q.moveTo(242, 182); q.lineTo(258, 182); q.moveTo(250, 182); q.lineTo(250, 206); }, '#C8303A');
+      stroke(c, 3.5, q => { q.moveTo(300, 200); q.lineTo(338, 178); }, '#5A3020'); flower5(c, 316, 188, 13, '#E0304A', '#FFE45C'); flower5(c, 336, 176, 11, '#E0304A', '#FFE45C');
+      cel(c, P2(p => { p.moveTo(330, 206); p.lineTo(326, 236); p.lineTo(336, 236); p.closePath(); }), '#3A4A9A', '#22307A', null, { off: [1, 1], lw: 2.5 }); },
     pet(c) { cel(c, P2(p => { p.moveTo(396, 262); p.bezierCurveTo(390, 214, 450, 206, 454, 250); p.quadraticCurveTo(458, 280, 446, 292); p.lineTo(436, 280); p.lineTo(424, 294); p.lineTo(412, 280); p.lineTo(400, 292); p.closePath(); }), '#FFFFFF', '#C8D0E6', null, { off: [3, 3] });
       c.fillStyle = INK; for (const x of [414, 436]) { c.beginPath(); c.arc(x, 244, 4, 0, TAU); c.fill(); } cel(c, ell(425, 260, 6, 5), '#5A2030', '#3A1020', null, { off: [0, 0], lw: 2 }); },
     fxAt: [[84, 250, 1], [96, 476, 0.7], [440, 470, 0.7]] } },
   nahida:  { name: '纳西妲', sub: '白草净华', elem: 'dendro', stars: 5, look: {
-    hair: ['#F4F4F0', '#C8CCD0', '#FFFFFF'], eye: '#6BD04A', pupil: 'plus', eyeStyle: 'open', mouth: 'smile', back: 'pony', ponySide: 1, ponyTip: '#8ACB5A', bangs: 'spiky', ears: 'elf',
-    outfit: { type: 'dress', top: ['#F4F2EC', '#CFC6B4', '#FFFFFF'], bottom: ['#E8F4E0', '#B8D4A8'], collar: '#8ACB5A', frill: '#8ACB5A' },
-    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#6BB04A', '#3E7A2A', '#A8E080'], pose: 'chin',
-    front(c) { leafAt(c, 316, 222, 22, -0.6); leafAt(c, 338, 244, 18, 0.3); leafAt(c, 300, 208, 14, -1.2, ['#C8F0A0', '#6BB04A']); } } },
+    hair: ['#EDEBE6', '#C0C4C0', '#FFFFFF'], tip: '#6FBF6A', eye: '#3E9E4B', pupil: 'plus', eyeStyle: 'open', mouth: 'smile', back: 'pony', ponySide: 1, bangs: 'spiky', ears: 'elf',
+    outfit: { type: 'dress', top: ['#F6F4EE', '#CFC6B4', '#FFFFFF'], bottom: ['#F6F4EE', '#CFC6B4'], collar: '#6FBF6A', frill: '#6FBF6A', belt: '#E2B04A' },
+    sleeve: ['#8ACB5A', '#4E8A2E', '#B8E890'], legs: ['#FFFFFF', '#CFD7E6'], shoes: SKIN, pose: 'chin',
+    behind(c) { cape(c, ['#CFEFB8', '#9ACB80', '#EAFFE0'], 500); },
+    front(c) { for (const [x, y, r] of [[-1, 0, 0], [0, 1, 1.57], [1, 0, 3.14], [0, -1, 4.71]]) leafAt(c, 330 + x * 14, 226 + y * 14, 15, r + 0.78, ['#6FBF6A', '#3E8A3A']); cel(c, P2(p => p.arc(330, 226, 6, 0, TAU)), '#F2C04A', '#B8801A', null, { off: [1, 1], lw: 2.5 }); leafAt(c, 176, 222, 12, -0.9, ['#A8E878', '#4FA83A']); } } },
   furina:  { name: '芙宁娜', sub: '不休独舞', elem: 'hydro', stars: 5, look: {
-    hair: ['#EAF2FF', '#AFC4E8', '#FFFFFF'], eye: '#3A7AE0', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'bob', bangs: 'side', streak: '#4A8AE8',
-    outfit: { type: 'coat', top: ['#2E4E9E', '#1C3270', '#6A8AD8'], bottom: ['#F4F2FF', '#C8C4E6'], collar: '#FFFFFF', buttons: '#F2C04A' },
-    legs: ['#1C2440', '#0E1428'], shoes: ['#1C2440', '#0E1428', '#4A5680'], pose: 'wave',
-    front(c) { c.save(); c.translate(322, 214); c.rotate(0.28);
-      cel(c, P2(p => { p.moveTo(-28, 0); p.lineTo(-24, -54); p.lineTo(24, -54); p.lineTo(28, 0); p.closePath(); }), '#1C2A5A', '#0E1638', '#4A5A8A', { off: [3, 3] });
+    hair: ['#EEF1F8', '#B8C4D8', '#FFFFFF'], tip: '#9ED3F0', streak: '#5AA8F0', eye: '#9AD7F5', eye2: '#2A5AB0', pupil: 'drop', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'twin', bob: true, backLen: 540, bangs: 'spiky',
+    outfit: { type: 'coat', top: ['#1F2A5A', '#10183A', '#4A5A8A'], bottom: ['#1F2A5A', '#10183A'], collar: '#FFFFFF', bow: '#3A7AE0' },
+    hand: BLACK, hand2: ['#FFFFFF', '#D4DCEA', '#FFFFFF'], legs: SKIN_LEGS, socks: '#FFFFFF', shoes: ['#1F2A5A', '#10183A', '#4A5A8A'], pose: 'wave',
+    body(c) { stroke(c, 3, q => { for (const x of [228, 272]) { q.moveTo(x - 12, 572); q.lineTo(x + 12, 572); } }); cel(c, P2(p => p.arc(250, 448, 8, 0, TAU)), '#6AC8FF', '#2A7AD0', '#E0F6FF', { off: [1, 1], lw: 2.5 }); },
+    front(c) { stroke(c, 6, q => { q.moveTo(176, 214); q.quadraticCurveTo(150, 186, 162, 164); });
+      c.save(); c.translate(322, 214); c.rotate(0.28);
+      cel(c, P2(p => { p.moveTo(-28, 0); p.lineTo(-24, -54); p.lineTo(24, -54); p.lineTo(28, 0); p.closePath(); }), '#1F2A5A', '#10183A', '#4A5A8A', { off: [3, 3] });
       cel(c, P2(p => p.rect(-27, -16, 54, 10)), '#4A8AE8', '#2A5AB0', null, { off: [1, 1], lw: 3 });
-      cel(c, ell(0, 0, 46, 10), '#1C2A5A', '#0E1638', null, { off: [2, 2] }); c.restore(); } } },
+      cel(c, ell(0, 0, 46, 10), '#1F2A5A', '#10183A', null, { off: [2, 2] }); cel(c, P2(p => p.arc(-14, -11, 6, 0, TAU)), '#6AC8FF', '#2A7AD0', null, { off: [1, 1], lw: 2.5 }); c.restore(); } } },
   ayaka:   { name: '神里绫华', sub: '白鹭霜华', elem: 'cryo', stars: 5, look: {
-    hair: ['#C8D4EC', '#8E9CC0', '#F2F6FF'], eye: '#4A6AC8', eyeStyle: 'calm', mouth: 'smile', back: 'long', backLen: 520, bangs: 'blunt', locks: true,
-    outfit: { type: 'dress', top: ['#3C5A9E', '#243C70', '#7A9AD8'], bottom: ['#3C5A9E', '#243C70'], collar: '#FFFFFF', frill: '#FFFFFF', belt: '#C8D0E0' },
-    legs: ['#F4F2FF', '#C8C4E6'], shoes: ['#3C5A9E', '#243C70', '#7A9AD8'], pose: 'chin',
-    prop(c, [x, y]) { c.save(); c.translate(x + 6, y - 6); for (let i = -3; i <= 3; i++) { c.save(); c.rotate(0.45 + i * 0.16); cel(c, P2(p => { p.moveTo(0, 0); p.lineTo(-7, -58); p.lineTo(7, -58); p.closePath(); }), i % 2 ? '#FFFFFF' : '#CFE0FF', '#8EA8D8', null, { off: [1, 1], lw: 2.5 }); c.restore(); } c.restore(); },
-    front(c) { cel(c, P2(p => { p.moveTo(330, 226); p.lineTo(306, 210); p.lineTo(310, 242); p.closePath(); p.moveTo(330, 226); p.lineTo(354, 212); p.lineTo(352, 244); p.closePath(); }), '#C8303A', '#8A1E2A', null, { off: [2, 2] }); flower5(c, 330, 226, 12, '#E6F0FF', '#4A6AC8'); } } },
+    hair: ['#BCD6EA', '#88A4C4', '#EEF6FF'], eye: '#8FA7C8', mole: 'viewerRight', eyeStyle: 'calm', mouth: 'smile', back: 'long', backLen: 520, bangs: 'blunt', locks: true,
+    outfit: { type: 'dress', top: ['#23232E', '#101018', '#4A4A5A'], bottom: ['#1E3A7A', '#10244E'], collar: '#E2B04A', belt: '#E85C8A', frill: '#FFFFFF' },
+    sleeve: ['#A8CCF0', '#6A96CC', '#E6F2FF'], wide: true, hand: BLACK, legs: SKIN_LEGS, socks: '#FFFFFF', shoes: BLACK, pose: 'hold',
+    body(c) { cel(c, P2(p => p.arc(250, 452, 9, 0, TAU)), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 }); flower5(c, 214, 552, 9, '#FFFFFF', '#A8CCF0'); flower5(c, 282, 566, 9, '#FFFFFF', '#A8CCF0'); },
+    prop(c) { c.save(); c.translate(250, 478); for (let i = -3; i <= 3; i++) { c.save(); c.rotate(i * 0.2); cel(c, P2(p => { p.moveTo(0, 0); p.lineTo(-7, -54); p.lineTo(7, -54); p.closePath(); }), i % 2 ? '#F2D46A' : '#A8CCF0', '#8EA8D8', null, { off: [1, 1], lw: 2.5 }); c.restore(); } c.restore(); },
+    front(c) { for (const x of [158, 342]) { cel(c, P2(p => p.roundRect(x - 7, 396, 14, 10, 3)), '#E2B04A', '#A87A1A', null, { off: [0, 0], lw: 2.5 }); cel(c, P2(p => { p.moveTo(x, 408); p.lineTo(x - 7, 436); p.lineTo(x + 7, 436); p.closePath(); }), '#E85C8A', '#B03A62', null, { off: [1, 1], lw: 2.5 }); } } } },
   /* ---------------- 4★ ---------------- */
-  fischl:  { name: '菲谢尔', sub: '断罪皇女！！', elem: 'electro', stars: 4, draw: drawFischl },
-  xingqiu: { name: '行秋', sub: '少年春衫薄', elem: 'hydro', stars: 4, draw: drawXingqiu },
+  fischl:  { name: '菲谢尔', sub: '断罪皇女！！', elem: 'electro', stars: 4, look: {
+    hair: ['#F2D675', '#D0A845', '#FFF3C4'], eye: '#7BC99A', eyeStyle: 'patchR', visEye: 'lid', mouth: 'smirk', brow: 'up', back: 'long', backLen: 548, bangs: 'spiky',
+    outfit: { type: 'dress', top: ['#1E1A2A', '#0E0B16', '#4A4060'], bottom: ['#2A1F44', '#16102A'], collar: '#F4EEFF', bow: '#8A4AD8', frill: '#1E1A2A' },
+    sleeve: ['#3A2A5A', '#221640', '#6A5A90'], hand: BLACK, legs: ['#2A2438', '#16121E'], shoes: ['#2A1F44', '#16102A', '#5A4A88'], pose: 'chin',
+    front(c) { pair((p, X) => { p.moveTo(X(156), 250); p.bezierCurveTo(X(120), 270, X(112), 330, X(124), 380); p.lineTo(X(142), 372); p.bezierCurveTo(X(136), 330, X(146), 290, X(170), 262); p.closePath(); }).forEach(t => cel(c, t, '#F2D675', '#D0A845', '#FFF3C4', { off: [3, 4] }));
+      pair((p, X) => { p.moveTo(X(152), 256); p.lineTo(X(128), 238); p.lineTo(X(132), 266); p.closePath(); p.moveTo(X(152), 256); p.lineTo(X(176), 242); p.lineTo(X(168), 270); p.closePath(); }).forEach(r => cel(c, r, ...BLACK, { off: [1, 2], lw: 3 })); },
+    pet: drawOz, fxAt: [[84, 250, 1], [96, 476, 0.7], [440, 470, 0.7]] } },
+  xingqiu: { name: '行秋', sub: '少年春衫薄', elem: 'hydro', stars: 4, look: {
+    hair: ['#2A3566', '#161E40', '#56629A'], eye: '#E0B04A', eyeStyle: 'calm', mouth: 'smirk', back: 'short', bangs: 'sideR',
+    outfit: { type: 'robe', top: ['#1E2448', '#10142E', '#3E4A80'], panel: ['#F2D080', '#C8A050'], collar: '#10142E' },
+    wide: true, legs: ['#F4F2EC', '#CFC6B4'], shoes: ['#F4F2EC', '#CFC6B4', '#FFFFFF'], pose: 'hold',
+    body(c) { stroke(c, 2.5, q => { for (const y of [520, 548, 576]) { q.moveTo(236, y); q.quadraticCurveTo(250, y - 8, 264, y); } }, '#C8A050'); },
+    prop(c) { cel(c, P2(p => { p.moveTo(206, 450); p.lineTo(250, 460); p.lineTo(294, 450); p.lineTo(290, 494); p.lineTo(250, 502); p.lineTo(210, 494); p.closePath(); }), '#2F74C8', '#1C4C8C', null, { off: [2, 2] });
+      cel(c, P2(p => { p.moveTo(212, 454); p.lineTo(250, 464); p.lineTo(250, 496); p.lineTo(216, 489); p.closePath(); p.moveTo(288, 454); p.lineTo(250, 464); p.lineTo(250, 496); p.lineTo(284, 489); p.closePath(); }), '#FFFBEA', '#E4D9B8', null, { off: [1, 1], lw: 2.5 }); },
+    front(c) { earring(c, 150, '#3E7BD8', '#E2B04A'); } } },
   xiangling: { name: '香菱', sub: '万民百味', elem: 'pyro', stars: 4, look: {
-    hair: ['#2A2E4A', '#161826', '#4E5474'], eye: '#F2C04A', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'bob', bangs: 'spiky',
-    outfit: { type: 'shorts', top: ['#E8453C', '#A92630', '#FF9484'], bottom: ['#2A2E4A', '#161826'], collar: '#FFFFFF', belt: '#F2C04A' },
-    legs: SKIN, shoes: ['#2A2E4A', '#161826', '#4E5474'], pose: 'wave',
-    prop(c) { cel(c, capsule(372, 366, 400, 290, 6), '#C08A4A', '#8A5A2A', null, { off: [1, 1], lw: 3 }); cel(c, ell(404, 276, 18, 22, 0.35), '#C08A4A', '#8A5A2A', '#E8C08A', { off: [2, 2], hi: ell(398, 270, 5, 7, 0.35) }); },
-    front(c) { for (const x of [180, 320]) { cel(c, P2(p => p.arc(x, 224, 24, 0, TAU)), '#2A2E4A', '#161826', '#4E5474', { off: [3, 3] }); stroke(c, 3, q => q.arc(x, 224, 12, 0, TAU)); } cel(c, P2(p => p.roundRect(236, 204, 28, 12, 5)), '#E8453C', '#A92630', null, { off: [1, 1], lw: 3 }); },
-    pet(c) { cel(c, ell(412, 590, 44, 38), '#D8452C', '#A02A1A', '#FF8A6A', { off: [4, 4] }); cel(c, P2(p => p.arc(412, 536, 32, 0, TAU)), '#D8452C', '#A02A1A', '#FF8A6A', { off: [3, 3] });
-      for (const x of [388, 436]) cel(c, P2(p => p.arc(x, 510, 11, 0, TAU)), '#D8452C', '#A02A1A', null, { off: [1, 1], lw: 3 });
-      cel(c, ell(412, 546, 18, 12), '#FFF1D6', '#E6C99A', null, { off: [1, 1], lw: 3 }); c.fillStyle = INK; for (const x of [400, 424]) { c.beginPath(); c.arc(x, 532, 4, 0, TAU); c.fill(); } c.beginPath(); c.arc(412, 542, 3, 0, TAU); c.fill(); },
+    hair: ['#2B2F55', '#171A36', '#4E5486'], eye: '#F2B33D', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'bob', bangs: 'side',
+    outfit: { type: 'shorts', top: ['#C88A3A', '#8A5A1A', '#F0B868'], bottom: ['#1A1A24', '#0C0C12'], collar: '#1A1A24', belt: '#E2B04A', bow: '#FF8A3A' },
+    hand: ['#8A5A2A', '#5A3818', '#B08050'], legs: SKIN_LEGS, shoes: ['#7A4E2E', '#4E2E18', '#A87A50'], pose: 'wave',
+    body(c) { stroke(c, 3, q => { q.moveTo(218, 586); q.lineTo(236, 598); q.moveTo(236, 586); q.lineTo(218, 598); }, '#F4F2EC'); stroke(c, 5, q => { q.moveTo(262, 570); q.lineTo(286, 570); }, '#C8302F'); },
+    prop(c) { cel(c, capsule(372, 560, 374, 200, 5), '#8A3A2A', '#5A2018', null, { off: [1, 1], lw: 3 }); cel(c, P2(p => { p.moveTo(374, 140); p.lineTo(386, 186); p.lineTo(374, 200); p.lineTo(362, 186); p.closePath(); }), '#E8ECF4', '#9AA2B8', '#FFFFFF', { off: [2, 2], lw: 3 }); cel(c, P2(p => { p.moveTo(366, 202); p.lineTo(382, 202); p.lineTo(386, 230); p.lineTo(362, 230); p.closePath(); }), '#E0402A', '#A0281A', null, { off: [1, 1], lw: 2.5 }); },
+    front(c) { for (const x of [182, 318]) { cel(c, P2(p => p.arc(x, 214, 25, 0, TAU)), '#2B2F55', '#171A36', '#4E5486', { off: [3, 3] }); stroke(c, 3, q => q.arc(x, 214, 12, 0, TAU)); } cel(c, P2(p => p.roundRect(234, 196, 32, 12, 5)), '#FF6A3A', '#C0401A', null, { off: [1, 1], lw: 3 }); cel(c, P2(p => p.arc(186, 286, 8, 0, TAU)), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 }); },
+    pet(c) { cel(c, ell(420, 592, 42, 36), '#C0562A', '#8A3418', '#E88A5A', { off: [4, 4] }); cel(c, P2(p => p.arc(420, 540, 31, 0, TAU)), '#C0562A', '#8A3418', '#E88A5A', { off: [3, 3] });
+      for (const x of [396, 444]) cel(c, P2(p => p.arc(x, 514, 11, 0, TAU)), '#C0562A', '#8A3418', null, { off: [1, 1], lw: 3 });
+      cel(c, ell(420, 550, 17, 12), '#FFF1D6', '#E6C99A', null, { off: [1, 1], lw: 3 }); c.fillStyle = INK; for (const x of [408, 432]) { c.beginPath(); c.arc(x, 536, 4, 0, TAU); c.fill(); } c.beginPath(); c.arc(420, 546, 3, 0, TAU); c.fill(); },
     fxAt: [[84, 250, 1], [96, 476, 0.7], [452, 400, 0.7]] } },
   bennett: { name: '班尼特', sub: '命运试金石', elem: 'pyro', stars: 4, look: {
-    hair: ['#E8C890', '#C09A5A', '#FFF0D0'], eye: '#4AA0E0', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'short', bangs: 'spiky',
-    outfit: { type: 'shorts', top: ['#3E7A4A', '#27553A', '#6FB080'], bottom: ['#6A4A2A', '#3E2A1A'], collar: '#E8C890', belt: '#8A5A2A' },
-    legs: SKIN, shoes: ['#6A4A2A', '#3E2A1A', '#9A7A5A'], pose: 'thumb',
-    front(c) { stroke(c, 12, q => { q.moveTo(150, 250); q.quadraticCurveTo(250, 206, 350, 250); }); stroke(c, 7, q => { q.moveTo(150, 250); q.quadraticCurveTo(250, 206, 350, 250); }, '#8A5A2A');
-      for (const x of [214, 286]) { cel(c, P2(p => p.arc(x, 230, 22, 0, TAU)), '#6A5A4A', '#3E342A', null, { off: [2, 2] }); cel(c, P2(p => p.arc(x, 230, 14, 0, TAU)), '#FFB84A', '#E07A1A', '#FFF0C0', { off: [2, 2], lw: 3, hi: ell(x - 5, 225, 5, 3) }); }
-      c.save(); c.translate(306, 356); c.rotate(-0.4); cel(c, P2(p => p.roundRect(-16, -6, 32, 12, 4)), '#F2D8B0', '#D0B080', null, { off: [1, 1], lw: 2.5 }); stroke(c, 1.5, q => { q.moveTo(-4, -4); q.lineTo(4, 4); q.moveTo(4, -4); q.lineTo(-4, 4); }); c.restore(); } } },
+    hair: ['#EDE3C8', '#C8B890', '#FFFFFF'], eye: '#4BA36A', eyeStyle: 'open', mouth: 'grin', brow: 'up', back: 'short', bangs: 'spiky',
+    outfit: { type: 'shorts', top: ['#EFE6D0', '#C8B898', '#FFFFFF'], bottom: ['#243A6A', '#142448'], collar: '#EFE6D0', belt: '#7A4E2E' },
+    sleeve: ['#8A5A3A', '#5A3820', '#B08060'], hand: ['#6A4028', '#40240F', '#9A6A48'], legs: SKIN_LEGS, socks: '#FFFFFF', shoes: ['#3A5A9A', '#22386A', '#6A8AC8'], pose: 'thumb',
+    body(c) { stroke(c, 3, q => { q.moveTo(240, 432); q.lineTo(236, 504); q.moveTo(260, 432); q.lineTo(264, 504); }, '#3A6AC8'); cel(c, P2(p => p.roundRect(268, 494, 22, 18, 4)), '#7A4E2E', '#4E2E18', null, { off: [1, 1], lw: 2.5 }); },
+    front(c) { stroke(c, 12, q => { q.moveTo(150, 250); q.quadraticCurveTo(250, 206, 350, 250); }); stroke(c, 7, q => { q.moveTo(150, 250); q.quadraticCurveTo(250, 206, 350, 250); }, '#6A4A2A');
+      for (const x of [214, 286]) { cel(c, P2(p => p.arc(x, 230, 22, 0, TAU)), '#7A5A3A', '#4A3420', null, { off: [2, 2] }); cel(c, P2(p => p.arc(x, 230, 14, 0, TAU)), '#FFB84A', '#E07A1A', '#FFF0C0', { off: [2, 2], lw: 3, hi: ell(x - 5, 225, 5, 3) }); }
+      cel(c, P2(p => p.roundRect(232, 334, 36, 11, 4)), '#F2D8B0', '#D0B080', null, { off: [1, 1], lw: 2.5 });
+      cel(c, P2(p => p.roundRect(190, 460, 26, 14, 4)), '#F2C84A', '#C8981A', null, { off: [1, 1], lw: 2.5 }); } } },
   sucrose: { name: '砂糖', sub: '无害甜度', elem: 'anemo', stars: 4, look: {
-    hair: ['#6FD6B8', '#3A9E86', '#C8FFF0'], eye: '#E8C84A', eyeStyle: 'open', mouth: 'smile', brow: 'worried', back: 'bob', bangs: 'blunt',
-    outfit: { type: 'dress', top: ['#F4F2EC', '#CFC6B4', '#FFFFFF'], bottom: ['#3A9E86', '#236A58'], collar: '#6FD6B8', bow: '#3A9E86' },
-    legs: ['#F4F2EC', '#CFC6B4'], shoes: ['#3A9E86', '#236A58', '#6FD6B8'], pose: 'hold',
+    hair: ['#A8D8A0', '#6EA868', '#E0F6D8'], streak: '#7FD3D6', eye: '#E3A64A', eyeStyle: 'open', mouth: 'smile', brow: 'worried', back: 'bob', bangs: 'blunt', ears: 'none',
+    outfit: { type: 'dress', top: ['#2E5AA8', '#1C3A78', '#6A8AD8'], bottom: ['#1E2A4A', '#10182E'], collar: '#1E1E2A', frill: '#FFFFFF' },
+    sleeve: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], hand: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], legs: ['#1E1E2A', '#0E0E18'], shoes: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], pose: 'hold',
     prop(c) { const f = P2(p => { p.moveTo(244, 420); p.lineTo(256, 420); p.lineTo(256, 438); p.arc(250, 460, 24, -1.3, 4.44); p.closePath(); }); c.save(); c.fillStyle = 'rgba(230,250,255,.85)'; c.fill(f); c.clip(f); c.fillStyle = '#6BE0A0'; c.fillRect(220, 456, 60, 40); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(f); c.fillStyle = '#fff'; c.beginPath(); c.arc(240, 452, 4, 0, TAU); c.fill(); },
-    front(c) { for (const x of [212, 288]) { c.fillStyle = 'rgba(200,240,255,.18)'; c.beginPath(); c.arc(x, 324, 30, 0, TAU); c.fill(); stroke(c, 4.5, q => q.arc(x, 324, 30, 0, TAU)); } stroke(c, 4, q => { q.moveTo(242, 318); q.quadraticCurveTo(250, 312, 258, 318); });
+    front(c) { pair((p, X) => { p.moveTo(X(158), 262); p.lineTo(X(96), 250); p.quadraticCurveTo(X(120), 290, X(160), 296); p.closePath(); }).forEach(e => cel(c, e, '#A8D8A0', '#6EA868', null, { off: [2, 3] }));
+      cel(c, P2(p => p.ellipse(250, 206, 104, 30, 0, 0, TAU)), '#FFFFFF', '#C9D6EC', null, { off: [3, 4] }); stroke(c, 3, q => q.ellipse(250, 214, 98, 20, 0, 0.1, 3.0), '#2E5AA8'); cel(c, P2(p => { p.moveTo(250, 186); p.lineTo(260, 200); p.lineTo(250, 214); p.lineTo(240, 200); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 });
+      for (const x of [212, 288]) { c.fillStyle = 'rgba(200,240,255,.18)'; c.beginPath(); c.arc(x, 324, 30, 0, TAU); c.fill(); stroke(c, 4.5, q => q.arc(x, 324, 30, 0, TAU), '#3A2418'); } stroke(c, 4, q => { q.moveTo(242, 318); q.quadraticCurveTo(250, 312, 258, 318); }, '#3A2418');
       cel(c, P2(p => { p.moveTo(344, 262); p.quadraticCurveTo(356, 282, 350, 292); p.quadraticCurveTo(338, 294, 338, 282); p.closePath(); }), '#9FE0FF', '#4A9ADA', null, { off: [1, 1], lw: 3 }); } } },
   chongyun: { name: '重云', sub: '雪融有踪', elem: 'cryo', stars: 4, look: {
-    hair: ['#A8D8F0', '#6AA8D0', '#E6F8FF'], eye: '#4A8AE0', eyeStyle: 'calm', mouth: 'flat', brow: 'angry', back: 'short', bangs: 'side',
-    outfit: { type: 'robe', top: ['#EEF4FA', '#B8C8DA', '#FFFFFF'], panel: ['#2F5A8A', '#1C3A60'], collar: '#2F5A8A', belt: '#2F5A8A' },
-    legs: ['#2F5A8A', '#1C3A60'], shoes: ['#1C2A40', '#0E1628', '#4A5A7A'], pose: 'wave',
+    hair: ['#A9D7EF', '#6AA8D0', '#E6F8FF'], eye: '#7FC4E8', eyeStyle: 'calm', mouth: 'flat', brow: 'angry', back: 'short', bangs: 'parted',
+    outfit: { type: 'robe', top: ['#F4F6FA', '#C4CCDA', '#FFFFFF'], panel: ['#3E7AC8', '#24508A'], collar: '#1E2A4A', belt: '#1E1E2A' },
+    hand: ['#E2B04A', '#A87A1A', '#FFE7A0'], legs: ['#F4F6FA', '#C4CCDA'], shoes: BLACK, pose: 'wave',
+    body(c) { stroke(c, 2.5, q => { for (const x of [196, 304]) { q.moveTo(x, 560); q.lineTo(x + (x < 250 ? 10 : -10), 584); } }, '#1E2A4A'); cel(c, P2(p => { p.moveTo(286, 500); p.lineTo(294, 500); p.lineTo(298, 530); p.lineTo(282, 530); p.closePath(); }), '#DDF6FF', '#8FC8E8', null, { off: [1, 1], lw: 2.5 }); },
     prop(c) { cel(c, capsule(372, 372, 380, 330, 3.5), '#E8D4B0', '#C0A070', null, { off: [0, 0], lw: 2.5 }); cel(c, P2(p => p.roundRect(364, 262, 36, 72, 16)), '#9FE0FF', '#4AA8E0', '#E6FAFF', { off: [3, 3], hi: ell(374, 280, 4, 12) }); c.fillStyle = '#1E4A6A'; c.beginPath(); c.arc(398, 270, 8, 0, TAU); c.fill(); } } },
   beidou:  { name: '北斗', sub: '无冕的龙王', elem: 'electro', stars: 4, look: {
-    hair: ['#3A2622', '#22140F', '#6A4A40'], eye: '#E0303A', eyeStyle: 'patch', mouth: 'grin', brow: 'up', back: 'long', backLen: 548, bangs: 'side',
-    outfit: { type: 'dress', top: ['#2A2020', '#150E0E', '#5A4A48'], bottom: ['#8A1E2A', '#5A1018'], collar: '#8A1E2A', belt: '#E2B04A', frill: '#E2B04A' },
-    legs: ['#2A2020', '#150E0E'], shoes: ['#2A2020', '#150E0E', '#5A4A48'], pose: 'hip',
-    front(c) { cel(c, P2(p => { p.moveTo(318, 230); p.lineTo(350, 212); p.lineTo(346, 222); p.lineTo(360, 216); p.lineTo(330, 244); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 3 }); stroke(c, 3, q => { q.moveTo(334, 238); q.lineTo(342, 280); }, '#C8303A'); } } },
+    hair: ['#3B2620', '#22140F', '#6A4A40'], eye: '#B0202E', eyeStyle: 'patchR', visEye: 'open', patchColor: ['#B01E2A', '#7A1018', '#E0505A'], mouth: 'grin', brow: 'up', back: 'long', backLen: 548, bangs: 'sideR',
+    outfit: { type: 'dress', top: ['#C8242B', '#8A1418', '#F0606A'], bottom: ['#C8242B', '#8A1418'], belt: '#E2B04A' },
+    hand: BLACK, sleeve: BLACK, legs: BLACK, shoes: BLACK, pose: 'hip',
+    body(c) { cel(c, P2(p => { p.moveTo(196, 440); p.quadraticCurveTo(250, 408, 304, 440); p.quadraticCurveTo(300, 470, 250, 474); p.quadraticCurveTo(200, 470, 196, 440); p.closePath(); }), '#C8242B', '#8A1418', null, { off: [2, 3] });
+      cel(c, P2(p => { p.moveTo(200, 432); p.quadraticCurveTo(250, 402, 300, 432); p.quadraticCurveTo(250, 420, 200, 432); p.closePath(); }), '#FFFFFF', '#D4DCEA', null, { off: [1, 2], lw: 3 }); stroke(c, 3, q => { q.moveTo(250, 474); q.lineTo(250, 580); }, '#E2B04A'); },
+    front(c) { earring(c, 350, '#5A9ADA', '#8FC6E0'); stroke(c, 5, q => { q.moveTo(290, 196); q.lineTo(352, 176); }, '#E2B04A'); cel(c, P2(p => { p.moveTo(350, 178); p.lineTo(346, 222); p.lineTo(358, 222); p.closePath(); }), '#8FC6E0', '#5A9ABA', null, { off: [1, 1], lw: 2.5 }); } } },
   noelle:  { name: '诺艾尔', sub: '未授勋之花', elem: 'geo', stars: 4, look: {
-    hair: ['#E0E0E8', '#A8A8B8', '#FFFFFF'], eye: '#3CB878', eyeStyle: 'open', mouth: 'open', back: 'bob', bangs: 'spiky',
-    outfit: { type: 'dress', top: ['#2A2A38', '#16161F', '#50506A'], bottom: ['#2A2A38', '#16161F'], collar: '#FFFFFF', frill: '#FFFFFF', apron: true },
-    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#2A2A38', '#16161F', '#50506A'], pose: 'hip',
+    hair: ['#D8D5DE', '#A8A4B4', '#FFFFFF'], eye: '#7A8B3A', eyeStyle: 'open', mouth: 'open', back: 'bob', bangs: 'blunt',
+    outfit: { type: 'dress', top: ['#1E2238', '#10142A', '#4A4E6A'], bottom: ['#1E2238', '#10142A'], collar: '#B0305A', frill: '#B0305A', apron: true },
+    hand: ['#C8CCD8', '#8A8EA0', '#FFFFFF'], legs: BLACK, shoes: ['#A8ACB8', '#6A6E80', '#E0E4F0'], pose: 'hip',
+    body(c) { cel(c, P2(p => { p.moveTo(226, 436); p.lineTo(274, 436); p.lineTo(270, 470); p.quadraticCurveTo(250, 480, 230, 470); p.closePath(); }), '#C8CCD8', '#8A8EA0', '#FFFFFF', { off: [2, 3], hi: ell(238, 448, 6, 4) }); stroke(c, 2.5, q => { q.moveTo(226, 436); q.lineTo(274, 436); }, '#E2B04A'); },
     front(c) { const band = P2(p => { p.moveTo(168, 236); for (let i = 0; i < 7; i++) { const x = 168 + i * 23.4; p.quadraticCurveTo(x + 11.7, 196 - Math.sin((i + 0.5) / 7 * Math.PI) * 22, x + 23.4, 236 - Math.sin((i + 1) / 7 * Math.PI) * 26); } p.quadraticCurveTo(250, 206, 168, 236); p.closePath(); });
-      cel(c, band, '#FFFFFF', '#D4DCEA', null, { off: [2, 2] }); cel(c, P2(p => p.roundRect(236, 202, 28, 12, 5)), '#2A2A38', '#16161F', null, { off: [1, 1], lw: 3 });
-      for (const x of [206, 294]) cel(c, ell(x, 432, 22, 13), '#C8CCD8', '#8A8EA0', '#FFFFFF', { off: [2, 3], hi: ell(x - 6, 428, 6, 3) }); } } },
+      cel(c, band, '#FFFFFF', '#D4DCEA', null, { off: [2, 2] }); cel(c, P2(p => p.roundRect(224, 206, 52, 14, 6)), '#C8CCD8', '#8A8EA0', null, { off: [1, 1], lw: 3 }); cel(c, P2(p => p.arc(250, 213, 5, 0, TAU)), '#E2B04A', '#A87A1A', null, { off: [0, 0], lw: 2 });
+      stroke(c, 7, q => { q.moveTo(200, 256); q.quadraticCurveTo(240, 244, 300, 250); }, '#A8A4B4'); cel(c, P2(p => { p.moveTo(180, 254); p.lineTo(196, 250); p.lineTo(198, 266); p.lineTo(188, 274); p.lineTo(178, 266); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 });
+      cel(c, ell(300, 432, 24, 14), '#C8CCD8', '#8A8EA0', '#FFFFFF', { off: [2, 3], hi: ell(294, 428, 6, 3) }); flower5(c, 316, 446, 9, '#C0203A', '#FFE45C'); } } },
   barbara: { name: '芭芭拉', sub: '闪耀偶像', elem: 'hydro', stars: 4, look: {
-    hair: ['#F6DA8A', '#D6A84A', '#FFF3C4'], eye: '#3F8FE8', eyeStyle: 'wink', mouth: 'open', brow: 'up', back: 'twin', backLen: 500, curls: true, tie: '#3E7BD8', bangs: 'spiky',
-    outfit: { type: 'dress', top: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], bottom: ['#FFFFFF', '#C9D6EC'], collar: '#3E7BD8', bow: '#3E7BD8', frill: '#3E7BD8' },
-    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#3E7BD8', '#26529E', '#8FB8FF'], pose: 'wave',
-    front(c) { cel(c, P2(p => { p.moveTo(274, 214); p.bezierCurveTo(286, 176, 344, 176, 356, 214); p.quadraticCurveTo(316, 206, 274, 214); p.closePath(); }), '#FFFFFF', '#D4DCEA', null, { off: [2, 3] }); cel(c, P2(p => { p.moveTo(300, 206); p.lineTo(280, 192); p.lineTo(282, 218); p.closePath(); p.moveTo(300, 206); p.lineTo(320, 194); p.lineTo(318, 220); p.closePath(); }), '#3E7BD8', '#26529E', null, { off: [1, 2] });
-      const note = (x, y) => { cel(c, ell(x, y, 9, 7, -0.4), '#FFFFFF', '#C9D6EC', null, { off: [0, 0], lw: 3 }); stroke(c, 3, q => { q.moveTo(x + 8, y - 2); q.lineTo(x + 8, y - 30); q.lineTo(x + 20, y - 24); }); }; note(410, 300); note(92, 230); } } },
+    hair: ['#EED9A0', '#CCAE66', '#FFF3C4'], eye: '#6E9CCB', eyeStyle: 'wink', mouth: 'open', brow: 'up', back: 'twin', backLen: 500, curls: true, tie: '#FFFFFF', bangs: 'spiky',
+    outfit: { type: 'dress', top: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], bottom: ['#FFFFFF', '#C9D6EC'], collar: '#1E2A5A', bow: '#6AA8E8', frill: '#1E2A5A' },
+    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], pose: 'wave',
+    body(c) { stroke(c, 2.5, q => { for (const x of [226, 250, 274]) { q.moveTo(x, 500); q.lineTo(x, 580); } }, '#E2B04A'); },
+    front(c) { cel(c, P2(p => { p.moveTo(206, 214); p.bezierCurveTo(214, 178, 286, 178, 294, 214); p.quadraticCurveTo(250, 204, 206, 214); p.closePath(); }), '#FFFFFF', '#D4DCEA', null, { off: [2, 3] }); stroke(c, 3.5, q => { q.moveTo(208, 210); q.quadraticCurveTo(250, 200, 292, 210); }, '#1E2A5A'); cel(c, P2(p => { p.moveTo(250, 184); p.lineTo(258, 194); p.lineTo(250, 204); p.lineTo(242, 194); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 });
+      const note = (x, y) => { cel(c, ell(x, y, 9, 7, -0.4), '#FFFFFF', '#C9D6EC', null, { off: [0, 0], lw: 3 }); stroke(c, 3, q => { q.moveTo(x + 8, y - 2); q.lineTo(x + 8, y - 30); q.lineTo(x + 20, y - 24); }); }; note(410, 300); note(92, 230); },
+    pet(c) { c.save(); c.translate(184, 530); c.rotate(-0.2); cel(c, P2(p => p.roundRect(-20, -14, 40, 30, 4)), '#7FC4F0', '#3A8AC8', null, { off: [2, 2], lw: 3 }); stroke(c, 2.5, q => q.roundRect(-14, -9, 28, 20, 3), '#E2B04A'); c.restore(); } } },
   diona:   { name: '迪奥娜', sub: '猫尾特调', elem: 'cryo', stars: 4, look: {
-    hair: ['#F4A8C8', '#D0709A', '#FFE0EE'], eye: '#4FC8E8', eyeStyle: 'open', mouth: 'pout', brow: 'angry', blush: true, back: 'twin', backLen: 470, bangs: 'spiky', ears: 'none',
-    outfit: { type: 'shorts', top: ['#FFFFFF', '#C9D6EC', '#FFFFFF'], bottom: ['#3E6AB8', '#26468A'], collar: '#4FC8E8', bow: '#4FC8E8' },
-    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#3E6AB8', '#26468A', '#8FB8FF'], pose: 'hold',
-    behind(c) { cel(c, P2(p => { p.moveTo(290, 540); p.bezierCurveTo(360, 560, 420, 520, 404, 440); p.bezierCurveTo(400, 410, 440, 400, 446, 430); p.bezierCurveTo(456, 500, 390, 590, 300, 566); p.closePath(); }), '#F4A8C8', '#D0709A', '#FFE0EE', { off: [4, 4] }); },
+    hair: ['#F2A7B8', '#D07088', '#FFE0EA'], eye: '#3DB5A8', eyeStyle: 'open', mouth: 'pout', brow: 'angry', blush: true, back: 'bob', bangs: 'spiky', ears: 'none',
+    outfit: { type: 'shorts', top: ['#2E2F5E', '#1A1A3A', '#50528A'], bottom: ['#2E2F5E', '#1A1A3A'], collar: '#F0A830' },
+    sleeve: ['#F8D8E0', '#E0A8B8', '#FFFFFF'], hand: ['#FFFFFF', '#D4DCEA', '#FFFFFF'], legs: SKIN_LEGS, shoes: ['#2E2F5E', '#1A1A3A', '#50528A'], pose: 'hold',
+    behind(c) { const t = P2(p => { p.moveTo(290, 540); p.bezierCurveTo(360, 560, 420, 520, 404, 440); p.bezierCurveTo(400, 410, 440, 400, 446, 430); p.bezierCurveTo(456, 500, 390, 590, 300, 566); p.closePath(); });
+      cel(c, t, '#F2A7B8', '#D07088', '#FFE0EA', { off: [4, 4] }); c.save(); c.clip(t); c.fillStyle = '#2A2030'; c.beginPath(); c.ellipse(430, 440, 22, 14, 0.4, 0, TAU); c.fill(); c.fillStyle = '#FFFFFF'; c.beginPath(); c.ellipse(380, 540, 22, 16, 0.2, 0, TAU); c.fill(); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(t);
+      cel(c, P2(p => { p.moveTo(300, 540); p.lineTo(328, 530); p.lineTo(326, 562); p.closePath(); }), '#F08A30', '#C0601A', null, { off: [1, 1], lw: 3 }); },
+    body(c) { c.save(); c.clip(OPATH.bodice(508)); c.fillStyle = SKIN[0]; c.fillRect(214, 480, 72, 28); c.restore(); cel(c, P2(p => { p.moveTo(212, 420); p.lineTo(230, 420); p.lineTo(226, 480); p.lineTo(208, 476); p.closePath(); p.moveTo(288, 420); p.lineTo(270, 420); p.lineTo(274, 480); p.lineTo(292, 476); p.closePath(); }), '#F8D8E0', '#E0A8B8', null, { off: [1, 2], lw: 3 }); },
     prop(c) { cel(c, P2(p => { p.moveTo(222, 440); p.lineTo(278, 440); p.lineTo(250, 474); p.closePath(); }), '#9FE8FF', '#4AB8E0', null, { off: [2, 2] }); stroke(c, 4, q => { q.moveTo(250, 474); q.lineTo(250, 494); q.moveTo(236, 496); q.lineTo(264, 496); }); cel(c, P2(p => p.arc(264, 436, 7, 0, TAU)), '#E0304A', '#A01A2A', null, { off: [1, 1], lw: 2.5 }); },
-    front(c) { pair((p, X) => { p.moveTo(X(168), 238); p.lineTo(X(176), 170); p.lineTo(X(226), 214); p.closePath(); }).forEach(e => cel(c, e, '#F4A8C8', '#D0709A', null, { off: [2, 3] })); pair((p, X) => { p.moveTo(X(180), 226); p.lineTo(X(184), 190); p.lineTo(X(210), 214); p.closePath(); }).forEach(e => cel(c, e, '#FFE0EE', '#F4B8D0', null, { off: [0, 0], lw: 2.5 })); },
+    front(c) { pair((p, X) => { p.moveTo(X(164), 206); p.lineTo(X(170), 138); p.lineTo(X(222), 186); p.closePath(); }).forEach((e, i) => { cel(c, e, '#F2A7B8', '#D07088', null, { off: [2, 3] }); if (i === 0) { c.save(); c.clip(e); c.fillStyle = '#2A2030'; c.fillRect(160, 130, 26, 40); c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(e); } });
+      cel(c, P2(p => { p.moveTo(152, 236); p.bezierCurveTo(150, 176, 350, 176, 348, 236); p.quadraticCurveTo(250, 214, 152, 236); p.closePath(); }), '#2E2F5E', '#1A1A3A', '#50528A', { off: [4, 5], hi: ell(206, 202, 24, 8, -0.3) });
+      stroke(c, 6, q => { q.moveTo(252, 222); q.quadraticCurveTo(262, 196, 250, 180); }, '#F2A7B8'); },
     fxAt: [[84, 250, 1], [96, 476, 0.7], [430, 300, 0.7]] } },
   collei:  { name: '柯莱', sub: '萃念初蘖', elem: 'dendro', stars: 4, look: {
-    hair: ['#5AB08A', '#347A5C', '#A8E8C8'], eye: '#A87AE0', eyeStyle: 'open', mouth: 'smile', back: 'bob', bangs: 'side',
-    outfit: { type: 'shorts', top: ['#3A7A4A', '#24553A', '#6AB07A'], bottom: ['#2A3A30', '#161F1A'], collar: '#F2E6CC', belt: '#8A5A2A' },
-    legs: ['#2A3A30', '#161F1A'], shoes: ['#6A4A2A', '#3E2A1A', '#9A7A5A'], pose: 'wave',
-    front(c) { leafAt(c, 320, 226, 18, -0.4, ['#F2A83A', '#C0701A']); },
+    hair: ['#86BD7A', '#5A8E50', '#C8ECB8'], eye: '#A34C8F', eyeStyle: 'open', mouth: 'smile', brow: 'worried', back: 'bob', bangs: 'side',
+    outfit: { type: 'dress', top: ['#7A4E2E', '#4E2E18', '#A87A50'], bottom: ['#7A4E2E', '#4E2E18'], collar: '#F2C84A', belt: '#3A2A1A' },
+    hand: BLACK, legs: ['#C89A5A', '#9A6E34'], shoes: BLACK, pose: 'hold',
+    body(c) { cel(c, P2(p => { p.moveTo(200, 424); p.quadraticCurveTo(250, 404, 300, 424); p.lineTo(306, 468); p.quadraticCurveTo(250, 484, 194, 468); p.closePath(); }), '#4E8A4E', '#2E5E30', '#7AB07A', { off: [3, 4] });
+      for (const x of [206, 294]) cel(c, P2(p => { p.moveTo(x - 4, 470); p.lineTo(x + 4, 470); p.lineTo(x + 5, 494); p.lineTo(x - 5, 494); p.closePath(); }), '#E2B04A', '#A87A1A', null, { off: [1, 1], lw: 2.5 });
+      cel(c, P2(p => { p.moveTo(236, 428); p.lineTo(264, 428); p.lineTo(262, 520); p.lineTo(248, 524); p.closePath(); }), '#F2C84A', '#C8981A', null, { off: [1, 2], lw: 3 }); },
+    front(c) { flower5(c, 176, 232, 16, '#F2A86A', '#FFE45C'); cel(c, P2(p => { p.moveTo(176, 244); p.lineTo(166, 272); p.lineTo(176, 268); p.lineTo(184, 274); p.closePath(); }), ...BLACK, { off: [1, 1], lw: 2.5 }); earring(c, 350, '#6AD08A'); },
     pet(c) { pair((p, X) => { p.moveTo(X(84), 540); p.lineTo(X(70), 470); p.lineTo(X(104), 526); p.closePath(); }).forEach((e, i) => { c.save(); c.translate(i ? -300 : 0, 0); cel(c, e, '#6AC08A', '#3A8A5A', null, { off: [2, 2] }); c.restore(); });
-      cel(c, ell(100, 570, 36, 32), '#6AC08A', '#3A8A5A', '#A8E8C0', { off: [3, 3], hi: ell(90, 558, 8, 5) }); c.fillStyle = INK; for (const x of [88, 112]) { c.beginPath(); c.arc(x, 568, 5, 0, TAU); c.fill(); } stroke(c, 2.5, q => { q.moveTo(94, 582); q.quadraticCurveTo(100, 588, 106, 582); }); },
+      cel(c, ell(100, 570, 36, 32), '#6AC08A', '#3A8A5A', '#A8E8C0', { off: [3, 3], hi: ell(90, 558, 8, 5) }); cel(c, ell(100, 584, 18, 12), '#FFFFFF', '#D4DCEA', null, { off: [1, 1], lw: 2.5 }); c.fillStyle = INK; for (const x of [88, 112]) { c.beginPath(); c.arc(x, 566, 5, 0, TAU); c.fill(); } },
     fxAt: [[84, 250, 1], [432, 446, 0.8], [440, 250, 0.7]] } },
   sayu:    { name: '早柚', sub: '终末番忍者', elem: 'anemo', stars: 4, look: {
-    hair: ['#F2C878', '#D09A48', '#FFF0C8'], eye: '#C87A3A', eyeStyle: 'sleepy', mouth: 'o', back: 'bob', bangs: 'spiky', ears: 'none',
-    outfit: { type: 'shorts', top: ['#6A5A3A', '#443A24', '#9A8A60'], bottom: ['#3A3A30', '#1F1F18'], collar: '#F2E6CC', belt: '#C84A3A' },
-    legs: ['#3A3A30', '#1F1F18'], shoes: ['#3A3A30', '#1F1F18', '#6A6A58'], pose: 'chin',
+    hair: ['#E6C78E', '#C09A58', '#FFF0C8'], eye: '#D9637A', eyeStyle: 'sleepy', mouth: 'o', back: 'bob', bangs: 'spiky', ears: 'none',
+    outfit: { type: 'dress', top: ['#F4EEDC', '#CFC4A8', '#FFFFFF'], bottom: ['#F4EEDC', '#CFC4A8'], collar: '#8A5A36', belt: '#1E1E2A' },
+    sleeve: ['#7A5AB0', '#4E3A80', '#A88AD8'], hand: BLACK, legs: SKIN_LEGS, shoes: ['#3A6AC8', '#244A8A', '#7AA0E8'], pose: 'chin',
     behind(c) { const t = P2(p => { p.moveTo(290, 560); p.bezierCurveTo(380, 600, 470, 540, 450, 440); p.bezierCurveTo(440, 400, 396, 400, 400, 450); p.bezierCurveTo(404, 510, 360, 540, 300, 530); p.closePath(); });
-      cel(c, t, '#8A5A3A', '#5A3820', '#C08A60', { off: [4, 4] }); c.save(); c.clip(t); c.fillStyle = '#3A2418'; for (const [x, y] of [[440, 470], [420, 530]]) { c.beginPath(); c.ellipse(x, y, 40, 9, -0.6, 0, TAU); c.fill(); } c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(t); },
-    front(c) { hood(c, ['#8A5A3A', '#5A3820', '#C08A60'], true); const z = (x, y, s, lw) => { const f = q => { q.moveTo(x, y); q.lineTo(x + s, y); q.lineTo(x, y + s); q.lineTo(x + s, y + s); }; stroke(c, lw + 5, f); stroke(c, lw, f, '#fff'); }; z(366, 250, 26, 5); z(402, 206, 18, 4); },
+      cel(c, t, '#8A5A36', '#5A3820', '#C08A60', { off: [4, 4] }); c.save(); c.clip(t); c.fillStyle = '#3A2418'; for (const [x, y] of [[440, 470], [420, 530]]) { c.beginPath(); c.ellipse(x, y, 40, 9, -0.6, 0, TAU); c.fill(); } c.restore(); c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(t); },
+    body(c) { for (const [x, y] of [[222, 530], [276, 552], [236, 460]]) flower5(c, x, y, 8, '#F2A0B0', '#FFE45C'); },
+    front(c) { pair((p, X) => { p.moveTo(X(140), 330); p.bezierCurveTo(X(118), 350, X(118), 384, X(130), 400); p.lineTo(X(146), 390); p.bezierCurveTo(X(140), 370, X(146), 350, X(158), 340); p.closePath(); }).forEach(t => cel(c, t, '#E6C78E', '#C09A58', null, { off: [2, 3] }));
+      hood(c, ['#8A5A36', '#5A3820', '#C08A60'], true); leafAt(c, 250, 170, 18, -1.2, ['#6FBF6A', '#3E8A3A']);
+      const z = (x, y, s, lw) => { const f = q => { q.moveTo(x, y); q.lineTo(x + s, y); q.lineTo(x, y + s); q.lineTo(x + s, y + s); }; stroke(c, lw + 5, f); stroke(c, lw, f, '#fff'); }; z(366, 250, 26, 5); z(402, 206, 18, 4); },
     fxAt: [[84, 250, 1], [96, 476, 0.7], [440, 460, 0.7]] } },
   yaoyao:  { name: '瑶瑶', sub: '仙蕊玲珑', elem: 'dendro', stars: 4, look: {
-    hair: ['#C87A4A', '#9A5230', '#F2B888'], eye: '#E8A33A', eyeStyle: 'happy', mouth: 'grin', brow: 'up', back: 'short', bangs: 'spiky',
-    outfit: { type: 'dress', top: ['#F4F2EC', '#CFC6B4', '#FFFFFF'], bottom: ['#6BB04A', '#3E7A2A'], collar: '#6BB04A', bow: '#E8453C', frill: '#F4F2EC' },
-    legs: ['#FFFFFF', '#CFD7E6'], shoes: ['#6BB04A', '#3E7A2A', '#A8E080'], pose: 'cheer',
-    front(c) { for (const x of [176, 324]) { cel(c, P2(p => p.arc(x, 214, 28, 0, TAU)), '#C87A4A', '#9A5230', '#F2B888', { off: [3, 3] }); leafAt(c, x + (x < 250 ? -14 : 14), 190, 13, x < 250 ? -0.8 : 0.8); } },
-    pet(c) { cel(c, ell(412, 588, 38, 30), '#FFFFFF', '#CFE0D8', null, { off: [3, 3] }); for (const x of [398, 422]) cel(c, ell(x, 540, 8, 22, x < 410 ? -0.2 : 0.2), '#FFFFFF', '#CFE0D8', null, { off: [1, 1], lw: 3 });
-      c.fillStyle = INK; for (const x of [402, 422]) { c.beginPath(); c.arc(x, 582, 3.5, 0, TAU); c.fill(); } cel(c, P2(p => p.roundRect(394, 600, 36, 16, 4)), '#C08A4A', '#8A5A2A', null, { off: [1, 1], lw: 3 }); },
-    fxAt: [[84, 280, 1], [96, 476, 0.7], [440, 250, 0.7]] } },
+    hair: ['#B88A4E', '#8A6030', '#E8C088'], eye: '#9A3A3A', eyeStyle: 'open', mouth: 'smile', back: 'short', bangs: 'blunt',
+    outfit: { type: 'dress', top: ['#A9C75A', '#7A9A34', '#D0E890'], bottom: ['#A9C75A', '#7A9A34'], collar: '#4A3020', belt: '#4A3020', bow: '#F08A3A', frill: '#FFFFFF' },
+    legs: ['#FFFFFF', '#D4DCEA'], shoes: ['#FFFFFF', '#D4DCEA', '#FFFFFF'], pose: 'wave',
+    behind(c) { cel(c, P2(p => { p.moveTo(290, 286); p.lineTo(420, 294); p.lineTo(404, 470); p.lineTo(296, 460); p.closePath(); }), '#C8904A', '#8A5A24', '#E8B87A', { off: [3, 4] });
+      stroke(c, 2.5, q => { for (const y of [330, 370, 410, 450]) { q.moveTo(294, y - 20); q.lineTo(412, y - 12); } }, '#8A5A24');
+      for (const x of [380, 404]) leafAt(c, x, 232, 13, x < 392 ? -1.9 : -1.2, ['#8ACB5A', '#4E8A2E']); cel(c, P2(p => p.arc(392, 266, 25, 0, TAU)), '#FFFFFF', '#D4DCEA', null, { off: [2, 2] }); c.fillStyle = INK; for (const x of [384, 400]) { c.beginPath(); c.arc(x, 266, 3.2, 0, TAU); c.fill(); } cel(c, P2(p => { p.moveTo(304, 296); p.lineTo(292, 286); p.lineTo(294, 306); p.closePath(); p.moveTo(304, 296); p.lineTo(316, 286); p.lineTo(314, 306); p.closePath(); }), '#E0402A', '#A0281A', null, { off: [1, 1], lw: 2.5 }); },
+    body(c) { cel(c, P2(p => p.roundRect(264, 496, 24, 28, 8)), '#F08A3A', '#C0601A', null, { off: [1, 2], lw: 3 }); stroke(c, 3, q => { q.moveTo(276, 524); q.lineTo(276, 548); }, '#F08A3A'); for (const x of [224, 276]) cel(c, ell(x, 612, 12, 7), '#F08A3A', '#C0601A', null, { off: [0, 0], lw: 2 }); },
+    front(c) { cel(c, P2(p => { p.moveTo(250, 194); p.bezierCurveTo(222, 160, 196, 176, 214, 196); p.closePath(); p.moveTo(250, 194); p.bezierCurveTo(278, 160, 304, 176, 286, 196); p.closePath(); }), '#B88A4E', '#8A6030', '#E8C088', { off: [2, 3] });
+      for (const x of [170, 330]) { cel(c, P2(p => p.arc(x, 226, 24, 0, TAU)), '#B88A4E', '#8A6030', '#E8C088', { off: [3, 3] }); bell(c, x + (x < 250 ? -8 : 8), 256, 13); flower5(c, x + (x < 250 ? 16 : -16), 206, 8, '#F2C04A', '#FFF0B0'); } },
+    fxAt: [[84, 280, 1], [96, 476, 0.7], [440, 520, 0.7]] } },
 };
 
 function drawCoins(c) {
