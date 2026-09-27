@@ -1393,7 +1393,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
   }
   // warm up the programs this renderer will use (compiling lazily mid-film would stutter)
   (fast ? ['fast', 'cloud', 'pano', 'part', 'post'] : ['quality', 'part', 'post']).forEach(need);
-  return { gl, frame, bakeStart, bakeStep, get baked() { return PANO.done; } };
+  return { gl, frame, bakeStart, bakeStep, get baked() { return PANO.done; }, get bakeProgress() { return PANO.done ? 1 : PANO.strip / PANO.strips; } };
 }
 
 // camera {pos, f, r, u, focal} -> column-major view-projection (near .3, far 80000; matches depthOf in the shader)
@@ -2157,12 +2157,14 @@ function bootGame() {
   }
   stage.addEventListener('pointerdown', e => {
     e.preventDefault(); snd.unlock();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2), r = stage.getBoundingClientRect(), x = (e.clientX - r.left) * dpr, y = (e.clientY - r.top) * dpr;
-    if (G0.mode !== 'fly') {
-      const b = G0.buttons.find(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
-      if (b && G0.modeT > .4) press(b.act);
+    const r = stage.getBoundingClientRect();
+    const el = e.target.closest && e.target.closest('[data-act]');   // the menus are HTML: act on the press, with a little give
+    if (el) {
+      el.classList.add('press'); setTimeout(() => el.classList.remove('press'), 180);
+      if (G0.modeT > (el.dataset.act.startsWith('perk') ? .8 : .3)) press(el.dataset.act);
       return;
     }
+    if (G0.mode !== 'fly') return;
     const bb = boostBtn();
     if (Math.hypot(e.clientX - bb.x, e.clientY - bb.y) < bb.r * 1.4) input.boostPtr = e.pointerId;
     else if (e.clientX - r.left > r.width * .45) input.firePtr = e.pointerId;
@@ -2964,278 +2966,553 @@ function bootGame() {
     return { cam: camB, planes, puffs: puffs.slice(-360), segs, wakes, t: G0.t + 60, frame: frameNo, nc: CLOUDS.length - 1 };
   }
 
-  // ── HUD ──
+  // ── the interface ──
+  // Menus are HTML laid over the sky: real glass (the sky blurred behind them), real layout (nothing can land on
+  // anything else), eased entrances. The flight HUD is drawn on the canvas every frame in the same language:
+  // thin numerals, spaced small labels, hairline bars, one warm gradient for what matters.
   function project(p) {
     const d = V.sub(p, cam.pos), z = V.dot(d, camB.f); if (z <= .1) return null;
     const w = hud.width, h = hud.height;
     return [w / 2 + V.dot(d, camB.r) / z * camB.focal * h / 2, h / 2 - V.dot(d, camB.u) / z * camB.focal * h / 2, z];
   }
-  const serif = px => `${px}px "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", "Noto Serif CJK SC", "SimSun", serif`;   // a Chinese serif, upright
-  const cream = a => `rgba(255, 244, 226, ${a})`;
-  function button(c, u, x, y, w, h, label, act, strong, size = 16) {
-    c.fillStyle = strong ? 'rgba(255, 214, 150, .22)' : 'rgba(40, 20, 50, .35)'; c.strokeStyle = cream(strong ? .8 : .45); c.lineWidth = 1.2 * u;
-    c.beginPath(); c.roundRect ? c.roundRect(x, y, w, h, h / 2) : c.rect(x, y, w, h); c.fill(); c.stroke();
-    c.fillStyle = cream(.95); c.font = serif(Math.round(size * u)); c.textAlign = 'center'; c.fillText(label, x + w / 2, y + h / 2);
-    G0.buttons.push({ x, y, w, h, act });
+  const SANS = '"PingFang SC", "HarmonyOS Sans SC", "MiSans", "Noto Sans SC", "Noto Sans CJK SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif';
+  const NUM = '-apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  const MCSS = ['#fff4e2', '#ff8a74', '#8ccdff', '#ffd26e'];                     // the four liveries, as colours
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const rgbOf = col => `rgb(${col.map(v => Math.round(clamp(v, 0, 1) * 255)).join(',')})`;
+  const board = () => [{ id: MP.myId, slot: MP.slot, me: true }, ...mateList().map(m => ({ id: m.peer, slot: m.slot, me: false }))]
+    .map(r => ({ ...r, k: MP.kt['p' + r.id] | 0 })).sort((a, b) => b.k - a.k || a.slot - b.slot);
+  const ICONS = {
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', back: '<path d="M15 5l-7 7 7 7"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+    full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    net: '<circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>',
+    cam: '<rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8.5 7l1.5-3h4l1.5 3"/>',
+    stick: '<circle cx="12" cy="6.5" r="3"/><path d="M12 9.5v6M5 20h14l-1.6-4.5H6.6z"/>',
+    aim: '<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
+    bolt: '<path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/>',
+    flame: '<path d="M12 2.5c.8 3.6 4.8 5.4 4.8 10a4.8 4.8 0 0 1-9.6 0c0-2.3 1.3-3.6 1.9-5 .9 1.3 1.4 1.8 2 1.8-.2-2.8-.9-4.8.9-6.8z"/>',
+    target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".9"/>',
+    shield: '<path d="M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z"/><path d="M9 12l2 2 4-4"/>',
+    boost: '<path d="M5 6l6 6-6 6M12 6l6 6-6 6"/>',
+    magnet: '<path d="M6 3v9a6 6 0 0 0 12 0V3M6 8h4M14 8h4M10 3v9a2 2 0 0 0 4 0V3"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/>',
+    coop: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M14.5 14.6a4.5 4.5 0 0 1 6 4.4"/>',
+    vs: '<path d="M4 4l9 9M6.5 17.5l-2 2M3 15l6 6M20 4l-9 9M17.5 17.5l2 2M21 15l-6 6"/>',
+  };
+  const I = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+  const PERK_ICON = { '射速提升': 'bolt', '炽热枪管': 'flame', '远射弹': 'target', '加厚装甲': 'shield', '加力燃烧': 'boost', '磁吸瞄准': 'magnet', '军械库': 'layers' };
+  const btn = (act, cls, inner, i) => `<button class="btn ${cls}" data-act="${act}"${i !== undefined ? ` style="--i:${i}"` : ''}>${inner}</button>`;
+
+  const ui = document.createElement('div'); ui.className = 'jb-ui'; stage.appendChild(ui);
+  const uiCss = document.createElement('style');
+  uiCss.textContent = `
+.jb-ui{position:absolute;inset:0;pointer-events:none;overflow:hidden;color:#fff;font-family:${SANS};-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;
+ --num:${NUM};--mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+ --line:rgba(255,255,255,.13);--line2:rgba(255,255,255,.26);--dim:rgba(255,255,255,.7);--faint:rgba(255,255,255,.45);
+ --gold:#ffcf87;--coral:#ff8a6a;--grad:linear-gradient(120deg,#ffe9b8,#ffbd72 45%,#ff8660);--glass:rgba(255,255,255,.075);--ink:rgba(14,9,26,.5)}
+.jb-ui *{box-sizing:border-box;margin:0}
+.jb-ui svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.jb-ui .wrap{position:absolute;inset:0;transition:opacity .4s ease}
+.jb-ui .scr{position:absolute;inset:0;display:flex;flex-direction:column;padding:max(16px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))}
+.jb-ui .center{align-items:center;justify-content:center;text-align:center;gap:12px}
+.jb-ui .veil{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(12,6,24,.5),rgba(12,6,24,0) 30%,rgba(12,6,24,0) 42%,rgba(12,6,24,.74)),radial-gradient(90% 70% at 18% 88%,rgba(12,6,24,.5),transparent 70%)}
+.jb-ui .dim{position:absolute;inset:0;z-index:-1;background:rgba(10,6,20,.45);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.jb-ui .enter>*:not(.veil):not(.dim),.jb-ui .enter .card>*,.jb-ui .enter .hero>*{animation:jbIn .8s cubic-bezier(.16,.84,.24,1) both;animation-delay:calc(var(--i,0)*70ms)}
+.jb-ui .enter>.veil,.jb-ui .enter>.dim{animation:jbFade .6s ease both}
+@keyframes jbIn{from{opacity:0;transform:translateY(16px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+@keyframes jbFade{from{opacity:0}}
+.jb-ui .btn{pointer-events:auto;appearance:none;border:0;font:inherit;color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:50px;padding:0 24px;border-radius:999px;font-size:16px;font-weight:600;letter-spacing:.08em;white-space:nowrap;transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .25s,background .25s;-webkit-tap-highlight-color:transparent}
+.jb-ui .btn small{font-size:12px;font-weight:500;letter-spacing:.04em;opacity:.62}
+.jb-ui .btn.primary{color:#2b1321;background:var(--grad);box-shadow:0 12px 34px -10px rgba(255,130,90,.75),inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 0 rgba(160,60,40,.18)}
+.jb-ui .btn.primary svg{stroke-width:2.1}
+.jb-ui .btn.glass{background:var(--glass);box-shadow:inset 0 0 0 1px var(--line2);-webkit-backdrop-filter:blur(16px) saturate(150%);backdrop-filter:blur(16px) saturate(150%)}
+.jb-ui .btn.icon{width:44px;height:44px;padding:0}
+.jb-ui .btn.sm{height:40px;padding:0 16px;font-size:14px}
+.jb-ui .btn.wide{width:100%}
+.jb-ui .btn:hover{transform:translateY(-2px)}
+.jb-ui .btn.press,.jb-ui .btn:active{transform:scale(.95)}
+.jb-ui .eyebrow{font-size:11px;font-weight:600;letter-spacing:.34em;color:var(--faint)}
+.jb-ui .h1{font-weight:200;font-size:clamp(44px,min(12vh,14vw),100px);line-height:1.08;letter-spacing:.08em;margin:8px 0 6px;background:linear-gradient(180deg,#fff 25%,#ffd5ab);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 8px 28px rgba(255,140,110,.35))}
+.jb-ui .h1.sm{font-size:clamp(34px,min(9vh,11vw),64px)}
+.jb-ui .h1 span{-webkit-text-fill-color:var(--gold);color:var(--gold)}
+.jb-ui .h2{font-size:21px;font-weight:300;letter-spacing:.14em;margin-top:3px}
+.jb-ui .lede{color:var(--dim);font-size:14px;line-height:1.75;max-width:30em}
+.jb-ui .fine{color:var(--faint);font-size:12px;line-height:1.65;letter-spacing:.03em}
+.jb-ui .sp{flex:1}
+.jb-ui .corner{position:absolute;top:max(16px,env(safe-area-inset-top));left:max(18px,env(safe-area-inset-left))}
+.jb-ui .title .top{display:flex;align-items:center;gap:10px}
+.jb-ui .brand{display:flex;align-items:center;gap:11px;font-size:11px;font-weight:700;letter-spacing:.4em;color:var(--dim)}
+.jb-ui .brand i{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 50% 55%,#fff6dd 0 32%,#ffb56a 62%,rgba(255,120,80,0) 74%);box-shadow:0 0 22px 5px rgba(255,170,100,.55)}
+.jb-ui .title .hero{margin-top:auto;display:flex;flex-direction:column;align-items:flex-start;max-width:560px}
+.jb-ui .actions{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 12px}
+.jb-ui .tips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.jb-ui .tip{font-size:11.5px;color:var(--dim);padding:6px 12px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .foot{display:flex;align-items:flex-end;gap:14px;margin-top:16px}
+.jb-ui .stat{display:flex;flex-direction:column;gap:4px;text-align:left}
+.jb-ui .stat small{font-size:10.5px;font-weight:600;letter-spacing:.26em;color:var(--faint)}
+.jb-ui .stat b{font-family:var(--num);font-weight:200;font-size:26px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.jb-ui .toggles{display:flex;gap:8px;margin-left:auto}
+.jb-ui .tog{pointer-events:auto;appearance:none;border:0;font:inherit;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:98px;padding:9px 14px 10px;border-radius:16px;background:var(--glass);box-shadow:inset 0 0 0 1px var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:transform .2s;-webkit-tap-highlight-color:transparent}
+.jb-ui .tog small{font-size:10px;font-weight:600;letter-spacing:.24em;color:var(--faint)}
+.jb-ui .tog b{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:500}
+.jb-ui .tog svg{width:15px;height:15px;color:var(--gold)}
+.jb-ui .tog.press,.jb-ui .tog:active{transform:scale(.95)}
+.jb-ui .load{margin-top:20px;display:flex;flex-direction:column;gap:10px;width:min(320px,80vw)}
+.jb-ui .track{height:3px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.jb-ui .track i{display:block;height:100%;width:0;background:var(--grad);box-shadow:0 0 12px rgba(255,170,100,.8);transition:width .3s}
+.jb-ui .load span{font-size:12px;letter-spacing:.2em;color:var(--dim)}
+.jb-ui .only-p{display:none}
+.jb-ui .panel{pointer-events:auto;background:var(--ink);border-radius:26px;box-shadow:inset 0 0 0 1px var(--line),inset 0 1px 0 rgba(255,255,255,.08),0 40px 90px -30px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(28px) saturate(160%);backdrop-filter:blur(28px) saturate(160%)}
+.jb-ui .card{width:min(100%,440px);max-height:100%;overflow:auto;padding:20px;text-align:left;display:flex;flex-direction:column;gap:14px;scrollbar-width:none;touch-action:pan-y}
+.jb-ui .card.wide{width:min(100%,780px)}
+.jb-ui .hd{display:flex;align-items:center;gap:12px 14px;flex-wrap:wrap}
+.jb-ui .cols{display:grid;grid-template-columns:1fr;gap:16px}
+.jb-ui .col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.jb-ui .chip{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;letter-spacing:.12em;color:var(--dim);padding:6px 12px;border-radius:999px;background:var(--glass);box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
+.jb-ui .chip i{width:6px;height:6px;border-radius:50%;background:var(--faint)}
+.jb-ui .chip i.c{background:var(--c);box-shadow:0 0 8px var(--c)}
+.jb-ui .chip.ok i{background:#7dffb2;box-shadow:0 0 10px #7dffb2}
+.jb-ui .chip.bad i{background:var(--coral)}
+.jb-ui .chip .spin{width:10px;height:10px;border:1.5px solid var(--faint);border-top-color:#fff;background:none;animation:jbSpin .8s linear infinite}
+@keyframes jbSpin{to{transform:rotate(360deg)}}
+.jb-ui .sec{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;letter-spacing:.26em;color:var(--faint)}
+.jb-ui .sec span{font-family:var(--num);letter-spacing:0}
+.jb-ui .list{display:flex;flex-direction:column;gap:8px}
+.jb-ui .row{pointer-events:auto;appearance:none;border:0;font:inherit;color:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;border-radius:16px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line);transition:transform .2s,background .2s;text-align:left;-webkit-tap-highlight-color:transparent}
+.jb-ui .row:hover{background:rgba(255,255,255,.1)}
+.jb-ui .row.press,.jb-ui .row:active{transform:scale(.98)}
+.jb-ui .row .code{font-family:var(--mono);font-size:19px;letter-spacing:.14em;font-weight:500}
+.jb-ui .badge{font-size:11px;font-weight:700;letter-spacing:.14em;padding:3px 8px;border-radius:6px;color:#bfe9ff;background:rgba(140,205,255,.14)}
+.jb-ui .badge.vs{color:#ffc2b2;background:rgba(255,138,106,.16)}
+.jb-ui .row .meta{font-size:12px;color:var(--faint)}
+.jb-ui .seats{display:flex;gap:4px;margin-left:auto}
+.jb-ui .seats i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2)}
+.jb-ui .seats i.on{background:var(--gold);box-shadow:0 0 8px rgba(255,200,120,.8)}
+.jb-ui .row svg{color:var(--faint)}
+.jb-ui .none{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 0 6px;color:var(--faint);font-size:13px;letter-spacing:.06em}
+.jb-ui .radar{position:relative;width:64px;height:64px}
+.jb-ui .radar i{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,207,135,.6);animation:jbPing 2.4s ease-out infinite}
+.jb-ui .radar i:nth-child(2){animation-delay:.8s}.jb-ui .radar i:nth-child(3){animation-delay:1.6s}
+.jb-ui .radar b{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:var(--gold);box-shadow:0 0 12px var(--gold)}
+@keyframes jbPing{from{transform:scale(.15);opacity:1}to{transform:scale(1);opacity:0}}
+.jb-ui .digits{display:flex;gap:8px}
+.jb-ui .digits span{flex:1;max-width:64px;height:60px;display:grid;place-items:center;font-family:var(--mono);font-size:30px;font-weight:300;border-radius:14px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .crew{display:flex;flex-direction:column;gap:6px}
+.jb-ui .mate{display:flex;align-items:center;gap:10px;height:38px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.05);font-size:14px;letter-spacing:.06em}
+.jb-ui .mate i{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--c);box-shadow:0 0 10px var(--c)}
+.jb-ui .mate em{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.12em;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.1);color:var(--dim)}
+.jb-ui .mate em.g{color:#2b1321;background:var(--grad)}
+.jb-ui .mate.empty{color:var(--faint);background:transparent;border:1px dashed rgba(255,255,255,.16)}
+.jb-ui .mate.empty i{background:transparent;box-shadow:inset 0 0 0 1px var(--faint)}
+.jb-ui .seg{pointer-events:auto;display:flex;padding:4px;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .seg button{pointer-events:auto;appearance:none;border:0;font:inherit;color:var(--dim);display:flex;align-items:center;gap:6px;height:34px;padding:0 13px;white-space:nowrap;border-radius:999px;background:transparent;font-size:13px;font-weight:600;letter-spacing:.08em;cursor:pointer;transition:background .25s,color .25s;-webkit-tap-highlight-color:transparent}
+.jb-ui .seg button.on{color:#2b1321;background:var(--grad);box-shadow:0 6px 18px -8px rgba(255,130,90,.9)}
+.jb-ui .seg svg{width:15px;height:15px}
+.jb-ui .mode{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .mode b{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;letter-spacing:.1em;margin-bottom:6px}
+.jb-ui .mode b svg{color:var(--gold)}
+.jb-ui .mode p{font-size:12.5px;line-height:1.7;color:var(--dim)}
+.jb-ui .wait{display:flex;align-items:center;justify-content:center;gap:10px;height:50px;border-radius:999px;font-size:14px;letter-spacing:.08em;color:var(--dim);box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .wait i{width:8px;height:8px;border-radius:50%;background:var(--gold);animation:jbPulse 1.4s ease-in-out infinite}
+@keyframes jbPulse{50%{opacity:.25;transform:scale(.6)}}
+.jb-ui .stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.jb-ui .stats .stat{min-width:108px;padding:10px 16px;border-radius:16px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.jb-ui .stats .stat b{font-size:23px}
+.jb-ui .perks{display:flex;gap:12px;justify-content:center;width:min(100%,720px);margin-top:4px}
+.jb-ui .perk{pointer-events:auto;appearance:none;border:0;font:inherit;color:#fff;cursor:pointer;position:relative;flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:16px;border-radius:20px;text-align:left;background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.03));box-shadow:inset 0 0 0 1px var(--line2),0 20px 50px -24px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s;-webkit-tap-highlight-color:transparent}
+.jb-ui .perk:hover{transform:translateY(-4px);box-shadow:inset 0 0 0 1px rgba(255,207,135,.6),0 24px 60px -20px rgba(255,140,90,.45)}
+.jb-ui .perk.press,.jb-ui .perk:active{transform:scale(.97)}
+.jb-ui .perk .ico{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;color:#2b1321;background:var(--grad);box-shadow:0 8px 20px -8px rgba(255,130,90,.9);flex:none}
+.jb-ui .perk .ico svg{width:20px;height:20px;stroke-width:2}
+.jb-ui .perk .txt{display:flex;flex-direction:column;gap:5px}
+.jb-ui .perk b{font-size:16px;font-weight:600;letter-spacing:.08em}
+.jb-ui .perk small{font-size:12.5px;color:var(--dim);line-height:1.5}
+.jb-ui .perk kbd{position:absolute;top:14px;right:14px;font-family:var(--mono);font-size:11px;color:var(--faint);padding:2px 7px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--line)}
+.jb-ui .stack{display:flex;flex-direction:column;gap:10px;width:min(100%,300px);margin-top:4px}
+.jb-ui .ranks{display:flex;flex-direction:column;gap:6px;width:min(100%,380px)}
+.jb-ui .rank{display:grid;grid-template-columns:12px auto 1fr 26px;align-items:center;gap:12px;height:36px;padding:0 14px;border-radius:12px;background:rgba(255,255,255,.05);font-size:14px;text-align:left;letter-spacing:.06em}
+.jb-ui .rank i{width:9px;height:9px;border-radius:2px;transform:rotate(45deg);background:var(--c);box-shadow:0 0 10px var(--c)}
+.jb-ui .rank .bar{height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.jb-ui .rank .bar em{display:block;height:100%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.jb-ui .rank b{font-family:var(--num);font-weight:300;font-size:19px;text-align:right}
+.jb-ui .rank.me{box-shadow:inset 0 0 0 1px var(--line2)}
+.jb-ui .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+@media (orientation:portrait){
+ .jb-ui .only-p{display:inline-block}
+ .jb-ui .title .hero{align-items:stretch;max-width:none}
+ .jb-ui .title .actions{flex-direction:column}
+ .jb-ui .title .actions .btn{width:100%}
+ .jb-ui .title .foot{flex-direction:column;align-items:stretch}
+ .jb-ui .toggles{margin-left:0}.jb-ui .tog{flex:1;min-width:0}
+ .jb-ui .perks{flex-direction:column}
+ .jb-ui .perk{flex-direction:row;align-items:center;padding:14px}
+}
+@media (orientation:portrait) and (max-height:700px){.jb-ui .title .lede{display:none}}
+@media (orientation:landscape){
+ .jb-ui .cols{grid-template-columns:1fr 1fr;gap:22px}
+ .jb-ui .title .hero{max-width:min(560px,calc(100% - 360px))}
+ .jb-ui .title .foot{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));margin:0;flex-direction:column;align-items:flex-end}
+ .jb-ui .title .foot .stat{text-align:right;align-items:flex-end}
+ .jb-ui .stack{flex-direction:row;flex-wrap:wrap;justify-content:center;width:auto}
+}
+@media (orientation:landscape) and (max-height:480px){
+ .jb-ui .title .lede{display:none}.jb-ui .h1{margin:4px 0 2px}.jb-ui .actions{margin:12px 0 8px}
+ .jb-ui .center{gap:9px}.jb-ui .h1.sm{font-size:clamp(30px,9vh,48px)}
+ .jb-ui .perk{gap:8px;padding:13px}.jb-ui .perk .ico{width:32px;height:32px}
+ .jb-ui .stats .stat{padding:7px 14px}.jb-ui .stats .stat b{font-size:20px}
+}`;
+  document.head.appendChild(uiCss);
+
+  // each menu: a key (rebuild the HTML when it changes), a scene (play the entrance again when it changes), the HTML
+  const tog = (act, icon, label, value) => `<button class="tog" data-act="${act}"><small>${label}</small><b>${I(icon)}${value}</b></button>`;
+  const weaponChip = () => `<span class="chip"><i class="c" style="--c:${rgbOf(tierOf(W).col)}"></i>武器 Lv.${W.wl} · ${esc(tierOf(W).name)}</span>`;
+  const MENUS = {
+    title() {
+      const baked = R.baked, tips = [];
+      if (MOBILE) tips.push('<span class="tip only-p">横过来，天空更宽</span>');
+      if (IPHONE && !fsOK() && !standalone()) tips.push('<span class="tip">全屏：分享 → 添加到主屏幕</span>');
+      return {
+        scene: 't' + baked, key: ['t', baked, G0.unlocked, G0.best, SET.cam, SET.pilot, SET.auto, isFull()].join(),
+        html: E => `<div class="scr title${E}"><div class="veil"></div>
+          <div class="top" style="--i:0"><div class="brand"><i></i>JUST BREATHE</div><span class="sp"></span>${baked && fsOK() && !isFull() && !standalone() ? btn('full', 'glass icon', I('full')) : ''}</div>
+          <div class="hero">
+            ${tips.length ? `<div class="tips" style="--i:1">${tips.join('')}</div>` : ''}
+            <div class="eyebrow" style="--i:1">SUNSET DOGFIGHT · 黄昏空战</div>
+            <div class="h1" style="--i:2">深呼吸<span>。</span></div>
+            <p class="lede" style="--i:3">紫色的积云，金色的海面，一场没有人会死去的空战。</p>
+            ${baked ? `<div class="actions" style="--i:4">${btn('start', 'primary', `起飞 <small>第 1 关</small>${I('arrow')}`)}${G0.unlocked > 1 ? btn('continue', 'glass', `继续 <small>第 ${G0.unlocked} 关</small>`) : ''}${btn('net', 'glass', `${I('net')}联机 <small>合作 · 对战</small>`)}</div>
+            <p class="fine" style="--i:5">${MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速'}</p>`
+            : `<div class="load" style="--i:4"><div class="track"><i></i></div><span>正在绘制天空</span></div>`}
+          </div>
+          ${baked ? `<div class="foot" style="--i:6">${G0.best ? `<div class="stat"><small>最高分</small><b>${fmt(G0.best)}</b></div>` : ''}<div class="toggles">${tog('set-cam', 'cam', '镜头', SET.cam ? '动感' : '平稳')}${tog('set-ctl', 'stick', '操作', SET.pilot ? '飞行员' : '街机')}${tog('set-fire', 'aim', '开火', SET.auto ? '自动' : '按住')}</div></div>` : ''}
+        </div>`,
+        tick: root => { const b = root.querySelector('.track i'); if (b) b.style.width = Math.round(R.bakeProgress * 100) + '%'; },
+      };
+    },
+    lobby() {
+      const ads = NET.kind ? NET.lobby.peers().filter(q => !q.me && q.st.ad && /^\d{4}$/.test(q.st.ad.c)).map(q => q.st.ad).slice(0, 6) : [];
+      const status = NET.status === 'ok' ? (NET.kind === 'room' ? '<span class="chip ok"><i></i>在线</span>' : '<span class="chip"><i></i>本机</span>') : NET.status === 'none' ? '<span class="chip bad"><i></i>离线</span>' : '<span class="chip"><i class="spin"></i>连接中</span>';
+      const rows = ads.map(a => {
+        const n = clamp(a.n | 0, 1, 4), full = n >= 4;
+        return `<button class="row" data-act="${full ? 'noop' : 'join:' + a.c}"><span class="code">${a.c}</span><span class="badge${a.vs ? ' vs' : ''}">${a.vs ? '对战' : '合作'}</span><span class="meta">${a.vs ? '先到 ' + VS_GOAL + ' 架' : '第 ' + clamp(a.lv | 0, 1, 99) + ' 关'}</span><span class="seats">${[0, 1, 2, 3].map(k => `<i${k < n ? ' class="on"' : ''}></i>`).join('')}</span>${full ? '<span class="meta">已满</span>' : I('arrow')}</button>`;
+      }).join('');
+      return {
+        scene: 'l', key: [NET.status, NET.kind, ads.map(a => [a.c, a.n, a.lv, a.vs].join(':')).join('|')].join(),
+        html: E => `<div class="scr center${E}"><div class="dim"></div><div class="card wide panel" style="--i:0">
+          <div class="hd" style="--i:0">${btn('back', 'glass icon', I('back'))}<div><div class="eyebrow">ONLINE</div><div class="h2">联机</div></div><span class="sp"></span>${status}</div>
+          <div class="cols" style="--i:1"><div class="col">
+            <p class="lede">和朋友一起打敌机，或者互相较量。开一个房间，或者加入别人的房间。</p>
+            ${NET.kind ? btn('host', 'primary wide', `${I('plus')}开一个房间`) : ''}
+            <p class="fine">${NET.kind === 'local' ? '这里只连得到同一浏览器里的其他标签页。在 claude.ai 上打开这个页面并分享给朋友，就能一起飞。' : NET.kind ? '把这个页面分享给朋友：他们打开后点「联机」，就能看到你的房间。' : '这里连不上联机服务。'}</p>
+          </div><div class="col">
+            <div class="sec">开放的房间<span>${ads.length}</span></div>
+            <div class="list">${rows || '<div class="none"><div class="radar"><i></i><i></i><i></i><b></b></div>还没有别人开的房间</div>'}</div>
+          </div></div></div></div>`,
+      };
+    },
+    room() {
+      const crew = [{ slot: MP.slot, me: true, host: MP.host }, ...mateList().map(m => ({ slot: m.slot, me: false, host: m.peer === MP.hostId }))];
+      const seats = [0, 1, 2, 3].map(s => { const q = crew.find(x => x.slot === s); return q ? `<div class="mate" style="--c:${MCSS[s]}"><i></i>${CALL[s]}${q.me ? '<em>你</em>' : ''}${q.host ? '<em class="g">房主</em>' : ''}</div>` : '<div class="mate empty"><i></i>等待加入…</div>'; }).join('');
+      const mode = MP.host ? `<div class="seg"><button class="${MP.vs ? '' : 'on'}"${MP.vs ? ' data-act="vsmode"' : ''}>${I('coop')}合作</button><button class="${MP.vs ? 'on' : ''}"${MP.vs ? '' : ' data-act="vsmode"'}>${I('vs')}对战</button></div>` : `<span class="badge${MP.vs ? ' vs' : ''}">${MP.vs ? '对战' : '合作'}</span>`;
+      const cta = !MP.host ? '<div class="wait"><i></i>等待房主起飞</div>' : MP.vs ? btn('start', 'primary wide', `开战${I('arrow')}`) : btn('start', 'primary wide', `起飞 <small>第 1 关</small>${I('arrow')}`) + (G0.unlocked > 1 ? btn('continue', 'glass wide', `继续 <small>第 ${G0.unlocked} 关</small>`) : '');
+      return {
+        scene: 'r', key: [MP.code, MP.host, MP.vs, G0.unlocked, crew.map(q => q.slot + (q.me ? 'm' : '') + (q.host ? 'h' : '')).sort().join()].join(),
+        html: E => `<div class="scr center${E}"><div class="dim"></div><div class="card wide panel">
+          <div class="hd" style="--i:0">${btn('leave', 'glass sm', `${I('back')}离开`)}<div><div class="eyebrow">ROOM</div><div class="h2">房间</div></div><span class="sp"></span>${mode}</div>
+          <div class="cols" style="--i:1"><div class="col">
+            <div class="digits">${[...MP.code].map(d => `<span>${d}</span>`).join('')}</div>
+            <div class="crew">${seats}</div>
+          </div><div class="col">
+            <div class="mode"><b>${I(MP.vs ? 'vs' : 'coop')}${MP.vs ? '对战' : '合作'}</b><p>${MP.vs ? `没有敌机，互相击落。先到 ${VS_GOAL} 架获胜；被击落 3 秒后重返；武器从 Lv.8 起步，击落就升级。` : '一起对付敌机，最多四人。敌机随人数变得更耐打；落水的人会在队友身后重返。'}</p></div>
+            ${cta}
+            <p class="fine">朋友打开这个页面，点「联机」就能看到房间 ${MP.code}。</p>
+          </div></div></div></div>`,
+      };
+    },
+    brief() {
+      return {
+        scene: 'b' + G0.level + G0.vs, key: [G0.level, G0.levelName, G0.vs, W.wl].join(),
+        html: E => `<div class="scr center brief${E}">
+          <div class="eyebrow" style="--i:0">${G0.vs ? 'VERSUS · 对战' : 'LEVEL ' + String(G0.level).padStart(2, '0') + ' · 第 ' + G0.level + ' 关'}</div>
+          <div class="h1" style="--i:1">${G0.vs ? `先击落 ${VS_GOAL} 架` : esc(G0.levelName)}</div>
+          <div class="chips" style="--i:2">${G0.vs ? '<span class="chip"><i></i>击落就升级</span>' : `<span class="chip"><i></i>${G0.waves} 波敌机</span>`}${weaponChip()}</div></div>`,
+        tick: root => { root.style.opacity = Math.min(1, G0.modeT * 2) * (1 - smooth(2.2, 2.8, G0.modeT)); },
+      };
+    },
+    clear() {
+      const cards = G0.cards.map((card, i) => `<button class="perk" data-act="perk${i}" style="--i:${4 + i}"><i class="ico">${I(PERK_ICON[card.name] || 'layers')}</i><span class="txt"><b>${card.name}</b><small>${card.desc}</small></span>${MOBILE ? '' : `<kbd>${i + 1}</kbd>`}</button>`).join('');
+      return {
+        scene: 'c' + G0.level, key: [G0.level, G0.cards.map(c => c.name).join(), G0.score, MP.on].join(),
+        html: E => `<div class="scr center${E}"><div class="dim"></div>
+          <div class="eyebrow" style="--i:0">第 ${G0.level} 关 · 完成 · 选择一项强化</div>
+          <div class="h1 sm" style="--i:1">${esc(G0.levelName)}</div>
+          <div class="stats" style="--i:2">${MP.on && !MP.host ? '' : `<div class="stat"><small>奖励</small><b>+${fmt(G0.clearBonus || 0)}</b></div>`}<div class="stat"><small>总分</small><b>${fmt(G0.score)}</b></div><div class="stat"><small>武器</small><b>Lv.${W.wl}</b></div></div>
+          ${cards ? `<div class="perks" style="--i:3">${cards}</div>` : `<div class="wait" style="--i:3;padding:0 26px"><i></i>${MP.host ? '等待队友选择' : '等待房主'}</div>`}
+        </div>`,
+      };
+    },
+    over() {
+      const host = !MP.on || MP.host;
+      return {
+        scene: 'o', key: [G0.level, G0.score, G0.best, MP.on, MP.host].join(),
+        html: E => `<div class="scr center${E}"><div class="dim"></div>
+          ${MP.on ? `<div class="corner">${btn('leave', 'glass sm', `${I('back')}离开房间`)}</div>` : ''}
+          <div class="eyebrow" style="--i:0">第 ${G0.level} 关 · ${esc(G0.levelName)}</div>
+          <div class="h1" style="--i:1">深呼吸<span>。</span></div>
+          <div class="stats" style="--i:2"><div class="stat"><small>得分</small><b>${fmt(G0.score)}</b></div><div class="stat"><small>最高</small><b>${fmt(G0.best)}</b></div></div>
+          ${host ? `<div class="stack" style="--i:3">${btn('retry', 'primary', `再试第 ${G0.level} 关${I('arrow')}`)}${btn('start', 'glass', '从第 1 关开始')}${MP.on ? btn('toroom', 'glass', '回到房间') : ''}</div>` : '<div class="wait" style="--i:3;padding:0 26px"><i></i>等待房主</div>'}
+        </div>`,
+      };
+    },
+    vsover() {
+      const rows = board(), top = Math.max(VS_GOAL, ...rows.map(r => r.k));
+      return {
+        scene: 'v', key: [MP.winner, rows.map(r => r.slot + ':' + r.k).join(), MP.host].join(),
+        html: E => `<div class="scr center${E}"><div class="dim"></div>
+          <div class="corner">${btn('leave', 'glass sm', `${I('back')}离开房间`)}</div>
+          <div class="eyebrow" style="--i:0">VERSUS · 对战结束</div>
+          <div class="h1 sm" style="--i:1">${MP.winner === MP.myId ? '你赢了' : esc(nameOf(MP.winner)) + ' 获胜'}</div>
+          <div class="ranks" style="--i:2">${rows.map(r => `<div class="rank${r.me ? ' me' : ''}" style="--c:${MCSS[r.slot]}"><i></i><span>${CALL[r.slot]}${r.me ? ' · 你' : ''}</span><span class="bar"><em style="width:${Math.round(r.k / top * 100)}%"></em></span><b>${r.k}</b></div>`).join('')}</div>
+          ${MP.host ? `<div class="stack" style="--i:3">${btn('rematch', 'primary', `再来一局${I('arrow')}`)}${btn('toroom', 'glass', '回到房间')}</div>` : '<div class="wait" style="--i:3;padding:0 26px"><i></i>等待房主</div>'}
+        </div>`,
+      };
+    },
+  };
+  let uiMode = null, uiScene = null, uiKey = null, uiRoot = null;
+  function renderMenu() {
+    const spec = MENUS[G0.mode] ? MENUS[G0.mode]() : null;
+    if (!spec) { if (uiRoot) { fadeOut(uiRoot); uiRoot = null; uiMode = uiScene = uiKey = null; } return; }
+    let enter = '';
+    if (G0.mode !== uiMode || spec.scene !== uiScene) {                  // a new screen: the old one fades, the new one rises
+      if (uiRoot) fadeOut(uiRoot);
+      uiRoot = document.createElement('div'); uiRoot.className = 'wrap'; ui.appendChild(uiRoot);
+      uiMode = G0.mode; uiScene = spec.scene; uiKey = null; enter = ' enter';
+    }
+    if (spec.key !== uiKey) {
+      uiRoot.innerHTML = spec.html(enter); uiKey = spec.key;
+      G0.buttons = [...uiRoot.querySelectorAll('[data-act]')].map(el => ({ act: el.dataset.act }));
+    }
+    if (spec.tick) spec.tick(uiRoot);
   }
+  const fadeOut = el => { el.style.opacity = 0; el.style.pointerEvents = 'none'; for (const b of el.querySelectorAll('[data-act]')) b.removeAttribute('data-act'); setTimeout(() => el.remove(), 450); };
+
+  // ── the flight HUD, drawn ──
   function drawHUD() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2), r = stage.getBoundingClientRect();
     const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
     if (hud.width !== w || hud.height !== h) { hud.width = w; hud.height = h; }
     const c = hx, u = dpr; c.clearRect(0, 0, w, h);
-    c.textBaseline = 'middle'; c.lineCap = 'round'; G0.buttons = [];
-    const title = (text, y, size) => { c.textAlign = 'center'; c.shadowColor = 'rgba(60, 20, 50, .6)'; c.shadowBlur = 16 * u; c.fillStyle = cream(.96); c.font = serif(Math.round(size)); c.fillText(text, w / 2, y); c.shadowBlur = 0; };
-    const small = (text, y, a = .6, size = 13) => { c.textAlign = 'center'; c.fillStyle = cream(a); c.font = serif(Math.round(size * u), false); c.fillText(text, w / 2, y); };
-    const big = h > w ? Math.min(w * .1, 64 * u) : Math.min(w, h * 1.6) * .06;   // headings: sized to the narrow side on a phone held upright
-    // a note that wraps at its own punctuation to fit the width, its last line sitting at yBottom
-    const note = (text, yBottom, a = .5, size = 12) => {
-      c.font = serif(Math.round(size * u), false);
-      const maxW = w - 40 * u, lines = []; let line = '';
-      for (const tok of text.split(/(?<=[·；，：])/)) {
-        if (line && c.measureText(line + tok).width > maxW) { lines.push(line.trim()); line = tok.trimStart(); } else line += tok;
-      }
-      if (line) lines.push(line.trim());
-      lines.forEach((l, i) => small(l, yBottom - (lines.length - 1 - i) * (size + 7) * u, a, size));
+    renderMenu();
+    if (!R.baked || (G0.mode !== 'fly' && G0.mode !== 'brief')) return;
+    c.textBaseline = 'middle'; c.lineCap = 'round'; c.lineJoin = 'round';
+    const F = (wt, px, fam = SANS) => `${wt} ${Math.round(px * u)}px ${fam}`;
+    const LS = px => { if ('letterSpacing' in c) c.letterSpacing = px * u + 'px'; };
+    const A = a => `rgba(255, 255, 255, ${a})`;
+    const text = (t, x, y, font, fill, align = 'left', ls = 0) => { c.font = font; LS(ls); c.textAlign = align; c.fillStyle = fill; c.fillText(t, x, y); LS(0); };
+    const rr = (x, y, ww, hh, rad) => { c.beginPath(); if (c.roundRect) c.roundRect(x, y, ww, hh, rad); else c.rect(x, y, ww, hh); };
+    const glass = (x, y, ww, hh, rad = 16 * u) => { rr(x, y, ww, hh, rad); c.fillStyle = 'rgba(14, 9, 26, .36)'; c.fill(); c.strokeStyle = A(.12); c.lineWidth = u; c.stroke(); };
+    const warm = (x0, x1) => { const g = c.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, '#ffe9b8'); g.addColorStop(.45, '#ffbd72'); g.addColorStop(1, '#ff8660'); return g; };
+    const bar = (x, y, ww, hh, k, fill, glow) => {
+      rr(x, y, ww, hh, hh / 2); c.fillStyle = A(.13); c.fill();
+      if (k > 0) { rr(x, y, Math.max(hh, ww * clamp(k, 0, 1)), hh, hh / 2); c.fillStyle = fill; if (glow) { c.shadowColor = glow; c.shadowBlur = 8 * u; } c.fill(); c.shadowBlur = 0; }
     };
-    if (G0.mode === 'title') {
-      // laid out in rows from the top and from the bottom, so nothing can land on anything else in either orientation
-      const portrait = h > w, left = (16 + INS.l) * u, right = w - (16 + INS.r) * u, top = (14 + INS.t) * u, bot = h - (18 + INS.b) * u;
-      const veil = c.createLinearGradient(0, 0, 0, h);
-      veil.addColorStop(0, 'rgba(20, 8, 30, .38)'); veil.addColorStop(.42, 'rgba(20, 8, 30, .06)'); veil.addColorStop(1, 'rgba(20, 8, 30, .62)');
-      c.fillStyle = veil; c.fillRect(0, 0, w, h);
-      // top bar: online on the left, full screen on the right
-      const tbh = 34 * u;
-      if (R.baked) button(c, u, left, top, 150 * u, tbh, '联机 · 合作 / 对战', 'net', false, 13);
-      if (!standalone() && !isFull() && fsOK()) button(c, u, right - 84 * u, top, 84 * u, tbh, '全屏', 'full', false, 13);
-      // the title, and its words underneath
-      const ts = portrait ? Math.min(w * .12, 64 * u) : big * 1.15, ty = portrait ? h * .28 : h * .27;
-      title('深呼吸。', ty, ts);
-      c.textAlign = 'center'; c.fillStyle = cream(.55); c.font = `italic ${Math.round(ts * .36)}px "Iowan Old Style", Palatino, Georgia, serif`;
-      c.fillText('just breathe.', w / 2, ty + ts * .78);
-      c.strokeStyle = cream(.25); c.lineWidth = u; c.beginPath(); c.moveTo(w / 2 - ts * 1.1, ty + ts * 1.22); c.lineTo(w / 2 + ts * 1.1, ty + ts * 1.22); c.stroke();
-      if (!R.baked) { small('正在绘制天空…', ty + ts * 1.8, .8, 15); return; }
-      // the main buttons
-      const bw = Math.min(w * .7, 250 * u), bh = 44 * u;
-      let y = Math.max(ty + ts * 1.6, portrait ? h * .44 : h * .43);
-      button(c, u, w / 2 - bw / 2, y, bw, bh, '起飞 · 第 1 关', 'start', true); y += bh + 10 * u;
-      if (G0.unlocked > 1) { button(c, u, w / 2 - bw / 2, y, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue'); y += bh + 10 * u; }
-      // the bottom row: the comfort settings as one segmented strip
-      const items = [[SET.cam ? '镜头 · 动感' : '镜头 · 平稳', 'set-cam'], [SET.pilot ? '操作 · 飞行员' : '操作 · 街机', 'set-ctl'], [SET.auto ? '开火 · 自动' : '开火 · 按住', 'set-fire']];
-      const sw = Math.min(right - left, 420 * u), sh = 32 * u, sx = w / 2 - sw / 2, sy = bot - sh, seg = sw / items.length;
-      c.fillStyle = 'rgba(30, 14, 42, .45)'; c.strokeStyle = cream(.3); c.lineWidth = u;
-      c.beginPath(); c.roundRect ? c.roundRect(sx, sy, sw, sh, sh / 2) : c.rect(sx, sy, sw, sh); c.fill(); c.stroke();
-      items.forEach(([label, act], i) => {
-        if (i) { c.strokeStyle = cream(.18); c.beginPath(); c.moveTo(sx + seg * i, sy + 7 * u); c.lineTo(sx + seg * i, sy + sh - 7 * u); c.stroke(); }
-        c.fillStyle = cream(.8); c.font = serif(Math.round((seg < 110 * u ? 12 : 13) * u)); c.textAlign = 'center'; c.fillText(label, sx + seg * (i + .5), sy + sh / 2);
-        G0.buttons.push({ x: sx + seg * i, y: sy, w: seg, h: sh, act });
+    const pill = (t, cx, cy, font, fg, bg, stroke, ls = 1) => {
+      c.font = font; LS(ls); const tw = c.measureText(t).width, ph = 30 * u, pw = tw + 30 * u;
+      rr(cx - pw / 2, cy - ph / 2, pw, ph, ph / 2); c.fillStyle = bg; c.fill(); if (stroke) { c.strokeStyle = stroke; c.lineWidth = u; c.stroke(); }
+      c.textAlign = 'center'; c.fillStyle = fg; c.fillText(t, cx, cy); LS(0);
+    };
+    const upright = h > w;
+    // hurt: a crimson breath around the edges; low armour pulses it
+    const low = player.hp <= player.maxHp * .3 && player.state === 'fly' ? .22 + .18 * Math.sin(G0.t * 6) : 0, hurtA = Math.max(G0.hurt * .45, low);
+    if (hurtA > 0) { const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .3, w / 2, h / 2, Math.max(w, h) * .72); g.addColorStop(0, 'rgba(140, 20, 50, 0)'); g.addColorStop(1, `rgba(140, 20, 50, ${hurtA})`); c.fillStyle = g; c.fillRect(0, 0, w, h); }
+
+    // top left: the score (or the versus tally), the level, the crew
+    const L0 = (18 + INS.l) * u, T0 = (16 + INS.t) * u;
+    if (G0.vs) {
+      text('VERSUS · 先到 ' + VS_GOAL + ' 架', L0, T0 + 6 * u, F(600, 10.5), A(.55), 'left', 2.5);
+      board().forEach((rw, i) => {
+        const y = T0 + (28 + i * 21) * u;
+        c.save(); c.translate(L0 + 4 * u, y); c.rotate(Math.PI / 4); c.fillStyle = MCSS[rw.slot]; c.shadowColor = MCSS[rw.slot]; c.shadowBlur = 8 * u; c.fillRect(-3 * u, -3 * u, 6 * u, 6 * u); c.restore();
+        text(CALL[rw.slot] + (rw.me ? ' · 你' : ''), L0 + 16 * u, y, F(rw.me ? 600 : 500, 13), rw.me ? '#fff' : A(.72), 'left', 1);
+        text(String(rw.k), L0 + 124 * u, y, F(300, 18, NUM), MCSS[rw.slot], 'right');
       });
-      // notes stack up from the bottom row; hints flow down from the buttons, and give way if they would meet
-      let ny = sy - 14 * u;
-      const notes = [];
-      if (!standalone() && !isFull() && !fsOK() && IPHONE) notes.push('全屏：点「分享」→「添加到主屏幕」');
-      if (MOBILE && portrait) notes.push('把手机横过来，天空更宽');
-      for (const n of notes) { small(n, ny, .6, 12); ny -= 20 * u; }
-      const hints = [MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · Shift 加速'];
-      if (G0.best) hints.push('最高分 ' + G0.best);
-      y += 14 * u;
-      if (y + (hints.length - 1) * 20 * u <= ny - 12 * u) for (const t of hints) { small(t, y, t.startsWith('最高分') ? .45 : .6, 12.5); y += 20 * u; }
-      else if (y <= ny - 12 * u) small(hints.join('  ·  '), y, .55, 12.5);   // short of room: one line
-      return;
-    }
-    if (G0.mode === 'lobby') {
-      c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
-      title('联机', h * .18, big * .75);
-      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 100 * u, 34 * u, '‹ 返回', 'back');
-      const bw = 260 * u, bh = 38 * u;
-      if (NET.status !== 'ok' && NET.status !== 'none') small('正在连接…', h * .36, .75, 14);
-      else if (!NET.kind) small('这里连不上联机服务', h * .36, .75, 14);
-      else {
-        const ads = NET.lobby.peers().filter(q => !q.me && q.st.ad && /^\d{4}$/.test(q.st.ad.c)).map(q => q.st.ad).slice(0, 3);
-        button(c, u, w / 2 - bw / 2, h * .3, bw, bh, '开一个房间', 'host', !ads.length);
-        small(ads.length ? '或者加入朋友的房间' : '还没有别人开的房间', h * .3 + bh + 16 * u, .6, 13);
-        ads.forEach((a, i) => {
-          const n = clamp(a.n | 0, 1, 4), full = n >= 4;
-          button(c, u, w / 2 - bw / 2, h * .3 + bh + 32 * u + i * (bh + 8 * u), bw, bh, `房间 ${a.c} · ${a.vs ? '对战' : '合作 · 第 ' + clamp(a.lv | 0, 1, 99) + ' 关'} · ${n}/4 人${full ? ' · 满' : ''}`, full ? 'noop' : 'join:' + a.c, true);
-        });
-      }
-      note(NET.kind === 'local' ? '这里只连得到同一浏览器里的其他标签页；在 claude.ai 上打开这个页面并分享给朋友，就能一起飞' : '把这个页面分享给朋友：他们打开后点「联机」，就能看到你的房间', h - (26 + INS.b) * u);
-      return;
-    }
-    if (G0.mode === 'room') {
-      c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
-      small(MP.vs ? '联机 · 对战' : '联机 · 合作', h * .12, .6, 13); title('房间 ' + MP.code, h * .2, big * .75);
-      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 110 * u, 34 * u, '离开房间', 'leave');
-      const crew = [{ slot: MP.slot, me: true, host: MP.host }, ...mateList().map(m => ({ slot: m.slot, me: false, host: m.peer === MP.hostId }))].sort((a, b) => a.slot - b.slot);
-      crew.forEach((q, i) => { c.textAlign = 'center'; c.fillStyle = MCOL[q.slot]; c.font = serif(Math.round(16 * u)); c.fillText(CALL[q.slot] + (q.me ? '（你）' : '') + (q.host ? ' · 房主' : ''), w / 2, h * .31 + i * 24 * u); });
-      const bw = 210 * u, bh = 40 * u, y0 = h * .31 + 4 * 24 * u + 6 * u;
-      if (MP.host) {
-        button(c, u, w - (156 + INS.r) * u, (14 + INS.t) * u, 140 * u, 34 * u, MP.vs ? '模式 · 对战' : '模式 · 合作', 'vsmode', MP.vs);
-        if (MP.vs) button(c, u, w / 2 - bw / 2, y0, bw, bh, '开战', 'start', true);
-        else {
-          button(c, u, w / 2 - bw / 2, y0, bw, bh, '起飞 · 第 1 关', 'start', true);
-          if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, y0 + bh + 10 * u, bw, bh, '继续 · 第 ' + G0.unlocked + ' 关', 'continue');
-        }
-      } else small('等待房主起飞…', y0 + bh / 2, .75, 15);
-      note(MP.vs ? `对战：先击落 ${VS_GOAL} 架获胜 · 被击落 3 秒后重返 · 武器从 Lv.8 起步，击落就升级` : '合作：最多四人 · 敌机随人数变得更耐打 · 落水的人会在队友身后重返', h - (26 + INS.b) * u);
-      return;
-    }
-    if (G0.mode === 'brief') {
-      const a = Math.min(1, G0.modeT * 2) * (1 - smooth(2.2, 2.8, G0.modeT));
-      c.globalAlpha = a;
-      if (G0.vs) { small('对战', h * .36, .75, 15); title(`先击落 ${VS_GOAL} 架`, h * .44, big * .8); small(`武器 Lv.${W.wl} · ${tierOf(W).name} · 击落就升级`, h * .52, .6); }
-      else { small('第 ' + G0.level + ' 关', h * .36, .75, 15); title(G0.levelName, h * .44, big * .8); small(`${G0.waves} 波敌机 · 武器 Lv.${W.wl} · ${tierOf(W).name}`, h * .52, .6); }
-      c.globalAlpha = 1;
-    }
-    if (G0.mode === 'clear') {
-      c.fillStyle = 'rgba(20, 8, 30, .3)'; c.fillRect(0, 0, w, h);
-      small('第 ' + G0.level + ' 关 完成', h * .16, .75, 15); title(G0.levelName, h * .24, big * .7);
-      small(MP.on && !MP.host ? `总分 ${G0.score}` : `奖励 +${G0.clearBonus}  ·  总分 ${G0.score}`, h * .32, .7);
-      if (MP.on && !G0.cards.length) small(MP.host ? '等待队友选择…' : '等待房主…', h * .5, .7, 15);
-      if (G0.modeT > .8) {
-        small('选一项，带进下一关', h * .41, .6);
-        const n = G0.cards.length, narrow = w < h, cw = narrow ? Math.min(w * .8, 300 * u) : Math.min(w * .27, 220 * u), ch = narrow ? 64 * u : 108 * u, gap = 14 * u;
-        G0.cards.forEach((card, i) => {
-          const x = narrow ? w / 2 - cw / 2 : w / 2 - (n * cw + (n - 1) * gap) / 2 + i * (cw + gap), y = narrow ? h * .47 + i * (ch + gap) : h * .5;
-          c.fillStyle = 'rgba(40, 18, 52, .55)'; c.strokeStyle = cream(.55); c.lineWidth = 1.2 * u;
-          c.beginPath(); c.roundRect ? c.roundRect(x, y, cw, ch, 12 * u) : c.rect(x, y, cw, ch); c.fill(); c.stroke();
-          c.textAlign = 'center'; c.fillStyle = cream(.95); c.font = serif(Math.round(17 * u)); c.fillText(card.name, x + cw / 2, y + ch * (narrow ? .38 : .38));
-          c.fillStyle = cream(.6); c.font = serif(Math.round(12 * u), false); c.fillText(card.desc, x + cw / 2, y + ch * (narrow ? .72 : .66));
-          if (!MOBILE) { c.fillStyle = cream(.35); c.fillText(String(i + 1), x + cw / 2, y + ch * .88); }
-          G0.buttons.push({ x, y, w: cw, h: ch, act: 'perk' + i });
-        });
-      }
-      return;
-    }
-    const board = () => [{ id: MP.myId, slot: MP.slot, me: true }, ...mateList().map(m => ({ id: m.peer, slot: m.slot, me: false }))]
-      .map(r => ({ ...r, k: MP.kt['p' + r.id] | 0 })).sort((a, b) => b.k - a.k || a.slot - b.slot);
-    if (G0.mode === 'vsover') {
-      const a = smooth(.2, 1.2, G0.modeT);
-      c.fillStyle = `rgba(20, 8, 30, ${.35 * a})`; c.fillRect(0, 0, w, h); c.globalAlpha = a;
-      title(MP.winner === MP.myId ? '你赢了' : nameOf(MP.winner) + ' 获胜', h * .24, big * .85);
-      board().forEach((r, i) => { c.textAlign = 'center'; c.fillStyle = MCOL[r.slot]; c.font = serif(Math.round(16 * u)); c.fillText(`${CALL[r.slot]}${r.me ? '（你）' : ''}   ${r.k} 架`, w / 2, h * .36 + i * 24 * u); });
-      c.globalAlpha = 1;
-      const bw = 210 * u, bh = 40 * u, y0 = h * .36 + 4 * 24 * u + 4 * u;
-      if (MP.host && G0.modeT > 1.2) { button(c, u, w / 2 - bw / 2, y0, bw, bh, '再来一局', 'rematch', true); button(c, u, w / 2 - bw / 2, y0 + bh + 10 * u, bw, bh, '回到房间', 'toroom'); }
-      else if (!MP.host) small('等待房主…', y0 + bh / 2, .7, 15);
-      button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 110 * u, 34 * u, '离开房间', 'leave');
-      return;
-    }
-    if (G0.mode === 'over') {
-      const a = smooth(.3, 1.6, G0.modeT);
-      c.fillStyle = `rgba(20, 8, 30, ${.3 * a})`; c.fillRect(0, 0, w, h);
-      c.globalAlpha = a; title('深呼吸。', h * .38, big); small(`第 ${G0.level} 关 · 得分 ${G0.score} · 最高 ${G0.best}`, h * .47, .75, 14); c.globalAlpha = 1;
-      if (G0.modeT > 1.4 && (!MP.on || MP.host)) { const bw = 230 * u, bh = 42 * u; button(c, u, w / 2 - bw / 2, h * .55, bw, bh, '再试第 ' + G0.level + ' 关', 'retry', true); button(c, u, w / 2 - bw / 2, h * .55 + bh + 12 * u, bw, bh, '从第 1 关开始', 'start'); if (MP.on) button(c, u, w / 2 - bw / 2, h * .55 + 2 * (bh + 12 * u), bw, bh, '回到房间', 'toroom'); }
-      else if (G0.modeT > 1.4) small('等待房主…', h * .58, .7, 15);
-      if (MP.on) button(c, u, (16 + INS.l) * u, (14 + INS.t) * u, 110 * u, 34 * u, '离开房间', 'leave');
-      return;
-    }
-    // hurt: a violet-red breath around the edges; low health pulses it
-    const low = player.hp <= player.maxHp * .3 ? .25 + .2 * Math.sin(G0.t * 6) : 0, hurtA = Math.max(G0.hurt * .45, low);
-    if (hurtA > 0) { const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .3, w / 2, h / 2, Math.max(w, h) * .7); g.addColorStop(0, 'rgba(120,20,40,0)'); g.addColorStop(1, `rgba(120,20,40,${hurtA})`); c.fillStyle = g; c.fillRect(0, 0, w, h); }
-    // score, combo, level
-    const L0 = (18 + INS.l) * u, T0 = INS.t * u;
-    if (G0.vs) {                                                       // versus: the tally
-      c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(16 * u)); c.fillText(`对战 · 先到 ${VS_GOAL} 架`, L0, T0 + 26 * u);
-      board().forEach((r, i) => { const y = T0 + (48 + i * 17) * u; c.fillStyle = MCOL[r.slot]; c.font = serif(Math.round(13 * u)); c.fillText(CALL[r.slot] + (r.me ? '（你）' : ''), L0, y); c.fillText(String(r.k), L0 + 88 * u, y); });
-      if (player.state !== 'fly' && G0.mode === 'fly') small(`${player.lastHit && G0.t - player.lastHitT < 8 ? '被 ' + nameOf(player.lastHit) + ' 击落 · ' : ''}${Math.max(1, Math.ceil(MP.respawn))} 秒后重返`, h * .34, .85, 16);
     } else {
-    c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(21 * u), false); c.fillText(String(G0.score), L0, T0 + 26 * u);
-    if (G0.combo > 1) { c.fillStyle = `rgba(255, 205, 110, ${.6 + .4 * G0.comboT / 5})`; c.font = serif(Math.round(18 * u)); c.fillText('×' + G0.combo, L0 + c.measureText(String(G0.score)).width + 60 * u, T0 + 26 * u); }
-    c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`第 ${G0.level} 关 · ${G0.levelName} · 第 ${Math.max(1, G0.wave)}/${G0.waves} 波`, L0, T0 + 47 * u);
-    if (MP.on) {                                                       // the crew: callsign and armour
-      c.fillStyle = cream(.45); c.fillText(`房间 ${MP.code} · ${1 + MP.mates.size} 人`, L0, T0 + 66 * u);
-      mateList().sort((a, b) => a.slot - b.slot).forEach((m, i) => {
-        const y = T0 + (84 + i * 16) * u; c.fillStyle = MCOL[m.slot]; c.fillText(CALL[m.slot], L0, y);
-        if (m.state === 'fly') { c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(L0 + 38 * u, y - 2 * u, 60 * u, 4 * u); c.fillStyle = MCOL[m.slot]; c.fillRect(L0 + 38 * u, y - 2 * u, 60 * u * clamp(m.hp / m.maxHp, 0, 1), 4 * u); }
-        else { c.fillStyle = cream(.4); c.fillText('落水', L0 + 38 * u, y); }
+      const sc = fmt(G0.score);
+      text(sc, L0 - 1 * u, T0 + 16 * u, F(200, 34, NUM), '#fff');
+      if (G0.combo > 1) {
+        c.font = F(200, 34, NUM); const x = L0 + c.measureText(sc).width + 10 * u, pw = 40 * u, ph = 22 * u, k = G0.comboT / 5;
+        rr(x, T0 + 5 * u, pw, ph, ph / 2); c.fillStyle = warm(x, x + pw); c.globalAlpha = .5 + .5 * k; c.fill(); c.globalAlpha = 1;
+        text('×' + G0.combo, x + pw / 2, T0 + 16 * u, F(700, 13, NUM), '#2b1321', 'center');
+      }
+      const cap = `第 ${G0.level} 关 · ${G0.levelName}`;
+      text(cap, L0, T0 + 44 * u, F(500, 11.5), A(.62), 'left', 1.5);
+      c.font = F(500, 11.5); LS(1.5); let px = L0 + c.measureText(cap).width + 12 * u; LS(0);
+      for (let i = 0; i < G0.waves; i++, px += 11 * u) {             // one pip a wave
+        c.beginPath(); c.arc(px, T0 + 44 * u, 3 * u, 0, Math.PI * 2);
+        if (i < G0.wave) { c.fillStyle = i === G0.wave - 1 ? '#ffcf87' : A(.8); c.fill(); } else { c.strokeStyle = A(.4); c.lineWidth = u; c.stroke(); }
+      }
+      if (MP.on) mateList().sort((a, b) => a.slot - b.slot).forEach((m, i) => {
+        const y = T0 + (68 + i * 18) * u;
+        c.save(); c.translate(L0 + 4 * u, y); c.rotate(Math.PI / 4); c.fillStyle = MCSS[m.slot]; c.fillRect(-3 * u, -3 * u, 6 * u, 6 * u); c.restore();
+        text(CALL[m.slot], L0 + 14 * u, y, F(500, 12), A(.75), 'left', 1);
+        if (m.state === 'fly') bar(L0 + 54 * u, y - 1.5 * u, 56 * u, 3 * u, m.hp / m.maxHp, MCSS[m.slot]);
+        else text('落水', L0 + 54 * u, y, F(500, 11), A(.4));
       });
-      if (player.state === 'ditched' && G0.mode === 'fly') small(MP.respawn > 0 && mateList().some(q => q.state === 'fly') ? `${Math.ceil(MP.respawn)} 秒后重返战场` : '等待队友…', h * .34, .8, 16);
     }
+
+    // top right: armour, boost, the weapon and its experience
+    const pw = 172 * u, px0 = w - pw - (16 + INS.r) * u, py = (14 + INS.t) * u, ph = 82 * u, ix = px0 + 14 * u, bw = pw - 28 * u;
+    glass(px0, py, pw, ph);
+    const hpk = clamp(player.hp / player.maxHp, 0, 1), lowHp = hpk < .3;
+    text('装甲', ix, py + 14 * u, F(600, 9.5), A(.5), 'left', 2.5);
+    text(String(Math.max(0, Math.ceil(player.hp))), px0 + pw - 14 * u, py + 14 * u, F(500, 11, NUM), lowHp ? '#ff8a74' : A(.75), 'right');
+    const segs = clamp(Math.round(player.maxHp / 2), 6, 12), gap = 2.5 * u, sw = (bw - (segs - 1) * gap) / segs;
+    for (let i = 0; i < segs; i++) {                                 // armour in segments
+      const x = ix + i * (sw + gap), k = clamp(hpk * segs - i, 0, 1);
+      rr(x, py + 24 * u, sw, 5 * u, 1.5 * u); c.fillStyle = A(.13); c.fill();
+      if (k > 0) { rr(x, py + 24 * u, sw * k, 5 * u, 1.5 * u); c.fillStyle = lowHp ? `rgba(255, 110, 100, ${.7 + .3 * Math.sin(G0.t * 8)})` : '#fff'; c.shadowColor = lowHp ? '#ff6a5a' : 'rgba(255, 255, 255, .6)'; c.shadowBlur = 6 * u; c.fill(); c.shadowBlur = 0; }
     }
-    // health, boost, ammunition
-    const bw = 130 * u, bx = w - bw - (18 + INS.r) * u, by = (18 + INS.t) * u;
-    c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by, bw, 7 * u); c.fillRect(bx, by + 13 * u, bw, 4 * u);
-    const hpk = Math.max(0, player.hp) / player.maxHp;
-    c.fillStyle = hpk < .3 ? 'rgba(235, 90, 80, .95)' : cream(.9); c.fillRect(bx, by, bw * hpk, 7 * u);
-    c.fillStyle = 'rgba(255, 200, 120, .85)'; c.fillRect(bx, by + 13 * u, bw * player.boost, 4 * u);
-    c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by + 41 * u, bw, 3 * u);
-    c.fillStyle = 'rgba(255, 225, 140, .9)'; c.fillRect(bx, by + 41 * u, bw * (W.wl >= 30 ? 1 : W.xp / xpNeed(W.wl)), 3 * u);
-    const tc = tierOf(W).col; c.fillStyle = `rgb(${tc.map(v => Math.round(v * 255)).join(',')})`; c.beginPath(); c.arc(bx + 5 * u, by + 31 * u, 4 * u, 0, Math.PI * 2); c.fill();
-    c.fillStyle = cream(.75); c.font = serif(Math.round(12 * u)); c.textAlign = 'left'; c.fillText('武器 Lv.' + W.wl + ' · ' + tierOf(W).name, bx + 14 * u, by + 31 * u);
-    // the ace's health across the top
+    text('加速', ix, py + 42 * u, F(600, 9.5), A(.5), 'left', 2.5);
+    bar(ix + 34 * u, py + 40.5 * u, bw - 34 * u, 3 * u, player.boost, input.boost ? '#9fe4ff' : 'rgba(159, 228, 255, .75)', input.boost ? '#9fe4ff' : null);
+    const T = tierOf(W), tc = rgbOf(T.col);
+    c.beginPath(); c.arc(ix + 4 * u, py + 60 * u, 4 * u, 0, Math.PI * 2); c.fillStyle = tc; c.shadowColor = tc; c.shadowBlur = 10 * u; c.fill(); c.shadowBlur = 0;
+    text('Lv.' + W.wl, ix + 14 * u, py + 60 * u, F(600, 13, NUM), '#fff');
+    c.font = F(600, 13, NUM); const lvw = c.measureText('Lv.' + W.wl).width;
+    text(T.name, ix + 20 * u + lvw, py + 60 * u, F(500, 11.5), A(.68), 'left', 1);
+    bar(ix, py + 71 * u, bw, 2.5 * u, W.wl >= 30 ? 1 : W.xp / xpNeed(W.wl), warm(ix, ix + bw), 'rgba(255, 180, 110, .8)');
+
+    // the ace: a long hairline across the top
     const ace = enemies.find(e => e.type === 'ace' && e.state === 'fly');
     if (ace) {
-      const aw = Math.min(w * .4, 320 * u), ax = w / 2 - aw / 2, ay = 64 * u;
-      c.textAlign = 'center'; c.fillStyle = 'rgba(255, 205, 110, .9)'; c.font = serif(Math.round(13 * u)); c.fillText(TYPES.ace.name, w / 2, ay - 10 * u);
-      c.fillStyle = 'rgba(30, 14, 40, .45)'; c.fillRect(ax, ay, aw, 6 * u); c.fillStyle = 'rgba(210, 60, 50, .95)'; c.fillRect(ax, ay, aw * Math.max(0, ace.hp) / ace.maxHp, 6 * u);
+      const aw = Math.min(w * .42, 320 * u), ax = w / 2 - aw / 2, ay = upright ? py + ph + 26 * u : (26 + INS.t) * u;
+      text(TYPES.ace.name + '  ·  ACE', w / 2, ay, F(600, 11), '#ffd08a', 'center', 3);
+      const g = c.createLinearGradient(ax, 0, ax + aw, 0); g.addColorStop(0, '#ff5a4e'); g.addColorStop(1, '#ffc46e');
+      bar(ax, ay + 12 * u, aw, 4 * u, Math.max(0, ace.hp) / ace.maxHp, g, 'rgba(255, 90, 70, .8)');
     }
-    // reticle, with a hit marker when rounds land
+
+    // the reticle: a broken ring and a dot; locked, it turns gold and four ticks close in
     if (player.state === 'fly') {
       const free = project(V.add(player.p, V.mul(player.f, 400))), snap = G0.lead && G0.lock && G0.lock.state === 'fly' ? project(G0.lead) : null;
       if (free) { const tgt = snap || free; G0.ret = G0.ret ? [G0.ret[0] + (tgt[0] - G0.ret[0]) * .35, G0.ret[1] + (tgt[1] - G0.ret[1]) * .35] : tgt.slice(0, 2); }
       const rp = free ? G0.ret : null;
       if (rp) {
-        const locked = G0.lock && G0.lock.state === 'fly';
-        c.strokeStyle = locked ? 'rgba(255, 205, 110, .95)' : cream(.75); c.lineWidth = 1.4 * u; c.beginPath(); c.arc(rp[0], rp[1], 13 * u, 0, Math.PI * 2);
-        c.moveTo(rp[0] - 22 * u, rp[1]); c.lineTo(rp[0] - 16 * u, rp[1]); c.moveTo(rp[0] + 16 * u, rp[1]); c.lineTo(rp[0] + 22 * u, rp[1]); c.stroke();
+        const locked = G0.lock && G0.lock.state === 'fly', col = locked ? '#ffcf87' : A(.8);
+        c.strokeStyle = col; c.lineWidth = 1.4 * u; c.shadowColor = locked ? 'rgba(255, 190, 110, .9)' : 'rgba(0, 0, 0, .3)'; c.shadowBlur = locked ? 8 * u : 3 * u;
+        for (let k = 0; k < 4; k++) { const a0 = k * Math.PI / 2 + .28; c.beginPath(); c.arc(rp[0], rp[1], 13 * u, a0, a0 + Math.PI / 2 - .56); c.stroke(); }
+        c.beginPath(); c.arc(rp[0], rp[1], 1.8 * u, 0, Math.PI * 2); c.fillStyle = col; c.fill();
+        if (locked) {
+          const s = (19 + 3 * Math.sin(G0.t * 6)) * u;
+          for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + G0.t * .8; c.save(); c.translate(rp[0] + Math.cos(a) * s, rp[1] + Math.sin(a) * s); c.rotate(a); c.beginPath(); c.moveTo(-3.5 * u, 0); c.lineTo(3 * u, -3 * u); c.lineTo(3 * u, 3 * u); c.closePath(); c.fillStyle = col; c.fill(); c.restore(); }
+        }
+        c.shadowBlur = 0;
         if (G0.hitMark > 0) {
-          const s = (8 + (1 - G0.hitMark / .14) * 6) * u; c.strokeStyle = `rgba(255, 230, 190, ${G0.hitMark / .14})`; c.lineWidth = 2 * u; c.beginPath();
-          for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(rp[0] + sx * s, rp[1] + sy * s); c.lineTo(rp[0] + sx * s * 1.8, rp[1] + sy * s * 1.8); }
+          const k = G0.hitMark / .14, s = (9 + (1 - k) * 7) * u; c.strokeStyle = `rgba(255, 236, 205, ${k})`; c.lineWidth = 2 * u; c.beginPath();
+          for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(rp[0] + sx * s, rp[1] + sy * s); c.lineTo(rp[0] + sx * s * 1.7, rp[1] + sy * s * 1.7); }
           c.stroke();
         }
       }
     }
-    if (G0.lock && G0.lock.state === 'fly' && player.state === 'fly') {   // locked: a ring on the target
-      const lp = project(G0.lock.p);
-      if (lp) { const s = clamp(1100 / lp[2], 12, 46) * u; c.strokeStyle = 'rgba(255, 205, 110, .85)'; c.lineWidth = 1.6 * u; c.beginPath(); c.arc(lp[0], lp[1], s, G0.t * 2, G0.t * 2 + Math.PI * 1.5); c.stroke(); }
-    }
-    if (!G0.vs && G0.level === 1 && G0.mode === 'fly' && (!G0.didSteer || !G0.didFire)) {
-      c.textAlign = 'center'; c.fillStyle = cream(.7 + .2 * Math.sin(G0.t * 3)); c.font = serif(Math.round(15 * u));
-      c.fillText(!G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火（准星会自动吸附）' : '按住空格开火（准星会自动吸附）'), w / 2, h - ((h > w ? 220 : 40) + INS.b) * u);   // upright: above the stick and the buttons
-    }
-    // rivals and crates: brackets on screen, arrows at the edge
-    const mark = (p, col, label, brackets) => {
+    // rivals, wingmen, crates: corner brackets on screen, chevrons at the edge
+    const mark = (p, col, label, kind) => {
       const sp = project(p);
       if (sp && sp[0] > 0 && sp[0] < w && sp[1] > 0 && sp[1] < h) {
-        const s = clamp(900 / sp[2], 8, 40) * u; c.strokeStyle = col; c.lineWidth = 1.5 * u; c.beginPath();
-        if (brackets) for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(sp[0] + sx * s, sp[1] + sy * s * .6); c.lineTo(sp[0] + sx * s * .6, sp[1] + sy * s * .6); c.moveTo(sp[0] + sx * s, sp[1] + sy * s * .6); c.lineTo(sp[0] + sx * s, sp[1] + sy * s * .25); }
-        else { c.moveTo(sp[0], sp[1] - s * .8); c.lineTo(sp[0] + s * .5, sp[1]); c.lineTo(sp[0], sp[1] + s * .8); c.lineTo(sp[0] - s * .5, sp[1]); c.closePath(); }
-        c.stroke();
-        if (label) { c.fillStyle = col; c.font = serif(Math.round(10 * u), false); c.textAlign = 'center'; c.fillText(label, sp[0], sp[1] + s * .6 + 10 * u); }
+        const s = clamp(900 / sp[2], 9, 38) * u;
+        c.strokeStyle = col; c.lineWidth = 1.4 * u; c.beginPath();
+        if (kind === 'foe') {
+          const k = Math.max(4 * u, s * .42), sy0 = s * .72;
+          for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(sp[0] + sx * (s - k), sp[1] + sy * sy0); c.lineTo(sp[0] + sx * s, sp[1] + sy * sy0); c.lineTo(sp[0] + sx * s, sp[1] + sy * (sy0 - k)); }
+          c.stroke();
+          if (label) text(label, sp[0] + s + 5 * u, sp[1] + sy0 - 2 * u, F(500, 10, NUM), col, 'left', .5);
+        } else {
+          c.moveTo(sp[0], sp[1] - s * .7); c.lineTo(sp[0] + s * .45, sp[1]); c.lineTo(sp[0], sp[1] + s * .7); c.lineTo(sp[0] - s * .45, sp[1]); c.closePath(); c.stroke();
+          if (label) text(label, sp[0], sp[1] + s * .7 + 11 * u, F(600, 10), col, 'center', 1.5);
+        }
       } else {
         const d = V.sub(p, cam.pos), x = V.dot(d, camB.r), y = V.dot(d, camB.u), a = Math.atan2(-y, x);
-        const ex = w / 2 + Math.cos(a) * (w / 2 - 34 * u), ey = h / 2 + Math.sin(a) * (h / 2 - 34 * u);
-        c.save(); c.translate(ex, ey); c.rotate(a); c.fillStyle = col; c.beginPath(); c.moveTo(12 * u, 0); c.lineTo(-6 * u, -8 * u); c.lineTo(-6 * u, 8 * u); c.closePath(); c.fill(); c.restore();
+        const ex = w / 2 + Math.cos(a) * (w / 2 - 30 * u), ey = h / 2 + Math.sin(a) * (h / 2 - 30 * u);
+        c.save(); c.translate(ex, ey); c.rotate(a); c.strokeStyle = col; c.lineWidth = 2 * u; c.shadowColor = col; c.shadowBlur = 8 * u;
+        c.beginPath(); c.moveTo(-5 * u, -8 * u); c.lineTo(5 * u, 0); c.lineTo(-5 * u, 8 * u); c.stroke(); c.restore();
       }
     };
-    for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? 'rgba(255, 110, 90, .95)' : 'rgba(255, 205, 110, .9)', Math.round(V.len(V.sub(e.p, player.p))) + ' 米', true);
-    for (const m of mateList()) {                                     // wingmen: a name over the plane, an arrow when off screen
-      if (m.state === 'ditched') continue;
-      if (G0.vs) { if (m.state === 'fly') mark(m.p, MCOL[m.slot], `${CALL[m.slot]} · ${Math.round(V.len(V.sub(m.p, player.p)))} 米`, true); continue; }   // versus: they are targets
-      const sp = project(V.add(m.p, [0, 3.5, 0]));
-      if (sp && sp[0] > 0 && sp[0] < w && sp[1] > 0 && sp[1] < h) { c.textAlign = 'center'; c.fillStyle = MCOL[m.slot]; c.font = serif(Math.round(11 * u), false); c.fillText(CALL[m.slot], sp[0], sp[1] - clamp(600 / sp[2], 4, 30) * u); }
-      else mark(m.p, MCOL[m.slot], null, false);
+    const dist = p => Math.round(V.len(V.sub(p, player.p))) + ' 米';
+    for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? '#ff8a74' : 'rgba(255, 214, 150, .92)', dist(e.p), 'foe');
+    if (G0.lock && G0.lock.state === 'fly' && player.state === 'fly') {   // the lock: a turning arc on the target
+      const lp = project(G0.lock.p);
+      if (lp) { const s = clamp(1100 / lp[2], 13, 46) * u; c.strokeStyle = '#ffcf87'; c.lineWidth = 1.5 * u; c.shadowColor = 'rgba(255, 190, 110, .9)'; c.shadowBlur = 8 * u; c.beginPath(); c.arc(lp[0], lp[1], s, G0.t * 2, G0.t * 2 + Math.PI * .6); c.stroke(); c.beginPath(); c.arc(lp[0], lp[1], s, G0.t * 2 + Math.PI, G0.t * 2 + Math.PI * 1.6); c.stroke(); c.shadowBlur = 0; }
     }
-    for (const k of pickups) mark(k.p, k.type === 'ammo' ? 'rgba(255, 220, 130, .95)' : 'rgba(150, 255, 170, .9)', k.type === 'ammo' ? '弹药' : '修理', false);
-    // score popups where the planes were hit
-    for (const pu of popups) { const sp = project(V.add(pu.p, [0, pu.age * 12, 0])); if (!sp) continue; c.textAlign = 'center'; c.fillStyle = `rgba(255, 225, 160, ${1 - pu.age / 1.4})`; c.font = serif(Math.round(17 * u)); c.fillText(pu.text, sp[0], sp[1]); }
-    // warnings and messages
-    c.textAlign = 'center';
+    for (const m of mateList()) {
+      if (m.state === 'ditched') continue;
+      if (G0.vs) { if (m.state === 'fly') mark(m.p, MCSS[m.slot], CALL[m.slot] + ' · ' + dist(m.p), 'foe'); continue; }   // versus: they are targets
+      const sp = project(V.add(m.p, [0, 3.5, 0]));
+      if (sp && sp[0] > 0 && sp[0] < w && sp[1] > 0 && sp[1] < h) {
+        const y = sp[1] - clamp(600 / sp[2], 4, 30) * u;
+        c.fillStyle = MCSS[m.slot]; c.beginPath(); c.moveTo(sp[0] - 5 * u, y - 4 * u); c.lineTo(sp[0], y + 2 * u); c.lineTo(sp[0] + 5 * u, y - 4 * u); c.closePath(); c.fill();
+        text(CALL[m.slot], sp[0], y - 13 * u, F(600, 10.5), MCSS[m.slot], 'center', 1.5);
+      } else mark(m.p, MCSS[m.slot], null, 'mate');
+    }
+    for (const k of pickups) mark(k.p, k.type === 'ammo' ? '#ffd88a' : '#9dffc0', k.type === 'ammo' ? '弹药' : '修理', 'crate');
+    // the score rising from the wreck
+    for (const pu of popups) {
+      const sp = project(V.add(pu.p, [0, pu.age * 12, 0])); if (!sp) continue;
+      c.globalAlpha = 1 - pu.age / 1.4; c.shadowColor = 'rgba(255, 150, 90, .8)'; c.shadowBlur = 10 * u;
+      text(pu.text, sp[0], sp[1], F(600, 17, NUM), '#ffe0a6', 'center', 1); c.shadowBlur = 0; c.globalAlpha = 1;
+    }
+    // messages: big ones glow, small ones sit in glass pills
+    let my = upright ? py + ph + (ace ? 64 : 34) * u : h * .2;
+    for (const m of G0.msgs) {
+      const a = Math.min(1, m.age * 4) * (1 - smooth(m.life - .5, m.life, m.age)); c.globalAlpha = a;
+      if (m.big) { c.shadowColor = 'rgba(255, 170, 110, .9)'; c.shadowBlur = 18 * u; text(m.text, w / 2, my, F(300, upright ? 22 : 26), '#fff', 'center', 4); c.shadowBlur = 0; my += 38 * u; }
+      else { pill(m.text, w / 2, my, F(500, 13), '#fff', 'rgba(14, 9, 26, .5)', A(.14)); my += 38 * u; }
+      c.globalAlpha = 1;
+    }
     const warn = player.state === 'fly' && player.p[1] < 70 && player.f[1] < -.1 ? '拉起！' : Math.hypot(player.p[0], player.p[2]) > 2900 ? '回到战场' : player.hp <= player.maxHp * .3 && player.state === 'fly' ? '重创' : '';
-    if (warn) { c.fillStyle = `rgba(255, 150, 120, ${.6 + .4 * Math.sin(G0.t * 8)})`; c.font = serif(Math.round(15 * u)); c.fillText(warn, w / 2, h * .28); }
-    G0.msgs.forEach((m, i) => { const a = Math.min(1, m.age * 4) * (1 - smooth(m.life - .5, m.life, m.age)); c.fillStyle = cream(.92 * a); c.font = serif(Math.round((m.big ? 26 : 18) * u)); c.fillText(m.text, w / 2, h * .2 + i * 26 * u); });
-    // touch controls
+    if (warn) { c.globalAlpha = .75 + .25 * Math.sin(G0.t * 8); pill(warn, w / 2, upright ? h * .56 : h * .3, F(700, 13), '#ffd2c8', 'rgba(255, 70, 60, .2)', 'rgba(255, 120, 105, .85)', 3); c.globalAlpha = 1; }
+    // waiting to come back: a ring that fills, and the seconds in it
+    const waiting = G0.mode === 'fly' && MP.on && (G0.vs ? player.state !== 'fly' : player.state === 'ditched');
+    if (waiting) {
+      const cx = w / 2, cy = upright ? h * .42 : h * .4, R0 = 34 * u, total = G0.vs ? 3 : 6, k = clamp(1 - MP.respawn / total, 0, 1);
+      const canCome = G0.vs || mateList().some(q => q.state === 'fly');
+      c.strokeStyle = A(.15); c.lineWidth = 2 * u; c.beginPath(); c.arc(cx, cy, R0, 0, Math.PI * 2); c.stroke();
+      if (canCome) { c.strokeStyle = warm(cx - R0, cx + R0); c.shadowColor = 'rgba(255, 170, 100, .8)'; c.shadowBlur = 10 * u; c.beginPath(); c.arc(cx, cy, R0, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); c.stroke(); c.shadowBlur = 0; }
+      text(canCome ? String(Math.max(1, Math.ceil(MP.respawn))) : '…', cx, cy, F(200, 30, NUM), '#fff', 'center');
+      const why = G0.vs ? (player.lastHit && G0.t - player.lastHitT < 8 ? '被 ' + nameOf(player.lastHit) + ' 击落' : '坠海') : canCome ? '队友还在战斗' : '等待队友';
+      text(why, cx, cy + R0 + 18 * u, F(500, 13), A(.8), 'center', 2);
+    }
+    if (!G0.vs && G0.level === 1 && G0.mode === 'fly' && (!G0.didSteer || !G0.didFire)) {
+      c.globalAlpha = .8 + .2 * Math.sin(G0.t * 3);
+      pill(!G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火，准星会自动吸附' : '按住空格开火，准星会自动吸附'), w / 2, h - ((upright ? 220 : 42) + INS.b) * u, F(500, 13), '#fff', 'rgba(14, 9, 26, .5)', 'rgba(255, 207, 135, .55)');
+      c.globalAlpha = 1;
+    }
+
+    // touch controls: a ticked ring and a soft knob; round buttons with drawn icons
     if (MOBILE || input.stick) {
       const st = input.stick, base = st ? [(st.ox - r.left) * u, (st.oy - r.top) * u] : [(95 + INS.l) * u, h - (95 + INS.b) * u];
-      c.strokeStyle = cream(st ? .5 : .22); c.lineWidth = 1.5 * u; c.beginPath(); c.arc(base[0], base[1], 56 * u, 0, Math.PI * 2); c.stroke();
-      const kx = st ? clamp(st.x - st.ox, -64, 64) : 0, ky = st ? clamp(st.y - st.oy, -64, 64) : 0;
-      c.fillStyle = cream(st ? .5 : .2); c.beginPath(); c.arc(base[0] + kx * u, base[1] + ky * u, 20 * u, 0, Math.PI * 2); c.fill();
-      for (const [btn, label, on] of [[fireBtn(), '开火', input.firePtr !== null], [boostBtn(), '加速', input.boostPtr !== null]]) {
-        const bx2 = (btn.x - r.left) * u, by2 = (btn.y - r.top) * u;
-        c.fillStyle = on ? 'rgba(255, 200, 140, .35)' : 'rgba(40, 20, 50, .25)'; c.strokeStyle = cream(.55);
-        c.beginPath(); c.arc(bx2, by2, btn.r * u, 0, Math.PI * 2); c.fill(); c.stroke();
-        c.fillStyle = cream(.8); c.font = serif(Math.round(13 * u)); c.fillText(label, bx2, by2);
-      }
+      c.strokeStyle = A(st ? .34 : .16); c.lineWidth = 1.2 * u; c.beginPath(); c.arc(base[0], base[1], 56 * u, 0, Math.PI * 2); c.stroke();
+      c.beginPath();
+      for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, r1 = (i % 6 ? 51 : 47) * u; c.moveTo(base[0] + Math.cos(a) * r1, base[1] + Math.sin(a) * r1); c.lineTo(base[0] + Math.cos(a) * 53 * u, base[1] + Math.sin(a) * 53 * u); }
+      c.strokeStyle = A(st ? .3 : .13); c.stroke();
+      const kx = base[0] + (st ? clamp(st.x - st.ox, -64, 64) : 0) * u, ky = base[1] + (st ? clamp(st.y - st.oy, -64, 64) : 0) * u;
+      const kg = c.createRadialGradient(kx - 6 * u, ky - 6 * u, 2 * u, kx, ky, 20 * u); kg.addColorStop(0, A(st ? .75 : .4)); kg.addColorStop(1, A(st ? .18 : .08));
+      c.beginPath(); c.arc(kx, ky, 20 * u, 0, Math.PI * 2); c.fillStyle = kg; c.fill(); c.strokeStyle = A(st ? .6 : .3); c.lineWidth = u; c.stroke();
+      const round = (b, on, hot, icon, label) => {
+        const x = (b.x - r.left) * u, y = (b.y - r.top) * u, R1 = b.r * u;
+        c.beginPath(); c.arc(x, y, R1, 0, Math.PI * 2);
+        if (on) { const g = c.createLinearGradient(x - R1, y - R1, x + R1, y + R1); g.addColorStop(0, hot[0]); g.addColorStop(1, hot[1]); c.fillStyle = g; c.shadowColor = hot[1]; c.shadowBlur = 22 * u; c.fill(); c.shadowBlur = 0; }
+        else { c.fillStyle = 'rgba(14, 9, 26, .32)'; c.fill(); c.strokeStyle = A(.3); c.lineWidth = 1.2 * u; c.stroke(); }
+        c.strokeStyle = on ? '#2b1321' : A(.9); c.fillStyle = c.strokeStyle; c.lineWidth = 1.8 * u; icon(x, y, R1);
+        text(label, x, y + R1 + 11 * u, F(600, 9.5), A(on ? .8 : .5), 'center', 2);
+      };
+      round(fireBtn(), input.firePtr !== null, ['#ffe9b8', '#ff8660'], (x, y, R1) => {
+        const s = R1 * .3; c.beginPath(); c.arc(x, y, s, 0, Math.PI * 2);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { c.moveTo(x + dx * s * .45, y + dy * s * .45); c.lineTo(x + dx * s * 1.6, y + dy * s * 1.6); }
+        c.stroke();
+      }, '开火');
+      round(boostBtn(), input.boostPtr !== null, ['#d8f6ff', '#6fcfff'], (x, y, R1) => {
+        const s = R1 * .3; c.beginPath();
+        for (const o of [-.55, .55]) { c.moveTo(x + (o - .5) * s, y - s * .9); c.lineTo(x + (o + .5) * s, y); c.lineTo(x + (o - .5) * s, y + s * .9); }
+        c.stroke();
+      }, '加速');
     }
   }
 
