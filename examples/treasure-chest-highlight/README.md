@@ -4,12 +4,20 @@ A single-file mobile-game reward sequence: tap a toon-shaded 3D chest to upgrade
 
 Open `index.html` in a browser. It loads Three.js 0.160 and GSAP 3.12 from jsDelivr and fonts from Google Fonts. Everything else is in the file: the models, 2D card art, particles, and every sound (Web Audio).
 
-The chest, card back, coins, gems and UI are original. The three character cards are fan art of Genshin Impact characters, drawn in code: 可莉 (Klee, legendary, fire), 菲谢尔 (Fischl, epic, thunder) and 行秋 (Xingqiu, rare, water). The characters and their names belong to HoYoverse and are not covered by this repository's MIT license. No official art, logos or other game assets are used.
+The chest, card back, coins, gems and UI are original. The character cards are fan art of 22 Genshin Impact characters, all drawn in code. The characters and their names belong to HoYoverse and are not covered by this repository's MIT license. No official art, logos or other game assets are used.
+
+| Pool | Characters |
+|---|---|
+| 5★ (legendary reveal) | 可莉 Klee, 钟离 Zhongli, 温迪 Venti, 雷电将军 Raiden Shogun, 甘雨 Ganyu, 胡桃 Hu Tao, 纳西妲 Nahida, 芙宁娜 Furina, 神里绫华 Kamisato Ayaka |
+| 4★ | 菲谢尔 Fischl, 行秋 Xingqiu, 香菱 Xiangling, 班尼特 Bennett, 砂糖 Sucrose, 重云 Chongyun, 北斗 Beidou, 诺艾尔 Noelle, 芭芭拉 Barbara, 迪奥娜 Diona, 柯莱 Collei, 早柚 Sayu, 瑶瑶 Yaoyao |
+
+Every opening draws characters at random. A rare chest gives one 4★ character and an epic chest gives two. A legendary chest gives one 4★ character, plus a 5★ character who gets the full reveal stage. Characters you haven't drawn before carry a NEW! badge. The owned list is kept in this browser's localStorage.
 
 ## Controls
 
 - **自动 (default):** one tap plays the whole show: three tier-ups, charge, burst, the legendary reveal and the reward row. After that, tap 领取 to claim.
 - **手动:** each tap on the chest upgrades it one tier. 开 启 opens it at the current tier. Opening at a lower tier gives a weaker burst and fewer rewards, and skips the hero stage.
+- **图鉴** (bottom-left, while idle): shows every character, with the ones you haven't drawn yet dimmed. Close it with ✕, a tap outside, or Esc.
 - Top-right: the coin and gem balances and a mute toggle. Audio starts on the first tap.
 - `?rm=1` forces reduced motion (no screen shake, 35 % of the particles). The page also follows the OS `prefers-reduced-motion` setting.
 
@@ -46,7 +54,7 @@ These are all in the `TUNE` object at the top of the script:
 
 ## How the look is built
 
-- **Characters:** each character has its own expression and pose. Klee grins with a bomb held up, Fischl gives a smug one-eyed look (the other eye is under her eyepatch) while pointing at Oz, and Xingqiu smiles calmly over an open book with rain drops circling his finger.
+- **Characters:** Klee, Fischl and Xingqiu are drawn individually. The other 19 share one configurable chibi renderer (`drawChibi`). Each of those is a settings object in `CHARS`: hairstyle (short, bob, long, twin tails, ponytail), bangs, eye color and style (open, half-lidded, wink, happy, sleepy, eyepatch, special pupils), mouth, brows, outfit (coat, robe, dress, shorts, with collar, belt, bow, apron or bell), pose (wave, point, thumbs-up, peace sign, hands on hips, holding a prop, cheering, hand to chin), plus drawing hooks for signature props, accessories and companions. To add a character, add one entry to `CHARS`.
 - **Chest:** every plank, strap, rivet, corner post, handle, hinge, lock plate and the octahedral gem is its own mesh. The plank seams are real 3.5 cm gaps in front of an inner core box. During the charge the core's colour ramps up, so light comes through the gaps between planks and staves.
 - **Shading:** `MeshToonMaterial` with a 4-step gradient map. There are three lights: key, hemisphere sky, and a rim light in the tier colour, plus a stepped fresnel rim added in `onBeforeCompile`.
 - **Outlines:** a second pass renders the view-space normal, part ID and linear depth of every mesh. A full-screen shader draws the thick silhouette by sampling colour-pass coverage in a ring. It draws thin seams where the part ID changes or the normals crease, and it only uses depth for large (7 %) jumps, so surfaces seen at a grazing angle don't pick up hatching. The colour pass is 4× MSAA at 1.5× resolution and is box-filtered down to the screen.
