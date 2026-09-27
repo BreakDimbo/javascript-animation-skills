@@ -15,7 +15,7 @@
 <script>
 // just breathe.
 // A sunset dogfight over the Adriatic, in the manner of a hand-painted anime sky: a white, green and red
-// flying boat, a navy float-biplane diving out of the light, violet cumulus with gold edges, a sea full of sun.
+// fighter with elliptical wings, a navy rival diving out of the light, violet cumulus with gold edges, a sea full of sun.
 // Every pixel is computed: one raymarching fragment shader (WebGL2) draws the planes, clouds and sea;
 // the waltz, the engines and the guns are synthesized with Web Audio. Nothing is loaded.
 //
@@ -34,14 +34,14 @@
 const W = 1280, H = 720, FPS = 30;
 const BPM = 96, BEAT = 60 / BPM, BAR = 3 * BEAT;                    // 1.875 s per bar
 const SHOTS = [                                                    // [name, bars]
-  ['calm',      4],   // wide, low over the sea, looking into the sun; the flying boat roars overhead
+  ['calm',      4],   // wide, low over the sea, looking into the sun; the hero roars overhead
   ['profile',   2],   // side tracking: the white-green-red livery against a violet sky
-  ['sun-dive',  2],   // over the tail, looking back: the navy biplane drops out of the clouds
+  ['sun-dive',  2],   // over the tail, looking back: the navy rival drops out of the clouds
   ['tracers',   2],   // wide tracking: tracers, the hero breaks hard
   ['cloud',     2],   // chase through a cumulus wall
   ['loop',      2],   // chase camera rolls with the plane: the whole sky turns over
   ['reversal',  2],   // over the shoulder: now the hero is behind; hits, smoke
-  ['ditch',     2],   // from the water: the biplane glides down and lands in a spray
+  ['ditch',     2],   // from the water: the rival glides down and lands in a spray
   ['breath',    1],   // silence: skimming the water
   ['breathe',   4],   // toward the sun; "just breathe."
 ];
@@ -121,7 +121,7 @@ function keyed(keys) {
   };
 }
 
-// the hero: a flying boat, white with green and red. The turtle steers (turns, the loop);
+// the hero: an elliptical-wing fighter, white with green-white-red roundels and rudder. The turtle steers (turns, the loop);
 // the altitude is its own keyed curve, added on top.
 const HERO_PROG = [
   [0,    67, 0, 0],
@@ -138,7 +138,7 @@ const heroStart = [30, 0, 330], heroFwd = [-0.078, 0, -0.986];
 const heroTurtle = flyProgram(heroStart, heroFwd, HERO_PROG, 0, DUR + 2);
 const heroA = t => { const p = t >= 0 ? heroTurtle(t) : V.add(heroStart, V.mul(V.norm(heroFwd), 67 * t)); return [p[0], p[1] + HERO_ALT(t), p[2]]; };
 
-// the rival: a navy float-biplane. It dives out of the sky, rides the hero's tail (the hero's own path,
+// the rival: the same kind of fighter in navy and gold. It dives out of the sky, rides the hero's tail (the hero's own path,
 // 1.3 s behind), overshoots when the hero loops, is hit, glides down and lands on the water.
 const LAG = 1.3, JOIN = 13.5, SPLIT = 22.75 + LAG;
 function diveOffset(t) { const s = Math.max(0, JOIN - t); return [18 * s, 31 * s * s, -10 * s]; }
@@ -148,7 +148,7 @@ function enemyRaw(t) {
   return enemyAfter(t);
 }
 {
-  // after the split the biplane flies its own program, continuing its state at SPLIT
+  // after the split the rival flies its own program, continuing its state at SPLIT
   const p0 = enemyRaw(SPLIT - 1e-3), p1 = enemyRaw(SPLIT - 1 / 60);
   const f0 = V.norm([p0[0] - p1[0], 0, p0[2] - p1[2]]);
   const prog = [
@@ -158,7 +158,7 @@ function enemyRaw(t) {
     [30.4, 50, 4, 0],
     [32.0, 44, 2, 0],
   ];
-  const WL = 1.9;                    // the float bottoms sit 1.8 m below the fuselage axis
+  const WL = .72;                    // belly-landing: the fuselage bottom sits 0.6 m below its axis
   const alt = keyed([[SPLIT, p0[1]], [EVENTS.hit, p0[1] - 2], [29.6, p0[1] - 14], [31.2, 30], [32.4, WL + 1.2], [33.5, WL - 2]]);
   const raw0 = flyProgram([p0[0], 0, p0[2]], f0, prog, SPLIT, DUR + 2);
   const raw = t => { const p = raw0(t); return [p[0], alt(t), p[2]]; };
@@ -171,7 +171,7 @@ function enemyRaw(t) {
 }
 const enemyAt = enemyRaw;
 
-// after the hit the hero rides the smoking biplane down (its path, 0.8 s behind and a little higher),
+// after the hit the hero rides the smoking rival down (its path, 0.8 s behind and a little higher),
 // passes low over the splash, then flies a fresh program: a long turn toward the sun and a slow climb.
 const FOLLOW = 28.6, FREE = 33.6;
 const heroB = t => V.lerp(heroA(t), V.add(enemyAt(t - .8), [0, 6, 0]), smooth(FOLLOW, 30.6, t));
@@ -247,8 +247,8 @@ function cumulus(seed, cx, base, cz, width, height, opts = {}) {
 }
 
 // ───────────────────────── the world at time t ─────────────────────────
-const HERO_GUNS = [[.55, .2, 2.6], [-.55, .2, 2.6]];              // local offsets (nose guns under the nacelle)
-const ENEMY_GUNS = [[.35, .45, 2.9], [-.35, .45, 2.9]];
+const HERO_GUNS = [[2.2, -.18, 1.4], [-2.2, -.18, 1.4]];           // local offsets: guns in the wings
+const ENEMY_GUNS = HERO_GUNS;
 const toWorld = (fr, l) => V.add(fr.p, V.add(V.add(V.mul(fr.right, l[0]), V.mul(fr.up, l[1])), V.mul(fr.f, l[2])));
 
 function tracersAt(t, bursts, at, guns, target) {
@@ -275,7 +275,7 @@ function puffsAt(t) {
   if (t > EVENTS.hit) {
     for (let te = EVENTS.hit; te <= Math.min(t, landT + .3); te += .09) {
       const age = t - te; if (age > 3.4) continue;
-      const fr = frameOf(enemyAt, te), src = toWorld(fr, [0, .2, 1.5]);
+      const fr = frameOf(enemyAt, te), src = toWorld(fr, [0, .3, 3.1]);
       const r0 = rng(Math.round(te * 1000));
       const drift = [(r0() - .5) * 3, 2.2 + r0() * 1.5, (r0() - .5) * 3];
       const p = V.add(src, V.mul(drift, age));
@@ -283,13 +283,13 @@ function puffsAt(t) {
       out.push({ p, r: (1.1 + age * 2.6) * burst, g: te < EVENTS.hit + .2 ? .55 : .16, a: .85 * Math.exp(-age * .8), warm: te < EVENTS.hit + .15 ? 1 : 0 });
     }
   }
-  // spray where the floats touch the water, then a sliding wake of foam
+  // spray where the belly and wings touch the water, then a sliding wake of foam
   if (t > landT) {
     const R = rng(77);
     for (let i = 0; i < 18; i++) {
       const te = landT + i * .1, age = t - te; if (age < 0 || age > 1.8) continue;
       const fr = frameOf(enemyAt, te), side = i % 2 ? 1.2 : -1.2;
-      const base = V.add(toWorld(fr, [side, -1.8, -.5]), [0, 0, 0]);
+      const base = toWorld(fr, [side * 1.4, -.6, .2]);
       const up = 7 * (.6 + R() * .6), out2 = (R() - .5) * 4;
       const p = V.add(base, [fr.right[0] * out2 * age, Math.max(.3, up * age - 4.9 * age * age), fr.right[2] * out2 * age]);
       out.push({ p, r: 1.1 + age * 1.6, g: .95, a: .75 * Math.exp(-age * 2) * smooth(0, .08, age), warm: 0 });
@@ -344,7 +344,7 @@ const CAMS = {
     return { pos, target: V.lerp(toWorld(fr, [0, 1, 20]), e, .5), up, fov: 40 };
   },
   ditch(t, u) {
-    // a buoy's-eye view near where the biplane will touch down, looking along its approach
+    // a buoy's-eye view near where the rival will touch down, looking along its approach
     const L = enemyAt(landT + .5), fl = frameOf(enemyAt, landT);
     const ff = V.norm([fl.f[0], 0, fl.f[2]]), right = V.cross(ff, [0, 1, 0]);
     const pos = V.add(L, V.add(V.add(V.mul(ff, 55), V.mul(right, 34)), [0, 2.2 - L[1], 0]));
@@ -539,102 +539,65 @@ vec4 traceClouds(vec3 ro, vec3 rd, float tmax, int steps, out float tFirst){
 }
 
 // ── planes ──
-// hero: a flying boat. materials: 1 hull, 2 wing, 3 float, 4 nacelle, 5 tailplane, 6 fin, 7 cockpit, 8 strut, 9 spinner
-vec2 heroMap(vec3 p){
-  vec3 q = p;
-  float taper = mix(1., .38, smoothstep(.6, -4.4, q.z));
-  float hull = sdEll(vec3(q.x/taper, (q.y+.05)/taper, q.z), vec3(.64, .7, 4.35)) * taper;
-  hull = smax(hull, -(q.y + .5), .12);                         // flat planing bottom
-  vec2 r = vec2(hull, 1.);
-  float cock = sdEll(q - vec3(0., .5, .35), vec3(.34, .3, .75));
-  if (cock < r.x) r = vec2(cock, 7.);
-  float wing = sdEll(q - vec3(0., .58, .25), vec3(5.7, .09, .9));
-  if (wing < r.x) r = vec2(wing, 2.);
-  vec3 qf = vec3(abs(q.x), q.yz);
-  float fl = sdEll(qf - vec3(4.35, -.38, .35), vec3(.17, .16, .78));
-  if (fl < r.x) r = vec2(fl, 3.);
-  float st = sdCap(qf, vec3(4.35, -.28, .35), vec3(4.2, .55, .3), .035);
-  st = min(st, sdCap(qf, vec3(1.25, .6, .45), vec3(.08, 1.25, .75), .04));
-  st = min(st, sdCap(q, vec3(0., .55, 1.25), vec3(0., 1.2, 1.15), .07));
-  st = min(st, sdCap(q, vec3(0., .55, -.15), vec3(0., 1.2, .0), .07));
-  if (st < r.x) r = vec2(st, 8.);
-  float nac = sdEll(q - vec3(0., 1.45, .6), vec3(.42, .42, 1.55));
-  if (nac < r.x) r = vec2(nac, 4.);
-  float sp = sdEll(q - vec3(0., 1.45, 2.18), vec3(.17, .17, .3));
-  if (sp < r.x) r = vec2(sp, 9.);
-  float hs = sdEll(q - vec3(0., .42, -3.95), vec3(1.85, .05, .5));
-  if (hs < r.x) r = vec2(hs, 5.);
-  vec3 qfin = q - vec3(0., .95, -4.05); qfin.z += qfin.y * .35;
-  float fin = sdEll(qfin, vec3(.05, .85, .55));
-  if (fin < r.x) r = vec2(fin, 6.);
+// both planes: a single-seat fighter with elliptical wings, a long nose and a bubble canopy.
+// materials (+10 for the rival): 1 fuselage, 2 wing, 3 tailplane, 4 fin, 5 canopy, 6 spinner, 7 radiator
+vec2 fighterMap(vec3 q, float m0){
+  // fuselage: a long teardrop, deepest at the cockpit, slimming to the spinner and to a thin tail
+  float taper = mix(1., .28, smoothstep(.3, -4.7, q.z)) * mix(1., .70, smoothstep(2., 4.3, q.z));
+  float lift = .12 * smoothstep(-1., -4.7, q.z);                     // the tail line rises a little
+  float fus = sdEll(vec3(q.x / taper, (q.y - lift) / taper, q.z + .15), vec3(.5, .6, 4.5)) * taper;
+  // wing: elliptical planform, thin toward the tips, low on the fuselage, with dihedral
+  vec3 wq = q - vec3(0., -.3 + abs(q.x) * .09, .5);
+  float wing = sdEll(wq, vec3(5.6, .14, 1.28));
+  // tailplane and fin: small ellipses too
+  float tp = sdEll(q - vec3(0., .16, -4.05), vec3(1.7, .05, .56));
+  vec3 fq = q - vec3(0., .66, -4.28); fq.z += fq.y * .28;
+  float fin = sdEll(fq, vec3(.06, .78, .6));
+  float body = smin(smin(fus, wing, .22), smin(tp, fin, .05), .1);
+  float m = fus < wing ? 1. : 2.;
+  if (min(tp, fin) < min(fus, wing)) m = tp < fin ? 3. : 4.;
+  vec2 r = vec2(body, m0 + m);
+  float can = sdEll(q - vec3(0., .5, .25), vec3(.25, .3, .82));
+  if (can < r.x) r = vec2(can, m0 + 5.);
+  float sp = sdEll(q - vec3(0., .02, 4.32), vec3(.21, .21, .4));
+  if (sp < r.x) r = vec2(sp, m0 + 6.);
+  float rad = sdEll(q - vec3(1.45, -.52, .1), vec3(.2, .13, .62));   // radiator under the right wing
+  if (rad < r.x) r = vec2(rad, m0 + 7.);
   return r;
 }
-// rival: a float-biplane. materials: 11 fuselage, 12 wings, 13 floats, 14 struts, 15 tail, 16 cockpit, 17 spinner
-vec2 enemyMap(vec3 p){
-  vec3 q = p;
-  float taper = mix(1., .36, smoothstep(.5, -3.7, q.z));
-  float fus = sdEll(vec3(q.x/taper, q.y/taper, q.z), vec3(.56, .64, 3.7)) * taper;
-  vec2 r = vec2(fus, 11.);
-  float cock = sdEll(q - vec3(0., .5, -.4), vec3(.3, .28, .6));
-  if (cock < r.x) r = vec2(cock, 16.);
-  float w1 = sdEll(q - vec3(0., 1.05, .55), vec3(4.6, .07, .72));
-  float w2 = sdEll(q - vec3(0., -.35, .35), vec3(4.2, .07, .66));
-  float w = min(w1, w2);
-  if (w < r.x) r = vec2(w, 12.);
-  vec3 qf = vec3(abs(q.x), q.yz);
-  float fl = sdEll(qf - vec3(1.05, -1.75, .55), vec3(.27, .25, 2.4));
-  if (fl < r.x) r = vec2(fl, 13.);
-  float st = sdCap(qf, vec3(2.9, -.35, .35), vec3(2.9, 1.05, .55), .04);
-  st = min(st, sdCap(qf, vec3(1.05, -1.55, 1.2), vec3(.45, -.3, 1.1), .045));
-  st = min(st, sdCap(qf, vec3(1.05, -1.55, -.3), vec3(.45, -.3, -.2), .045));
-  st = min(st, sdCap(qf, vec3(.4, .4, .9), vec3(.9, 1.05, .6), .035));
-  if (st < r.x) r = vec2(st, 14.);
-  float hs = sdEll(q - vec3(0., .12, -3.35), vec3(1.5, .05, .45));
-  vec3 qfin = q - vec3(0., .7, -3.45); qfin.z += qfin.y * .4;
-  hs = min(hs, sdEll(qfin, vec3(.05, .72, .5)));
-  if (hs < r.x) r = vec2(hs, 15.);
-  float sp = sdEll(q - vec3(0., 0., 3.72), vec3(.2, .2, .32));
-  if (sp < r.x) r = vec2(sp, 17.);
-  return r;
-}
-vec2 planeMap(int w, vec3 p){ return w == 0 ? heroMap(p) : enemyMap(p); }
+vec2 planeMap(int w, vec3 p){ return fighterMap(p, w == 0 ? 0. : 10.); }
 vec3 planeNormal(int w, vec3 p){
   const vec2 k = vec2(1, -1); float e = .004;
   return normalize(k.xyy*planeMap(w, p + k.xyy*e).x + k.yyx*planeMap(w, p + k.yyx*e).x + k.yxy*planeMap(w, p + k.yxy*e).x + k.xxx*planeMap(w, p + k.xxx*e).x);
 }
 
-const vec3 C_WHITE = vec3(.95, .93, .88), C_GREEN = vec3(.12, .52, .30), C_RED = vec3(.80, .15, .13);
-const vec3 C_NAVY = vec3(.10, .15, .34), C_GOLD = vec3(.93, .74, .30), C_STRUT = vec3(.22, .2, .24);
+const vec3 C_WHITE = vec3(.93, .92, .90), C_GREEN = vec3(.12, .52, .30), C_RED = vec3(.80, .15, .13);
+const vec3 C_NAVY = vec3(.10, .15, .34), C_GOLD = vec3(.93, .74, .30);
+// a roundel: rings out -> in
+vec3 roundel(float d, float R, vec3 outer, vec3 mid, vec3 inner, vec3 base){
+  if (d > R) return base;
+  return d > R * .66 ? outer : (d > R * .33 ? mid : inner);
+}
 vec3 paint(float m, vec3 q){
-  if (m < 1.5) {                                  // hull: white over red, green pinstripe
-    float wl = -.17 + .03*q.z;
-    vec3 c = q.y < wl ? C_RED : C_WHITE;
-    if (abs(q.y - (wl + .1)) < .045) c = C_GREEN;
-    if (q.z > 3.6) c = C_RED;                        // red nose cap
-    return c;
+  bool foe = m > 10.5;
+  float k = foe ? m - 10. : m;
+  vec3 base = foe ? C_NAVY : C_WHITE;
+  vec3 o = foe ? C_GOLD : C_GREEN, mi = foe ? C_NAVY : C_WHITE, in_ = foe ? C_GOLD : C_RED;
+  if (k < 1.5) {                                    // fuselage: roundel on the sides, a band behind the spinner
+    if (q.z > 3.55 && q.z < 3.8) return foe ? C_GOLD : C_RED;
+    if (abs(q.x) > .15) return roundel(length(vec2(q.y - .05, q.z + 1.9)), .42, o, mi, in_, base);
+    return base;
   }
-  if (m < 2.5) {                                  // wing: white, tricolour bands toward the tips
-    float ax = abs(q.x);
-    if (ax > 4.75) return C_RED;
-    if (ax > 4.05) return C_WHITE;
-    if (ax > 3.35) return C_GREEN;
-    return C_WHITE;
+  if (k < 2.5) return roundel(length(vec2(abs(q.x) - 3.4, q.z - .45)), .6, o, mi, in_, base);   // wing roundels
+  if (k < 3.5) return base;
+  if (k < 4.5) {                                    // rudder bands, following the rake of the fin
+    float z = q.z + (q.y - .66) * .28;
+    if (foe) return z > -4.2 ? C_NAVY : C_GOLD;
+    return z > -4.02 ? C_GREEN : (z > -4.42 ? C_WHITE : C_RED);
   }
-  if (m < 3.5) return C_GREEN;
-  if (m < 4.5) return abs(q.z - 1.2) < .12 ? C_WHITE : C_RED;   // red nacelle, white band
-  if (m < 5.5) return abs(q.x) > 1.25 ? C_RED : C_WHITE;
-  if (m < 6.5) { float z = q.z + (q.y - .95)*.35; return z > -3.82 ? C_GREEN : (z > -4.22 ? C_WHITE : C_RED); } // rudder tricolour
-  if (m < 7.5) return vec3(.10, .09, .14);
-  if (m < 8.5) return C_STRUT;
-  if (m < 9.5) return C_WHITE;
-  // the rival
-  if (m < 11.5) return (q.y > .05 && abs(q.y - .18) < .07) ? C_GOLD : C_NAVY;
-  if (m < 12.5) return abs(abs(q.x) - 3.6) < .18 ? C_GOLD : C_NAVY;
-  if (m < 13.5) return q.y < -1.82 ? vec3(.55, .12, .12) : C_NAVY;
-  if (m < 14.5) return C_STRUT;
-  if (m < 15.5) return abs(q.z + 3.75) < .12 ? C_GOLD : C_NAVY;
-  if (m < 16.5) return vec3(.08, .08, .12);
-  return C_GOLD;
+  if (k < 5.5) return abs(q.z - .25) < .06 || abs(q.z + .25) < .05 ? vec3(.3, .3, .36) : vec3(.34, .36, .56);  // canopy glass and frame
+  if (k < 6.5) return foe ? C_GOLD : C_RED;         // spinner
+  return vec3(.2, .19, .24);
 }
 vec3 shadePlane(vec3 alb, vec3 n, vec3 rd, float m){
   float ndl = dot(n, uSun);
@@ -647,7 +610,7 @@ vec3 shadePlane(vec3 alb, vec3 n, vec3 rd, float m){
   c += fres * vec3(1., .66, .40) * .55 * smoothstep(-.4, .6, dot(rd, uSun));        // rim toward the sun
   float sp = pow(max(dot(reflect(rd, n), uSun), 0.), 60.);
   c += smoothstep(.35, .5, sp) * .45 * vec3(1., .9, .75) * lit;       // a cel glint
-  if ((m > 6.5 && m < 7.5) || (m > 15.5 && m < 16.5)) c += pow(max(dot(reflect(rd, n), uSun), 0.), 8.) * vec3(1., .8, .6) * .7;
+  if (abs(m - 5.) < .5 || abs(m - 15.) < .5) { vec3 rr = reflect(rd, n); c = mix(c, vec3(.62, .48, .72) + vec3(.5, .3, .15) * max(rr.y, 0.), .35); c += pow(max(dot(rr, uSun), 0.), 8.) * vec3(1., .8, .6) * .7; }
   return c;
 }
 
@@ -656,7 +619,7 @@ vec4 tracePlane(int w, vec3 ro, vec3 rd, float tmax, out float tHit){
   tHit = 1e9;
   vec3 P = w == 0 ? uHP : uEP; mat3 R = w == 0 ? uHR : uER;
   vec3 lo = transpose(R) * (ro - P), ld = transpose(R) * rd;
-  vec3 bc = vec3(0., .4, .2); float br = 6.4;
+  vec3 bc = vec3(0., .1, 0.); float br = 6.2;
   vec3 oc = lo - bc; float b = dot(oc, ld), c = dot(oc, oc) - br*br, h = b*b - c;
   if (h < 0.) return vec4(0);
   h = sqrt(h);
@@ -688,15 +651,15 @@ vec4 tracePlane(int w, vec3 ro, vec3 rd, float tmax, out float tHit){
     tHit = t1;
   }
   // propeller disc: a translucent blur with two soft blades
-  vec3 pc = w == 0 ? vec3(0., 1.45, 2.36) : vec3(0., 0., 3.95);
-  float pr = w == 0 ? 1.25 : 1.12;
+  vec3 pc = vec3(0., .02, 4.5);
+  float pr = 1.5;
   float tz = (pc.z - lo.z) / ld.z;
   if (tz > 0. && tz < min(tmax, hitT > 0. ? hitT : 1e9)) {
     vec2 d2 = (lo + ld * tz).xy - pc.xy;
     float rr = length(d2) / pr;
     if (rr < 1.) {
       float ang = atan(d2.y, d2.x) - (w == 0 ? uHProp : uEProp);
-      float blade = pow(.5 + .5 * cos(2. * ang), 6.);
+      float blade = pow(.5 + .5 * cos(3. * ang), 7.);                 // three blades
       float a = (.10 + .32 * blade) * smoothstep(1., .9, rr) * smoothstep(.1, .25, rr);
       vec3 bcol = mix(vec3(.25, .17, .14), vec3(.95, .78, .35), smoothstep(.8, .92, rr));
       bcol *= mix(.7, 1.2, smoothstep(-.2, .6, dot(R * vec3(0,0,1), uSun) * -1. + .3));
@@ -886,7 +849,7 @@ function draw(frame) {
   // muzzle flashes and the hit spark: short, bright tracers
   const flash = (bursts, fr, guns) => { for (const [a, b] of bursts) if (t >= a && t <= b + .05) guns.forEach(gp => { const m = toWorld(fr, gp); tr.push({ a: m, b: V.add(m, V.mul(fr.f, 1.2)), heat: 1.6 * (.6 + .4 * Math.sin(t * 90)), w: .35 }); }); };
   flash(EVENTS.enemyBursts, ef, ENEMY_GUNS); flash(EVENTS.heroBursts, hf, HERO_GUNS);
-  if (t > EVENTS.hit - .05 && t < EVENTS.hit + .5) { const m = toWorld(ef, [0, .3, 1.8]), k = 1 - (t - EVENTS.hit + .05) / .55; for (let i = 0; i < 5; i++) { const R = rng(i + frame * 7); tr.push({ a: m, b: V.add(m, [(R() - .5) * 6 * (1 - k), (R() - .2) * 5 * (1 - k), (R() - .5) * 6 * (1 - k)]), heat: 2 * k, w: .12 }); } }
+  if (t > EVENTS.hit - .05 && t < EVENTS.hit + .5) { const m = toWorld(ef, [0, .35, 3.]), k = 1 - (t - EVENTS.hit + .05) / .55; for (let i = 0; i < 5; i++) { const R = rng(i + frame * 7); tr.push({ a: m, b: V.add(m, [(R() - .5) * 6 * (1 - k), (R() - .2) * 5 * (1 - k), (R() - .5) * 6 * (1 - k)]), heat: 2 * k, w: .12 }); } }
   const trs = tr.slice(0, 48);
   trs.forEach((x, i) => { put(6, i, [...x.a, x.heat]); put(7, i, [...x.b, x.w]); });
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TW, TH, 0, gl.RGBA, gl.FLOAT, data);
@@ -908,7 +871,7 @@ function draw(frame) {
   ctx.drawImage(glc, 0, 0, W, H);
   LAYOUT = [];
   const hp = project(cam, hf.p);
-  if (hp) { const s = Math.max(6, hp[2] * 6); LAYOUT.push({ id: 'flying boat', kind: 'keep', x: hp[0] - s, y: hp[1] - s * .6, w: 2 * s, h: 1.2 * s }); }
+  if (hp) { const s = Math.max(6, hp[2] * 6); LAYOUT.push({ id: 'hero plane', kind: 'keep', x: hp[0] - s, y: hp[1] - s * .6, w: 2 * s, h: 1.2 * s }); }
   if (t > TEXT_T - .1) {
     const a = smooth(TEXT_T, TEXT_T + 1.8, t), y = H * .78 + 6 * (1 - a);
     ctx.save();
