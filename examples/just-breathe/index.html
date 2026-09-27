@@ -53,8 +53,8 @@ const TEXT_T = SHOT_T[9].t0 + BAR;                                 // "just brea
 
 // gunfire and other hits (seconds); the picture and the soundtrack both read this
 const EVENTS = {
-  enemyBursts: [[13.95, 14.45], [15.55, 16.2], [17.15, 17.55]],
-  heroBursts: [[27.35, 27.8], [28.05, 28.45]],
+  enemyBursts: [[12.95, 13.35], [13.95, 14.45], [14.9, 15.3], [15.55, 16.2], [16.55, 16.95], [17.15, 17.55], [18.15, 18.55]],
+  heroBursts: [[26.75, 27.05], [27.35, 27.8], [28.05, 28.45]],
   hit: 28.35,
   splash: 0,            // set once the enemy path is known (where it touches the water)
   flyby: 5.25,
@@ -142,7 +142,8 @@ const heroA = t => { const p = t >= 0 ? heroTurtle(t) : V.add(heroStart, V.mul(V
 // the rival: the same kind of fighter in navy and gold. It dives out of the sky, rides the hero's tail (the hero's own path,
 // 1.3 s behind), overshoots when the hero loops, is hit, glides down and lands on the water.
 const LAG = 1.3, JOIN = 13.5, SPLIT = 22.75 + LAG;
-function diveOffset(t) { const s = Math.max(0, JOIN - t); return [18 * s, 31 * s * s, -10 * s]; }
+// a cubic ease: position, speed and acceleration all meet the chase path smoothly at JOIN
+function diveOffset(t) { const s = Math.max(0, JOIN - t); return [1.6 * s * s * s, 13.8 * s * s * s, -.9 * s * s * s]; }
 let enemyAfter = null, landT = 0;
 function enemyRaw(t) {
   if (t < SPLIT) return V.add(V.add(heroA(t - LAG), [2, 3.5, 0]), diveOffset(t));
@@ -198,7 +199,9 @@ function liftAt(at, t) {
     const k = V.dot(up, wp); if (k < 0) up = V.sub(up, V.mul(wp, 2 * k));
     up = V.add(up, V.mul(wp, .15 * G));                                // a little bias toward level
   }
-  return { up, g: V.len(lift) / G };
+  const gl = V.len(lift) / G, cap = 9;                                 // no single sample may dominate the average
+  if (gl > cap) up = V.mul(up, cap / gl);
+  return { up, g: gl };
 }
 function frameOf(at, t, extraRoll = 0) {
   const h = 1 / 30, p = at(t), pa = at(t - h), pb = at(t + h);
@@ -317,6 +320,15 @@ function wakeAt(t) {
 
 function puffsAt(t) {
   const out = [];
+  // the hit: a hot flash, then shards of cowling tumbling away and falling
+  if (t > EVENTS.hit && t < EVENTS.hit + 1.6) {
+    const fr = frameOf(enemyAt, EVENTS.hit), src = toWorld(fr, [0, .4, 2.6]), age = t - EVENTS.hit, R = rng(4242);
+    if (age < .35) out.push({ p: src, r: 1.2 + age * 9, g: 1, a: .9 * (1 - age / .35), warm: 1 });
+    for (let i = 0; i < 12; i++) {
+      const v = V.add(V.mul(fr.vel, .85), [(R() - .5) * 30, R() * 18, (R() - .5) * 30]);
+      out.push({ p: V.add(src, [v[0] * age, v[1] * age - 4.9 * age * age, v[2] * age]), r: .22 + R() * .25, g: .06, a: .95 * (1 - age / 1.6), warm: 0 });
+    }
+  }
   // spray kicked up by the prop wash when a plane skims the water (and by the rival as it slides)
   for (const w of [0, 1]) {
     const at = w ? enemyAt : heroAt;
@@ -379,9 +391,9 @@ const CAMS = {
   },
   tracers(t, u) {
     const fr = frameOf(heroAt, SHOT_T[3].t0), ff = lookFrame(fr).fwdFlat, right = V.cross(ff, [0, 1, 0]);
-    const mid = V.lerp(heroAt(t), enemyAt(t), .4);
-    const pos = V.add(mid, V.add(V.add(V.mul(right, -58), V.mul(ff, -6)), [0, -9 + 4 * u, 0]));
-    return { pos, target: mid, up: [0, 1, 0], fov: 42 };
+    const mid = V.lerp(heroAt(t), enemyAt(t), .4), k = ease(u), hf = camFrame(heroAt, t);
+    const pos = V.add(mid, V.add(V.add(V.mul(right, -58 + 20 * k), V.mul(ff, -6)), [0, -9 + 4 * u, 0]));
+    return { pos, target: mid, up: V.norm(V.lerp([0, 1, 0], hf.up, .22)), fov: 42 };
   },
   cloud(t, u) {
     const fr = camFrame(heroAt, t), fs = camFrame(heroAt, t - .35);
@@ -560,14 +572,22 @@ vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   float L = 1.1 / x.y;                                                 // occlusion at lobe scale, not pore scale
   float ao = clamp(clusterD(ci, p + n * L) / L, 0., 1.);
   float h01 = clamp((p.y - x.x) / (b.w * 1.3), 0., 1.);
-  float wrap = dot(n, uSun) * .5 + .5;
-  vec3 shadow = vec3(.27, .22, .47), midc = vec3(.60, .40, .62), litc = vec3(1.0, .79, .53);
-  vec3 c = mix(shadow, midc, smoothstep(.2, .62, wrap) * (.45 + .55 * h01));
-  vec3 lit2 = mix(litc * vec3(.86, .74, .78), litc * 1.06, smoothstep(.72, .98, wrap));  // form across the lit side
-  c = mix(c, lit2, smoothstep(.56, .70, wrap));                       // a painted terminator
-  c += vec3(.09, .07, .15) * max(n.y, 0.);                            // sky on the tops
-  c += vec3(.26, .11, .05) * max(-n.y, 0.) * (1. - wrap * .5);        // the sunlit sea under them
-  c *= mix(.66, 1., ao);
+  // painted like a background artist would: three flat-ish tones with soft steps between them
+  // (blue-violet shadow, rose middle, cream-gold light), a warm band where light turns to shadow,
+  // lighter tops, a faint horizontal brush grain. Occlusion only nudges which tone a spot falls in.
+  float brush = vnoise(vec3(p.x * .6, p.y * 2.4, p.z * .6) * x.y) - .5;
+  // tones follow the big lobes: decide them from a much wider normal than the one used for edges
+  float E = .55 / x.y;
+  vec3 nb = normalize(k.xyy*clusterD(ci, p + k.xyy*E) + k.yyx*clusterD(ci, p + k.yyx*E) + k.yxy*clusterD(ci, p + k.yxy*E) + k.xxx*clusterD(ci, p + k.xxx*E));
+  float wrap = dot(normalize(nb * 2. + n), uSun) * .5 + .5 + (ao - 1.) * .1 + h01 * .08;
+  vec3 shadow = mix(vec3(.25, .22, .47), vec3(.36, .30, .58), max(n.y, 0.));   // tops catch the violet sky
+  vec3 midc = vec3(.76, .45, .60), litc = vec3(1.0, .85, .62);
+  float s1 = smoothstep(.40, .52, wrap), s2 = smoothstep(.57, .69, wrap);
+  vec3 c = mix(shadow, midc, s1);
+  c = mix(c, litc, s2);
+  c = mix(c, vec3(1.0, .56, .40), s1 * (1. - s2) * .55);             // warm band at the terminator
+  c += vec3(.24, .10, .04) * max(-n.y, 0.) * (1. - s2);                // the sunlit sea glows under them
+  c *= 1. + brush * .06;
   float graze = 1. - abs(dot(n, rd));
   c += vec3(1., .70, .38) * pow(max(dot(rd, uSun), 0.), 4.) * pow(graze, 2.) * 1.8;  // gold lining
   float fog = 1. - exp(-t * .00005);
@@ -1030,6 +1050,22 @@ function draw(frame) {
       prev = tips;
     }
   }
+  if (['profile', 'sun-dive', 'cloud', 'reversal', 'breath', 'tracers'].includes(SHOT_T[shotAt(t)].name)) {
+    const c1 = cameraAt(t + 1 / 30).pos, vel = V.mul(V.sub(c1, cam.pos), 30), sp = V.len(vel);
+    if (sp > 15) {
+      const C = 7, ci = cam.pos.map(v => Math.floor(v / C)), motes = [];
+      for (let i = -4; i <= 4; i++) for (let j = -3; j <= 3; j++) for (let k = -4; k <= 4; k++) {
+        const cx = ci[0] + i, cy = ci[1] + j, cz = ci[2] + k, h = rng((cx * 73856093) ^ (cy * 19349663) ^ (cz * 83492791));
+        if (h() > .16) continue;
+        const mp = [(cx + h()) * C, (cy + h()) * C, (cz + h()) * C];
+        if (mp[1] < .5) continue;
+        const d = V.len(V.sub(mp, cam.pos)); if (d < 3 || d > 30) continue;
+        motes.push({ mp, d });
+      }
+      motes.sort((a, b) => a.d - b.d).slice(0, 36).forEach(m =>
+        tr.push({ a: m.mp, b: V.sub(m.mp, V.mul(vel, 1.2 / 30)), heat: -.16 * smooth(30, 12, m.d) * smooth(15, 45, sp), w: .025 }));
+    }
+  }
   const trs = tr.slice(0, 160);
   trs.forEach((x, i) => { put(6, i, [...x.a, x.heat]); put(7, i, [...x.b, x.w]); });
   const wakes = wakeAt(t), box = [1e9, 1e9, -1e9, -1e9];
@@ -1082,7 +1118,7 @@ function draw(frame) {
 }
 
 window.draw = draw; window.FRAMES = FRAMES; window.FPS = FPS; window.CUES = CUES; window.DUR = DUR;
-window.WORLD = { heroAt, enemyAt, frameOf, cameraAt, SHOT_T, EVENTS, CLOUDS, landT };
+window.WORLD = { heroAt, enemyAt, frameOf, cameraAt, enemyRoll, heroRoll, SHOT_T, EVENTS, CLOUDS, landT };
 
 // ───────────────────────── soundtrack ─────────────────────────
 // A waltz (3/4) in D minor that turns to D major for the ending, plus engines and guns placed in the world.
@@ -1236,6 +1272,22 @@ function buildScore(ac) {
     }
   };
   gunAt(EVENTS.enemyBursts, enemyAt, .11);
+  // near misses: bullets passing within a few metres of the camera whizz past
+  for (const [bursts, shooter, target] of [[EVENTS.enemyBursts, enemyAt, heroAt], [EVENTS.heroBursts, heroAt, enemyAt]]) {
+    for (let t = 11; t < 30; t += 1 / 30) {
+      const cam = cameraAt(t);
+      for (const tr0 of tracersAt(t, bursts, shooter, HERO_GUNS, target)) {
+        const d = V.len(V.sub(tr0.b, cam.pos));
+        if (d < 9 && tr0.heat > .5) {
+          const o = ac.createOscillator(), g = ac.createGain(), s0 = T0 + t;
+          o.type = 'sine'; o.frequency.setValueAtTime(2400, s0); o.frequency.exponentialRampToValueAtTime(700, s0 + .12);
+          g.gain.setValueAtTime(0, s0); g.gain.linearRampToValueAtTime(.05 * (1 - d / 9), s0 + .01); g.gain.linearRampToValueAtTime(0, s0 + .13);
+          o.connect(g); g.connect(sfx); o.start(s0); o.stop(s0 + .15);
+          break;
+        }
+      }
+    }
+  }
   gunAt(EVENTS.heroBursts, heroAt, .12);
   // the hit: a dull clank and a cough of the engine
   osc(EVENTS.hit, 'triangle', 180, .12, .002, .12, sfx); noise(EVENTS.hit, .4, 'lowpass', 900, .7, .16, sfx); osc(EVENTS.hit + .05, 'square', 60, .06, .002, .15, sfx);
