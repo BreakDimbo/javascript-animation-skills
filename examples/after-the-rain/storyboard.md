@@ -29,7 +29,7 @@ Every shot is either a side-on, eye-level view in parallax layers, or a close-up
 |---|---|---|---|---|
 | 1 | 0 – 9 | Wide across the river, slow drift | Rain on the river, pastel shophouses with warm windows on the far bank, the bumboat; title 雨停之后 | rain, sparse high piano |
 | 2 | 9 – 15 | Crane down out of dripping leaves | The camera sinks past the leaves onto the maroon umbrella and the small, soaked myna | drips |
-| 3 | 15 – 21 | Close on the myna | A drip lands on its head (18.75): wide eyes, a shake, a sweat drop, a call | plop, flutter, chirp |
+| 3 | 15 – 21 | Close on the myna | A drip lands on its head (18.75); its tuft rises, it shakes off the water, and it calls | plop, flutter, chirp |
 | 4 | 21 – 27 | Push in on the café's upper window | It flutters up to the glowing window with pink shutters and geraniums, lands, hops closer | wingbeats, landings; piano melody |
 | 5 | 27 – 30 | Close on the sill | Warm light on its face; its eyes go wide with sparkles (28.4) | celesta *ting* |
 | 6 | 30 – 36 | Over its shoulder, through the rainy pane | A cup steaming on the inside sill; it tilts its head one way, then the other | two curious chirps |
