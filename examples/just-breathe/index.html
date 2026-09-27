@@ -179,7 +179,7 @@ let heroC;
 {
   const p0 = heroB(FREE), p1 = heroB(FREE - 1 / 60), f0 = V.norm([p0[0] - p1[0], 0, p0[2] - p1[2]]);
   const turtle = flyProgram([p0[0], 0, p0[2]], f0, [[FREE, 50, 0, 0], [35.5, 46, 24.2, 0], [40.3, 46, 0, 0]], FREE, DUR + 2);
-  const alt = keyed([[FREE, p0[1]], [34.6, 9], [35.6, 9], [37.5, 16], [40.3, 22], [DUR + 1, 40]]);
+  const alt = keyed([[FREE, p0[1]], [34.6, 6.5], [35.6, 7], [37.5, 15], [40.3, 22], [DUR + 1, 40]]);
   heroC = t => { const p = turtle(t); return [p[0], alt(t), p[2]]; };
 }
 const heroAt = t => t < FOLLOW ? heroA(t) : t < FREE ? heroB(t) : heroC(t);
@@ -225,7 +225,7 @@ function cumulus(seed, cx, base, cz, width, height, opts = {}) {
   let ext = 0; const ctr = [cx, base + height * .5, cz];
   for (const s of spheres) ext = Math.max(ext, V.len(V.sub(s, ctr)) + s[3]);
   const lump = r0 * .3;
-  CLOUDS.push({ c: ctr, R: ext * 1.1 + lump * .5, base, freq: 1.5 / lump, amp: lump * .38, seed: R() * 100, spheres, skin: Math.max(3, r0 * .035) });
+  CLOUDS.push({ c: ctr, R: ext * 1.1 + lump * .5, base, freq: 1.5 / lump, amp: lump * .38, seed: R() * 100, spheres, skin: Math.max(2.5, r0 * .024) });
 }
 {
   // far towers along the sun horizon: backlit, violet with gold edges; the sun sits in the gap between them
@@ -262,15 +262,50 @@ function tracersAt(t, bursts, at, guns, target) {
       let dir = fr.f;
       if (target) { const tp = target(tf + .35); dir = V.norm(V.lerp(fr.f, V.norm(V.sub(tp, muzzle)), .55)); }
       const v = V.add(fr.vel, V.mul(dir, 420));
-      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .03)));
+      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .05)));
       out.push({ a: tail, b: head, heat: 1 - age * .6, w: .16 });
     }
   }
   return out;
 }
 
+// wakes: short segments of each plane's track over the last 3 s, weighted by how low (and fast) it goes
+const WAKE_AGE = 3, WAKE_DT = .1;
+function wakeStrength(w, t) {
+  const at = w ? enemyAt : heroAt, p = at(t), sp = V.len(V.sub(at(t + .05), at(t - .05))) / .1;
+  if (w) return t > landT - .05 ? clamp(sp / 14, .25, 1) : smooth(10, 2, p[1] - .6) * clamp(sp / 30, 0, 1);
+  return .65 * smooth(14, 3, p[1]) * clamp(sp / 30, 0, 1);            // prop wash: ripples and spray, little foam
+}
+function wakeAt(t) {
+  const out = [], base = Math.floor(t / WAKE_DT) * WAKE_DT;
+  for (const w of [0, 1]) {
+    const at = w ? enemyAt : heroAt;
+    for (let k = 0; k <= WAKE_AGE / WAKE_DT; k++) {
+      const ta = k ? base - (k - 1) * WAKE_DT : t, tb = base - k * WAKE_DT;
+      if (tb < 0) break;
+      const s = wakeStrength(w, tb); if (s < .02) continue;
+      const a = at(ta), b = at(tb);
+      out.push({ a: [a[0], a[2]], b: [b[0], b[2]], s, age: t - tb });
+    }
+  }
+  return out.slice(0, 64);
+}
+
 function puffsAt(t) {
   const out = [];
+  // spray kicked up by the prop wash when a plane skims the water (and by the rival as it slides)
+  for (const w of [0, 1]) {
+    const at = w ? enemyAt : heroAt;
+    for (let k = 0; k < 22; k++) {
+      const te = Math.floor(t / .055) * .055 - k * .055, age = t - te;
+      if (te < 0 || age > 1.2 || (w && te > landT + 1.3)) continue;
+      const s = wakeStrength(w, te); if (s < .08) continue;
+      const p = at(te), fr = frameOf(at, te), R = rng(Math.round(te * 997) + w * 7);
+      const side = (R() - .5) * (2 + age * 6);
+      out.push({ p: [p[0] + fr.right[0] * side - fr.f[0] * age * 3, Math.max(.3, .4 + 3.4 * s * age - 3.6 * age * age), p[2] + fr.right[2] * side - fr.f[2] * age * 3],
+        r: (.9 + age * 3.2) * (.6 + .5 * s) * (w ? 1.5 : 1), g: .97, a: .6 * s * Math.pow(1 - age / 1.2, 1.5), warm: 0 });
+    }
+  }
   // smoke from the hit engine: a puff every 0.09 s, drifting and growing, for as long as it flies
   if (t > EVENTS.hit) {
     for (let te = EVENTS.hit; te <= Math.min(t, landT + .3); te += .09) {
@@ -286,13 +321,13 @@ function puffsAt(t) {
   // spray where the belly and wings touch the water, then a sliding wake of foam
   if (t > landT) {
     const R = rng(77);
-    for (let i = 0; i < 18; i++) {
-      const te = landT + i * .1, age = t - te; if (age < 0 || age > 1.8) continue;
+    for (let i = 0; i < 24; i++) {
+      const te = landT + i * .07, age = t - te; if (age < 0 || age > 2.2) continue;
       const fr = frameOf(enemyAt, te), side = i % 2 ? 1.2 : -1.2;
       const base = toWorld(fr, [side * 1.4, -.6, .2]);
-      const up = 7 * (.6 + R() * .6), out2 = (R() - .5) * 4;
+      const up = 13 * (.5 + R() * .7) * Math.exp(-i * .06), out2 = (R() - .5) * 7;
       const p = V.add(base, [fr.right[0] * out2 * age, Math.max(.3, up * age - 4.9 * age * age), fr.right[2] * out2 * age]);
-      out.push({ p, r: 1.1 + age * 1.6, g: .95, a: .75 * Math.exp(-age * 2) * smooth(0, .08, age), warm: 0 });
+      out.push({ p, r: 2 + age * 3.2, g: .96, a: .8 * Math.exp(-age * 1.5) * smooth(0, .06, age), warm: 0 });
     }
   }
   return out;
@@ -388,6 +423,7 @@ uniform vec3 uEP; uniform mat3 uER; uniform float uEProp;
 uniform sampler2D uData;
 uniform int uNC, uNPuff, uNTr;
 uniform int uSteps, uReflSteps;
+uniform int uNWake; uniform vec4 uWakeBox;
 out vec4 outCol;
 
 #define PI 3.14159265
@@ -440,17 +476,37 @@ vec3 hazeCol(vec3 rd){ return skyCol(normalize(vec3(rd.x, .02, rd.z))); }
 vec4 cB(int c){ return texelFetch(uData, ivec2(c, 0), 0); }   // centre, bound radius
 vec4 cX(int c){ return texelFetch(uData, ivec2(c, 1), 0); }   // base y, freq, amp, seed
 vec4 cS(int c){ return texelFetch(uData, ivec2(c, 2), 0); }   // first sphere, count, skin
+// sphere noise: one random ball per lattice corner, so bumps are round (cumulus), and still a distance
+float sphGrid(vec3 p){
+  vec3 i = floor(p), f = fract(p);
+  float d = 1e9;
+  for (int k = 0; k < 8; k++) {
+    vec3 c = vec3(k & 1, (k >> 1) & 1, (k >> 2) & 1);
+    d = min(d, length(f - c) - .5 * hash13(i + c));
+  }
+  return d;
+}
 float clusterD(int c, vec3 p){
   vec4 x = cX(c), s = cS(c);
   int st = int(s.x), n = int(s.y);
   float d = 1e9;
   for (int i = 0; i < 16; i++) { if (i >= n) break; vec4 sp = texelFetch(uData, ivec2(st+i, 3), 0); d = smin(d, length(p-sp.xyz)-sp.w, sp.w*.45); }
+  float lump = 1.5 / x.y;
+  float lift = smoothstep(x.x, x.x + lump, p.y);                // keep the base flat
   vec3 q = p * x.y + x.w;
-  float b = vnoise(q)*.55 + vnoise(q*2.13+5.2)*.3 + vnoise(q*4.7+9.1)*.15;
-  float lift = smoothstep(x.x, x.x + 1./x.y, p.y);           // keep the base flat
-  d -= x.z * (b - .38) * lift;
-  d = smax(d, x.x - p.y, 1./x.y * .6);
-  return d;
+  d -= x.z * .5 * (vnoise(q) - .45) * lift;                    // broad irregularity
+  // big round lobes grown onto the surface (only near it: far away the pile is enough)
+  float sc = lump * 1.05;
+  if (d < sc * 1.2) {
+    vec3 pp = p + x.w * 13.;
+    for (int o = 0; o < 1; o++) {
+      float b = sc * sphGrid(pp / sc);
+      b = smax(b, d - .12 * sc, .35 * sc);
+      d = smin(b, d, .42 * sc * lift + .02 * sc);
+      sc *= .42; pp = mat3(.00, .80, .60, -.80, .36, -.48, -.60, -.48, .64) * pp * 1.03;
+    }
+  }
+  return smax(d, x.x - p.y, lump * .4);
 }
 float cloudMap(vec3 p, out int ci){
   float d = 1e9; ci = -1;
@@ -466,7 +522,7 @@ float cloudMap(vec3 p, out int ci){
 }
 vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   vec4 x = cX(ci), b = cB(ci);
-  float e = cS(ci).z;
+  float e = cS(ci).z * 1.8;                                          // a wide normal: soft, painted gradients
   vec2 k = vec2(1, -1);
   vec3 n = normalize(k.xyy*clusterD(ci, p + k.xyy*e) + k.yyx*clusterD(ci, p + k.yyx*e) + k.yxy*clusterD(ci, p + k.yxy*e) + k.xxx*clusterD(ci, p + k.xxx*e));
   float L = .45 / x.y;
@@ -479,7 +535,7 @@ vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   c = mix(c, lit2, smoothstep(.56, .70, wrap));                       // a painted terminator
   c += vec3(.09, .07, .15) * max(n.y, 0.);                            // sky on the tops
   c += vec3(.26, .11, .05) * max(-n.y, 0.) * (1. - wrap * .5);        // the sunlit sea under them
-  c *= mix(.5, 1., ao);
+  c *= mix(.66, 1., ao);
   float graze = 1. - abs(dot(n, rd));
   c += vec3(1., .70, .38) * pow(max(dot(rd, uSun), 0.), 4.) * pow(graze, 2.) * 1.8;  // gold lining
   float fog = 1. - exp(-t * .00005);
@@ -562,6 +618,17 @@ vec2 fighterMap(vec3 q, float m0){
   float sp = sdEll(q - vec3(0., .02, 4.32), vec3(.21, .21, .4));
   if (sp < r.x) r = vec2(sp, m0 + 6.);
   float rad = sdEll(q - vec3(1.45, -.52, .1), vec3(.2, .13, .62));   // radiator under the right wing
+  rad = min(rad, sdEll(q - vec3(-1.45, -.5, .35), vec3(.12, .09, .38)));   // oil cooler under the left
+  // small parts, only worth evaluating near the airframe
+  if (r.x < .6) {
+    vec3 qa = vec3(abs(q.x), q.yz);
+    float zc = clamp(floor((q.z - 2.35) / .28 + .5), 0., 2.) * .28 + 2.35;          // three exhaust stubs a side
+    rad = min(rad, sdCap(qa, vec3(.37, .2, zc), vec3(.47, .17, zc - .12), .045));
+    rad = min(rad, sdCap(qa, vec3(1.95, -.3, 1.45), vec3(1.95, -.3, 2.05), .04));     // cannon barrels
+    rad = min(rad, sdCap(q, vec3(0., .52, -.9), vec3(0., .98, -1.18), .018));           // antenna mast
+    rad = min(rad, sdCap(q, vec3(0., -.05, -4.05), vec3(0., -.28, -4.18), .03));        // tail wheel leg
+    rad = min(rad, length(q - vec3(0., -.3, -4.2)) - .085);                              // tail wheel
+  }
   if (rad < r.x) r = vec2(rad, m0 + 7.);
   return r;
 }
@@ -578,7 +645,32 @@ vec3 roundel(float d, float R, vec3 outer, vec3 mid, vec3 inner, vec3 base){
   if (d > R) return base;
   return d > R * .66 ? outer : (d > R * .33 ? mid : inner);
 }
-vec3 paint(float m, vec3 q){
+float pline(float d, float fp){ return (1. - smoothstep(.01, .01 + fp, d)) * clamp(1.2 - fp * 25., 0., 1.); }   // fades out when too small to see
+vec3 paintBase(float m, vec3 q);
+vec3 paint(float m, vec3 q, float fp){
+  vec3 c = paintBase(m, q);
+  float k = m > 10.5 ? m - 10. : m, line = 0.;
+  if (k < 1.5) {
+    float dz = min(min(abs(q.z - 3.35), abs(q.z - 2.05)), min(min(abs(q.z + 1.05), abs(q.z + 2.6)), abs(q.z + 3.6)));
+    line = pline(dz, fp);
+    // exhaust soot along the cowling behind the stubs
+    float soot = smoothstep(.3, .16, abs(q.y - .16)) * smoothstep(2.5, 2.1, q.z) * smoothstep(.2, 1.9, q.z) * step(.2, abs(q.x));
+    c *= 1. - .35 * soot;
+  } else if (k < 2.5) {
+    float ax = abs(q.x), hc = 1.28 * sqrt(max(0., 1. - ax * ax / 31.36));
+    float ail = abs(q.z - (.5 - .5 * hc)) * step(3., ax) * step(ax, 5.1) + (1. - step(3., ax) * step(ax, 5.1)) * 9.;
+    float flap = abs(q.z - (.5 - .58 * hc)) * step(.75, ax) * step(ax, 2.9) + (1. - step(.75, ax) * step(ax, 2.9)) * 9.;
+    float ends = min(abs(ax - 3.), abs(ax - 5.1)) + step(.5 - .5 * hc, q.z) * 9.;
+    float panels = min(abs(ax - 1.4), abs(ax - 2.5)) + step(q.z, .5 - .58 * hc) * 9.;
+    line = pline(min(min(ail, flap), min(ends, panels)), fp);
+  } else if (k < 3.5) {
+    line = pline(abs(q.z + 4.22), fp);                                   // elevator hinge
+  } else if (k < 4.5) {
+    line = pline(abs(q.z + (q.y - .66) * .28 + 4.42), fp);              // rudder hinge
+  }
+  return mix(c, c * .62, line);
+}
+vec3 paintBase(float m, vec3 q){
   bool foe = m > 10.5;
   float k = foe ? m - 10. : m;
   vec3 base = foe ? C_NAVY : C_WHITE;
@@ -641,7 +733,7 @@ vec4 tracePlane(int w, vec3 ro, vec3 rd, float tmax, out float tHit){
     vec3 q = lo + ld * hitT;
     vec3 nl = planeNormal(w, q);
     vec3 n = R * nl;
-    col = vec4(shadePlane(paint(res.y, q), n, rd, res.y), 1.);
+    col = vec4(shadePlane(paint(res.y, q, hitT * pix * .5), n, rd, res.y), 1.);
     // ink on the silhouette's inner edge too: darken where the surface turns away from us
     float edge = 1. - smoothstep(.12, .3, abs(dot(n, rd)));
     col.rgb = mix(col.rgb, vec3(.13, .08, .18), edge * .6);
@@ -687,8 +779,32 @@ vec2 seaGrad(vec2 p, float foot){
 }
 vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnemy){
   vec3 p = ro + rd * t;
-  float pixA = 2. / (uFocal * uRes.y);
-  vec2 g = seaGrad(p.xz, t * pixA / max(abs(rd.y), .03));
+  float pixA = 2. / (uFocal * uRes.y), foot = t * pixA / max(abs(rd.y), .03);
+  vec2 g = seaGrad(p.xz, foot);
+  // wakes: a foam trail along each low pass, ripples spreading out to both sides (a Kelvin-like V),
+  // and choppy water right under the prop wash
+  float foam = 0., ruffle = 0.;
+  if (uNWake > 0 && p.x > uWakeBox.x && p.x < uWakeBox.z && p.z > uWakeBox.y && p.z < uWakeBox.w) {
+    vec2 wg = vec2(0); float chop = 0.;
+    for (int i = 0; i < 64; i++) {
+      if (i >= uNWake) break;
+      vec4 A = texelFetch(uData, ivec2(i, 8), 0), B = texelFetch(uData, ivec2(i, 9), 0);
+      vec2 pa = p.xz - A.xy, ba = B.xy - A.xy;
+      float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-4), 0., 1.);
+      vec2 dv = pa - ba * h; float d = length(dv), sw = A.z, age = A.w;
+      float w = .8 + age * 1.6;
+      foam += sw * sw * exp(-d * d / (w * w)) * (1. - age / 3.) * .45;   // real foam only where something touches the water
+      chop += sw * exp(-d * d / 10.) * exp(-age * 3.);
+      float x = d - (1. + age * 6.5);
+      float env = sw * exp(-x * x / (3. + age * 4.)) * exp(-age * .8);
+      wg += (d > .01 ? dv / d : vec2(0)) * env * .3 * cos(x * 1.4 - age * 4.);
+    }
+    float fade = clamp(1.2 - foot * .9, 0., 1.);
+    g += wg * fade;
+    g += (vec2(vnoise2(p.xz * 1.7 + uTime * 5.), vnoise2(p.xz * 1.7 + 9.3 - uTime * 5.)) - .5) * min(chop, 1.5) * .9 * fade;
+    foam = 1. - exp(-foam);
+    ruffle = clamp(chop, 0., 1.) * fade;
+  }
   vec3 n = normalize(vec3(-g.x, 1., -g.y));
   vec3 r = reflect(rd, n); r.y = abs(r.y) + .002;
   float cosi = max(dot(n, -rd), 0.);
@@ -712,6 +828,16 @@ vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnem
   float sp = pow(max(dot(r, uSun), 0.), rough);
   float sparkle = mix(1., step(.55, vnoise2(p.xz * .9 + uTime * 2.)) * 2.2, smoothstep(600., 50., t));
   c += vec3(1., .80, .52) * sp * 2.4 * sparkle;
+  if (ruffle > .01) {   // wind-ruffled water under the prop wash: darker, with hard sun glints
+    c = mix(c, deep * 1.25 + vec3(.04, .02, .05), ruffle * .45);
+    c += vec3(1., .82, .55) * step(.78, vnoise2(p.xz * 4.5 + uTime * 9.)) * ruffle * .5;
+  }
+  if (foam > .01) {
+    float tex = vnoise2(p.xz * .8 + vec2(0., uTime * .3)) * .6 + vnoise2(p.xz * 2.3 - uTime * .2) * .4;
+    float fa = smoothstep(.3, .8, foam * (.35 + 1.2 * tex));
+    vec3 fc = mix(vec3(.62, .52, .72), vec3(1., .9, .82), .5 + .5 * smoothstep(-.1, .3, dot(n, uSun) + .2));
+    c = mix(c, fc, fa * .85);
+  }
   // haze toward the horizon
   float fog = 1. - exp(-t * .00018);
   return mix(c, hazeCol(rd), fog);
@@ -742,7 +868,7 @@ vec3 render(vec3 ro, vec3 rd){
   vec4 cl = traceClouds(ro, rd, min(tSolid, 40000.), uSteps, tf);
   vec3 col = bg * (1. - cl.a) + cl.rgb;
   // smoke and spray (sorted far to near on the CPU)
-  for (int i = 0; i < 64; i++) {
+  for (int i = 0; i < 96; i++) {
     if (i >= uNPuff) break;
     vec4 s = pP(i), sc = pC(i);
     vec3 oc = s.xyz - ro; float tc = dot(oc, rd);
@@ -810,10 +936,10 @@ gl.useProgram(prog);
 const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
 const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-const U = {}; for (const n of ['uRes', 'uTime', 'uFrame', 'uCamPos', 'uCamR', 'uCamU', 'uCamF', 'uFocal', 'uSun', 'uHP', 'uHR', 'uHProp', 'uEP', 'uER', 'uEProp', 'uData', 'uNC', 'uNPuff', 'uNTr', 'uSteps', 'uReflSteps']) U[n] = gl.getUniformLocation(prog, n);
+const U = {}; for (const n of ['uRes', 'uTime', 'uFrame', 'uCamPos', 'uCamR', 'uCamU', 'uCamF', 'uFocal', 'uSun', 'uHP', 'uHR', 'uHProp', 'uEP', 'uER', 'uEProp', 'uData', 'uNC', 'uNPuff', 'uNTr', 'uSteps', 'uReflSteps', 'uNWake', 'uWakeBox']) U[n] = gl.getUniformLocation(prog, n);
 
-// data texture: rows 0-3 clouds (static), 4-5 puffs, 6-7 tracers
-const TW = 512, TH = 8, data = new Float32Array(TW * TH * 4);
+// data texture: rows 0-3 clouds (static), 4-5 puffs, 6-7 tracers, 8-9 wakes
+const TW = 512, TH = 10, data = new Float32Array(TW * TH * 4);
 const tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 const put = (row, i, v) => { const o = (row * TW + i) * 4; data[o] = v[0]; data[o + 1] = v[1]; data[o + 2] = v[2]; data[o + 3] = v[3]; };
@@ -843,7 +969,7 @@ function draw(frame) {
   const hf = frameOf(heroAt, t), ef = frameOf(enemyAt, t);
   const f = V.norm(V.sub(cam.target, cam.pos)), r = V.norm(V.cross(f, cam.up)), u = V.cross(r, f);
   // dynamic data: puffs sorted far to near, tracers
-  const puffs = puffsAt(t).sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos))).slice(-64);
+  const puffs = puffsAt(t).sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos))).slice(-96);
   puffs.forEach((p, i) => { put(4, i, [...p.p, p.r]); put(5, i, [p.g, p.a, p.warm, 0]); });
   const tr = [...tracersAt(t, EVENTS.enemyBursts, enemyAt, ENEMY_GUNS, heroAt), ...tracersAt(t, EVENTS.heroBursts, heroAt, HERO_GUNS, enemyAt)];
   // muzzle flashes and the hit spark: short, bright tracers
@@ -852,6 +978,13 @@ function draw(frame) {
   if (t > EVENTS.hit - .05 && t < EVENTS.hit + .5) { const m = toWorld(ef, [0, .35, 3.]), k = 1 - (t - EVENTS.hit + .05) / .55; for (let i = 0; i < 5; i++) { const R = rng(i + frame * 7); tr.push({ a: m, b: V.add(m, [(R() - .5) * 6 * (1 - k), (R() - .2) * 5 * (1 - k), (R() - .5) * 6 * (1 - k)]), heat: 2 * k, w: .12 }); } }
   const trs = tr.slice(0, 48);
   trs.forEach((x, i) => { put(6, i, [...x.a, x.heat]); put(7, i, [...x.b, x.w]); });
+  const wakes = wakeAt(t), box = [1e9, 1e9, -1e9, -1e9];
+  wakes.forEach((w, i) => {
+    put(8, i, [...w.a, w.s, w.age]); put(9, i, [...w.b, 0, 0]);
+    const m = 3 + w.age * 8;
+    for (const q2 of [w.a, w.b]) { box[0] = Math.min(box[0], q2[0] - m); box[1] = Math.min(box[1], q2[1] - m); box[2] = Math.max(box[2], q2[0] + m); box[3] = Math.max(box[3], q2[1] + m); }
+  });
+  gl.uniform1i(U.uNWake, wakes.length); gl.uniform4fv(U.uWakeBox, box);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, TW, TH, 0, gl.RGBA, gl.FLOAT, data);
 
   gl.viewport(0, 0, glc.width, glc.height);
@@ -863,7 +996,9 @@ function draw(frame) {
   gl.uniform3fv(U.uHP, hf.p); gl.uniformMatrix3fv(U.uHR, false, matOf(hf)); gl.uniform1f(U.uHProp, t * 23.7);
   gl.uniform3fv(U.uEP, ef.p); gl.uniformMatrix3fv(U.uER, false, matOf(ef));
   gl.uniform1f(U.uEProp, t > landT + 1.5 ? (landT + 1.5) * 21.3 + 21.3 * 2 * (1 - Math.exp(-(t - landT - 1.5) / 2)) : t * 21.3);
-  gl.uniform1i(U.uNC, CLOUDS.length - (t > SHOT_T[3].t0 - .5 && t < SHOT_T[5].t0 ? 0 : 1));   // the small dive cloud only where the story needs it gl.uniform1i(U.uNPuff, puffs.length); gl.uniform1i(U.uNTr, trs.length);
+  // the small dive cloud only where the story needs it
+  gl.uniform1i(U.uNC, CLOUDS.length - (t > SHOT_T[3].t0 - .5 && t < SHOT_T[5].t0 ? 0 : 1));
+  gl.uniform1i(U.uNPuff, puffs.length); gl.uniform1i(U.uNTr, trs.length);
   gl.uniform1i(U.uSteps, 150); gl.uniform1i(U.uReflSteps, 28);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
