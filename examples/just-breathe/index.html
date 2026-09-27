@@ -128,7 +128,8 @@ const HERO_PROG = [
   [8.6,  64, 34, 0],      // long left turn
   [11.2, 64, 0, 0],
   [15.2, 68, 78, 0],      // hard break
-  [16.5, 70, 0, 0],
+  [16.4, 70, 36, 0],      // rolling out of it
+  [16.9, 70, 0, 0],
   [22.75, 56, 0, 104],    // the loop
   [26.2, 80, 0, 0],       // out of the loop, closing fast
 ];
@@ -185,22 +186,45 @@ let heroC;
 const heroAt = t => t < FOLLOW ? heroA(t) : t < FREE ? heroB(t) : heroC(t);
 
 // orientation from the path: forward = velocity, up = lift = accel + g (so turns bank and loops invert)
+// the lift direction at one instant (acceleration + gravity, across the flight direction).
+// Only the loop flies inverted: elsewhere a push-over folds back to upright.
+function liftAt(at, t) {
+  const h = 1 / 30, q0 = at(t - h), q1 = at(t), q2 = at(t + h);
+  const f = V.norm(V.sub(q2, q0)), acc = V.mul(V.add(V.sub(q2, V.mul(q1, 2)), q0), 1 / (h * h));
+  const lift = V.add(acc, [0, G, 0]);
+  let up = V.sub(lift, V.mul(f, V.dot(lift, f)));
+  if (!(at === heroAt && t > 22.6 && t < 26.4)) {
+    let wp = V.sub([0, 1, 0], V.mul(f, f[1])); wp = V.len(wp) > 1e-3 ? V.norm(wp) : [0, 0, 1];
+    const k = V.dot(up, wp); if (k < 0) up = V.sub(up, V.mul(wp, 2 * k));
+    up = V.add(up, V.mul(wp, .15 * G));                                // a little bias toward level
+  }
+  return { up, g: V.len(lift) / G };
+}
 function frameOf(at, t, extraRoll = 0) {
   const h = 1 / 30, p = at(t), pa = at(t - h), pb = at(t + h);
   const vel = V.mul(V.sub(pb, pa), 1 / (2 * h)), f = V.norm(vel);
-  let acc3 = [0, 0, 0]; // smoothed acceleration over +-0.15 s
-  for (const o of [-.15, -.075, 0, .075, .15]) {
-    const q0 = at(t + o - h), q1 = at(t + o), q2 = at(t + o + h);
-    acc3 = V.add(acc3, V.mul(V.add(V.sub(q2, V.mul(q1, 2)), q0), 1 / (h * h * 5)));
-  }
-  const lift = V.add(acc3, [0, G, 0]);
-  let up = V.sub(lift, V.mul(f, V.dot(lift, f)));
+  // bank = lift direction averaged over +-0.6 s and weighted by its strength: a plane cannot roll
+  // instantly, so where the lift fades (a push-over, the end of a turn) the bank eases out
+  let up = [0, 0, 0], g = 0;
+  const OFF = [-.6, -.5, -.4, -.3, -.2, -.1, 0, .1, .2, .3, .4, .5, .6], WT = [1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1];
+  OFF.forEach((o, i) => { const L = liftAt(at, t + o); up = V.add(up, V.mul(L.up, WT[i])); if (!o) g = L.g; });
+  up = V.sub(up, V.mul(f, V.dot(up, f)));
   if (V.len(up) < 1e-3) up = [0, 1, 0];
   up = V.norm(up);
   let right = V.norm(V.cross(f, up));
   if (extraRoll) { right = V.rot(right, f, extraRoll); up = V.rot(up, f, extraRoll); }
   up = V.cross(right, f);
-  return { p, f, up, right, vel, speed: V.len(vel) };
+  return { p, f, up, right, vel, speed: V.len(vel), g };
+}
+// aileron rolls on top of the path: the rival rolls into its dive, the hero rolls once into the sun
+const heroRoll = t => Math.PI * 2 * ease(clamp((t - 40.8) / 1.7, 0, 1));
+const enemyRoll = t => -Math.PI * 2 * ease(clamp((t - 11.35) / 1.5, 0, 1));
+// the frame a chase camera follows: the plane's frame averaged over +-0.12 s, so the camera glides
+function camFrame(at, t) {
+  let p = [0, 0, 0], f = [0, 0, 0], up = [0, 0, 0];
+  for (const o of [-.12, -.06, 0, .06, .12]) { const fr = frameOf(at, t + o); p = V.add(p, fr.p); f = V.add(f, fr.f); up = V.add(up, fr.up); }
+  p = V.mul(p, .2); f = V.norm(f); const right = V.norm(V.cross(f, up)); up = V.cross(right, f);
+  return { p: at(t), pAvg: p, f, up, right };
 }
 
 // ───────────────────────── clouds (placed around the choreography) ─────────────────────────
@@ -262,8 +286,8 @@ function tracersAt(t, bursts, at, guns, target) {
       let dir = fr.f;
       if (target) { const tp = target(tf + .35); dir = V.norm(V.lerp(fr.f, V.norm(V.sub(tp, muzzle)), .55)); }
       const v = V.add(fr.vel, V.mul(dir, 420));
-      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .05)));
-      out.push({ a: tail, b: head, heat: 1 - age * .6, w: .16 });
+      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .035)));
+      out.push({ a: tail, b: head, heat: .9 - age * .5, w: .09 });
     }
   }
   return out;
@@ -342,12 +366,12 @@ const CAMS = {
     return { pos, target: V.add(pos, [0, 118 - 30 * u, -1000]), up: [0, 1, 0], fov: 44 - 2 * u };
   },
   profile(t, u) {
-    const fr = frameOf(heroAt, t), ff = lookFrame(fr).fwdFlat, left = V.cross([0, 1, 0], ff);
+    const fr = camFrame(heroAt, t), ff = lookFrame(fr).fwdFlat, left = V.cross([0, 1, 0], ff);
     const pos = V.add(fr.p, V.add(V.add(V.mul(left, 15 - 2 * u), V.mul(ff, 4.5 - 3 * u)), [0, 1.2, 0]));
     return { pos, target: V.add(fr.p, V.mul(ff, 1.2)), up: [0, 1, 0], fov: 36 };
   },
   'sun-dive'(t, u) {
-    const fr = frameOf(heroAt, t), ff = lookFrame(fr).fwdFlat, right = V.cross(ff, [0, 1, 0]);
+    const fr = camFrame(heroAt, t), ff = lookFrame(fr).fwdFlat, right = V.cross(ff, [0, 1, 0]);
     const pos = V.add(fr.p, V.add(V.add(V.mul(ff, 6.5), V.mul(right, 2.4)), [0, 3.2, 0]));
     const e = enemyAt(t);
     const target = V.lerp(V.add(fr.p, V.mul(ff, -12)), e, .55 + .1 * u);
@@ -360,7 +384,7 @@ const CAMS = {
     return { pos, target: mid, up: [0, 1, 0], fov: 42 };
   },
   cloud(t, u) {
-    const fr = frameOf(heroAt, t), fs = frameOf(heroAt, t - .35);
+    const fr = camFrame(heroAt, t), fs = camFrame(heroAt, t - .35);
     const pos = V.add(fs.p, V.add(V.mul(fs.f, -12), V.mul(fs.up, 3.6)));
     return { pos, target: V.add(fr.p, V.mul(fr.f, 10)), up: V.norm(V.lerp([0, 1, 0], fr.up, .5)), fov: 54 };
   },
@@ -373,7 +397,7 @@ const CAMS = {
     return { pos, target, up: [0, 1, 0], fov: 52 };
   },
   reversal(t, u) {
-    const fr = frameOf(heroAt, t), e = enemyAt(t);
+    const fr = camFrame(heroAt, t), e = enemyAt(t);
     const pos = toWorld(fr, [2.3, 2.3, -10.5 + 2 * u]);
     const up = V.norm(V.lerp([0, 1, 0], fr.up, .6));
     return { pos, target: V.lerp(toWorld(fr, [0, 1, 20]), e, .5), up, fov: 40 };
@@ -388,7 +412,7 @@ const CAMS = {
     return { pos, target, up: [0, 1, 0], fov: 40 };
   },
   breath(t, u) {
-    const fr = frameOf(heroAt, t), ff = lookFrame(fr).fwdFlat, left = V.cross([0, 1, 0], ff);
+    const fr = camFrame(heroAt, t), ff = lookFrame(fr).fwdFlat, left = V.cross([0, 1, 0], ff);
     const pos = V.add(fr.p, V.add(V.mul(left, 17), V.mul(ff, 9 - 4 * u)));
     return { pos: [pos[0], fr.p[1] - .8, pos[2]], target: V.add(fr.p, V.mul(ff, -2)), up: [0, 1, 0], fov: 44 };
   },
@@ -404,8 +428,16 @@ const CAMS = {
 
 function shotAt(t) { let i = SHOT_T.length - 1; while (i > 0 && SHOT_T[i].t0 > t) i--; return i; }
 function cameraAt(t) {
-  const i = shotAt(t), s = SHOT_T[i];
-  return CAMS[s.name](t, (t - s.t0) / (s.t1 - s.t0));
+  const i = shotAt(t), s = SHOT_T[i], cam = CAMS[s.name](t, (t - s.t0) / (s.t1 - s.t0));
+  let a = 0;
+  const near = ['sun-dive', 'reversal'].includes(s.name);
+  if (near) for (const [b0, b1] of [...EVENTS.enemyBursts, ...EVENTS.heroBursts]) a = Math.max(a, smooth(b0 - .05, b0, t) * (1 - smooth(b1, b1 + .25, t)) * .05);
+  if (s.name === 'reversal' && t > EVENTS.hit) a += .22 * Math.exp(-(t - EVENTS.hit) * 5);
+  if (a > 1e-4) {
+    const d = V.len(V.sub(cam.target, cam.pos));
+    cam.target = V.add(cam.target, V.mul([Math.sin(t * 71) + .5 * Math.sin(t * 131), Math.sin(t * 83 + 1) + .5 * Math.sin(t * 149), Math.sin(t * 59 + 2)], a * d * .06));
+  }
+  return cam;
 }
 
 // ───────────────────────── WebGL ─────────────────────────
@@ -499,11 +531,11 @@ float clusterD(int c, vec3 p){
   float sc = lump * 1.05;
   if (d < sc * 1.2) {
     vec3 pp = p + x.w * 13.;
-    for (int o = 0; o < 1; o++) {
+    for (int o = 0; o < 2; o++) {
       float b = sc * sphGrid(pp / sc);
-      b = smax(b, d - .12 * sc, .35 * sc);
-      d = smin(b, d, .42 * sc * lift + .02 * sc);
-      sc *= .42; pp = mat3(.00, .80, .60, -.80, .36, -.48, -.60, -.48, .64) * pp * 1.03;
+      b = smax(b, d - (o == 0 ? .12 : .05) * sc, .35 * sc);          // the second octave stays shallow: detail, not coral
+      d = smin(b, d, (o == 0 ? .42 : .3) * sc * lift + .02 * sc);
+      sc *= .38; pp = mat3(.00, .80, .60, -.80, .36, -.48, -.60, -.48, .64) * pp * 1.03;
     }
   }
   return smax(d, x.x - p.y, lump * .4);
@@ -522,10 +554,10 @@ float cloudMap(vec3 p, out int ci){
 }
 vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   vec4 x = cX(ci), b = cB(ci);
-  float e = cS(ci).z * 1.8;                                          // a wide normal: soft, painted gradients
+  float e = cS(ci).z * 2.6;                                          // a wide normal: soft, painted gradients
   vec2 k = vec2(1, -1);
   vec3 n = normalize(k.xyy*clusterD(ci, p + k.xyy*e) + k.yyx*clusterD(ci, p + k.yyx*e) + k.yxy*clusterD(ci, p + k.yxy*e) + k.xxx*clusterD(ci, p + k.xxx*e));
-  float L = .45 / x.y;
+  float L = 1.1 / x.y;                                                 // occlusion at lobe scale, not pore scale
   float ao = clamp(clusterD(ci, p + n * L) / L, 0., 1.);
   float h01 = clamp((p.y - x.x) / (b.w * 1.3), 0., 1.);
   float wrap = dot(n, uSun) * .5 + .5;
@@ -582,6 +614,7 @@ vec4 traceClouds(vec3 ro, vec3 rd, float tmax, int steps, out float tFirst){
           col = cloudShade(ci, ro + rd * hi, rd, hi); shaded = ci;
         }
         float dens = clamp((skin - d) / skin, 0., 1.);
+        dens *= mix(.35, 1., smoothstep(.1, .75, dens + vnoise(p / skin * .9) * .5 - .2));   // feathered edges
         stp = max(skin * .4, .5);
         float a = 1. - exp(-dens * stp / skin * 3.);
         acc.rgb += (1. - acc.a) * a * col; acc.a += (1. - acc.a) * a;
@@ -598,10 +631,16 @@ vec4 traceClouds(vec3 ro, vec3 rd, float tmax, int steps, out float tFirst){
 // both planes: a single-seat fighter with elliptical wings, a long nose and a bubble canopy.
 // materials (+10 for the rival): 1 fuselage, 2 wing, 3 tailplane, 4 fin, 5 canopy, 6 spinner, 7 radiator
 vec2 fighterMap(vec3 q, float m0){
-  // fuselage: a long teardrop, deepest at the cockpit, slimming to the spinner and to a thin tail
-  float taper = mix(1., .28, smoothstep(.3, -4.7, q.z)) * mix(1., .70, smoothstep(2., 4.3, q.z));
-  float lift = .12 * smoothstep(-1., -4.7, q.z);                     // the tail line rises a little
-  float fus = sdEll(vec3(q.x / taper, (q.y - lift) / taper, q.z + .15), vec3(.5, .6, 4.5)) * taper;
+  // fuselage, lofted: width, height and centre line vary smoothly along z. A long cowling runs
+  // straight into the spinner (same diameter), the deepest section is at the cockpit, the tail is thin.
+  float front = smoothstep(4.25, .6, q.z), rear = smoothstep(-4.95, -.4, q.z);
+  float fw = .5 * mix(.56, 1., front) * mix(.1, 1., rear);
+  float fh = .6 * mix(.52, 1., front) * mix(.18, 1., rear);
+  float fc = .2 * (1. - rear) - .05 * (1. - front) + .03;            // tail line rises, cowl line dips to the spinner
+  float fus = (length(vec2(q.x / fw, (q.y - fc) / fh)) - 1.) * min(fw, fh) * .9;
+  fus = max(fus, max(q.z - 4.02, -4.8 - q.z));
+  fus = smin(fus, sdEll(q - vec3(0., .42, -1.2), vec3(.13, .17, 1.5)), .3);    // the fairing behind the canopy
+  fus = smin(fus, sdEll(q - vec3(0., -.3, 2.7), vec3(.13, .11, .6)), .08);     // chin air intake
   // wing: elliptical planform, thin toward the tips, low on the fuselage, with dihedral
   vec3 wq = q - vec3(0., -.3 + abs(q.x) * .09, .5);
   float wing = sdEll(wq, vec3(5.6, .14, 1.28));
@@ -615,7 +654,7 @@ vec2 fighterMap(vec3 q, float m0){
   vec2 r = vec2(body, m0 + m);
   float can = sdEll(q - vec3(0., .5, .25), vec3(.25, .3, .82));
   if (can < r.x) r = vec2(can, m0 + 5.);
-  float sp = sdEll(q - vec3(0., .02, 4.32), vec3(.21, .21, .4));
+  float sp = sdEll(q - vec3(0., -.02, 4.02), vec3(.285, .285, .74));   // pointed spinner, as wide as the cowl
   if (sp < r.x) r = vec2(sp, m0 + 6.);
   float rad = sdEll(q - vec3(1.45, -.52, .1), vec3(.2, .13, .62));   // radiator under the right wing
   rad = min(rad, sdEll(q - vec3(-1.45, -.5, .35), vec3(.12, .09, .38)));   // oil cooler under the left
@@ -676,7 +715,6 @@ vec3 paintBase(float m, vec3 q){
   vec3 base = foe ? C_NAVY : C_WHITE;
   vec3 o = foe ? C_GOLD : C_GREEN, mi = foe ? C_NAVY : C_WHITE, in_ = foe ? C_GOLD : C_RED;
   if (k < 1.5) {                                    // fuselage: roundel on the sides, a band behind the spinner
-    if (q.z > 3.55 && q.z < 3.8) return foe ? C_GOLD : C_RED;
     if (abs(q.x) > .15) return roundel(length(vec2(q.y - .05, q.z + 1.9)), .42, o, mi, in_, base);
     return base;
   }
@@ -743,7 +781,7 @@ vec4 tracePlane(int w, vec3 ro, vec3 rd, float tmax, out float tHit){
     tHit = t1;
   }
   // propeller disc: a translucent blur with two soft blades
-  vec3 pc = vec3(0., .02, 4.5);
+  vec3 pc = vec3(0., -.02, 4.3);
   float pr = 1.5;
   float tz = (pc.z - lo.z) / ld.z;
   if (tz > 0. && tz < min(tmax, hitT > 0. ? hitT : 1e9)) {
@@ -885,20 +923,24 @@ vec3 render(vec3 ro, vec3 rd){
   }
   // tracers: hot additive streaks, never thinner than a pixel
   float pix = 2. / (uFocal * uRes.y);
-  for (int i = 0; i < 48; i++) {
+  for (int i = 0; i < 160; i++) {
     if (i >= uNTr) break;
     vec4 A = tA(i), B = tB(i);
     vec3 ba = B.xyz - A.xyz, oa = ro - A.xyz;
     float bb = dot(ba, ba), ab = dot(rd, ba), ao = dot(oa, rd), bo = dot(oa, ba);
     float den = bb - ab * ab;
-    float s = den > 1e-6 ? clamp((ab * ao - bo) / den, 0., 1.) : 0.;
+    float s = den > 1e-6 ? clamp((bo - ab * ao) / den, 0., 1.) : 0.;   // closest point on the segment to the ray
     vec3 q = A.xyz + ba * s;
     float tq = dot(q - ro, rd);
     if (tq < 0. || tq > tSolid) continue;
     float dist = length(ro + rd * tq - q);
     float wdt = max(B.w, tq * pix * 1.2);
     float core = smoothstep(wdt, 0., dist), glow = smoothstep(wdt * 5., 0., dist);
-    col += (vec3(1., .92, .6) * core + vec3(1., .45, .15) * glow * .35) * A.w;
+    if (A.w < 0.) {   // vapour: soft white, lit pink-gold by the sun
+      col = mix(col, vec3(1., .90, .88), smoothstep(wdt * 2.5, 0., dist) * -A.w * .75);
+      continue;
+    }
+    col += (vec3(1., .92, .6) * core + vec3(1., .45, .15) * glow * .22) * A.w;
   }
   return col;
 }
@@ -966,7 +1008,7 @@ let LAYOUT = [];
 function draw(frame) {
   const t = frame / FPS;
   const cam = cameraAt(t);
-  const hf = frameOf(heroAt, t), ef = frameOf(enemyAt, t);
+  const hf = frameOf(heroAt, t, heroRoll(t)), ef = frameOf(enemyAt, t, enemyRoll(t));
   const f = V.norm(V.sub(cam.target, cam.pos)), r = V.norm(V.cross(f, cam.up)), u = V.cross(r, f);
   // dynamic data: puffs sorted far to near, tracers
   const puffs = puffsAt(t).sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos))).slice(-96);
@@ -976,7 +1018,19 @@ function draw(frame) {
   const flash = (bursts, fr, guns) => { for (const [a, b] of bursts) if (t >= a && t <= b + .05) guns.forEach(gp => { const m = toWorld(fr, gp); tr.push({ a: m, b: V.add(m, V.mul(fr.f, 1.2)), heat: 1.6 * (.6 + .4 * Math.sin(t * 90)), w: .35 }); }); };
   flash(EVENTS.enemyBursts, ef, ENEMY_GUNS); flash(EVENTS.heroBursts, hf, HERO_GUNS);
   if (t > EVENTS.hit - .05 && t < EVENTS.hit + .5) { const m = toWorld(ef, [0, .35, 3.]), k = 1 - (t - EVENTS.hit + .05) / .55; for (let i = 0; i < 5; i++) { const R = rng(i + frame * 7); tr.push({ a: m, b: V.add(m, [(R() - .5) * 6 * (1 - k), (R() - .2) * 5 * (1 - k), (R() - .5) * 6 * (1 - k)]), heat: 2 * k, w: .12 }); } }
-  const trs = tr.slice(0, 48);
+  // wingtip vapour under high g: each segment stays in the air where it was drawn, fading over 0.8 s
+  for (const [at, rollF] of [[heroAt, heroRoll], [enemyAt, enemyRoll]]) {
+    const base = Math.floor(t * 30) / 30;
+    let prev = null;
+    for (let k = 0; k <= 16; k++) {
+      const te = k ? base - (k - 1) / 30 : t; if (te < 0) break;
+      const fr = frameOf(at, te, rollF(te)), st = smooth(3.5, 6.5, fr.g) * (1 - (t - te) / .55);
+      const tips = [toWorld(fr, [5.35, .2, .3]), toWorld(fr, [-5.35, .2, .3])];
+      if (prev && st > .03) tips.forEach((tp, j) => tr.push({ a: prev[j], b: tp, heat: -st, w: .1 }));
+      prev = tips;
+    }
+  }
+  const trs = tr.slice(0, 160);
   trs.forEach((x, i) => { put(6, i, [...x.a, x.heat]); put(7, i, [...x.b, x.w]); });
   const wakes = wakeAt(t), box = [1e9, 1e9, -1e9, -1e9];
   wakes.forEach((w, i) => {
