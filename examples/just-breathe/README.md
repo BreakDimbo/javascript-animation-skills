@@ -16,11 +16,13 @@ Open `index.html` in a browser to watch it live (tap or click to start the sound
 
 ## Play it
 
-`index.html?play` (or the *fly ›* button on the film) turns the same world into a game: you fly the white fighter against waves of navy ones. Nobody dies: a beaten plane smokes, glides down and ditches, and when it is your turn the screen says *just breathe.*
+`index.html?play` (or the *fly ›* button on the film) turns the same world into a game: you fly the white fighter through five levels, then an endless evening. Nobody dies: a beaten plane smokes, glides down and ditches, and when it is your turn the screen says *just breathe.* and lets you try the level again.
 
-- Phone: drag on the left half to steer (up climbs, let go and the wings level), hold the right half to fire, the small button boosts. The guns help a little with aim when a rival sits in a narrow cone ahead.
-- Keyboard: arrows or WASD, space to fire, shift to boost.
-- Rivals chase with lead, fire in bursts, break away when you get on their tail, and get sharper each wave. You get some health back between waves; your best score is remembered on the device.
+- **Controls.** Phone: drag on the left half to steer (up climbs, let go and the wings level), hold the right half to fire, the small button boosts. Keyboard: arrows or WASD, space to fire, shift to boost, 1-3 to pick a card. The guns help a little with aim when a rival sits in a narrow cone ahead.
+- **Levels.** *first light* (rookies), *the strait* (veterans join), *the gold nose* (a black-and-gold ace with 30 points of armour, a nose cannon and a health bar across the top), *the long evening*, *last light* (two aces), then endless evenings that get tougher by 15% each. Rookies fly slowly and shoot wide; veterans turn harder, lead their shots and break away when you sit on their tail. Your furthest level is remembered, so you can continue from it.
+- **Ammunition.** Beaten planes may drop a glowing crate; fly through it. Ammo crates climb four tiers, each with its own tracer colour: standard rounds, incendiary rounds (harder hits that flare), four guns, explosive rounds (splash damage to rivals nearby). Green crates repair.
+- **Between levels** you get a bonus for the level and for the armour you kept, and choose one of three cards: faster guns, hot barrels, long rounds, thicker skin, afterburner, magnet sights, or an ammunition tier.
+- **Feel.** Hits flash the rival white, throw sparks in your ammunition's colour, ping, and mark the reticle. A kill holds the world still for a tenth of a second, then a fireball, tumbling debris, a shockwave ring, a boom with a sub-bass drop, and the score rising from the wreck; kills within five seconds of each other build a combo up to ×4. Gunshots are layered (a bright crack, a thump that drops in pitch, a mechanical tick), enemy rounds that pass close whizz, the afterburner roars, low armour sounds an alarm, and the ace arrives with timpani.
 
 ## Running on a phone
 
