@@ -12,7 +12,28 @@ node ../../skills/soundtrack/scripts/sync-check.mjs just-breathe.mp4 --cues-file
 node ../../skills/javascript-animation/scripts/asset-audit.mjs index.html
 ```
 
-Open `index.html` in a browser with a GPU to watch it live (click to start the sound). Add `?scale=.5` for a lighter preview and `?debug` to see the shot name, time and plane positions. Headless Chromium with no GPU falls back to software GL (SwiftShader): expect about 6 s a frame at 1280x720, so a full render takes around two hours.
+Open `index.html` in a browser to watch it live (tap or click to start the sound). Add `?debug` to see the shot name, time and plane positions. The offline render (`?render`) draws every pixel at full quality; headless Chromium with no GPU falls back to software GL (SwiftShader), so expect several seconds a frame and a few hours for the whole film.
+
+## Play it
+
+`index.html?play` (or the *fly ›* button on the film) turns the same world into a game: you fly the white fighter against waves of navy ones. Nobody dies: a beaten plane smokes, glides down and ditches, and when it is your turn the screen says *just breathe.*
+
+- Phone: drag on the left half to steer (up climbs, let go and the wings level), hold the right half to fire, the small button boosts. The guns help a little with aim when a rival sits in a narrow cone ahead.
+- Keyboard: arrows or WASD, space to fire, shift to boost.
+- Rivals chase with lead, fire in bursts, break away when you get on their tail, and get sharper each wave. You get some health back between waves; your best score is remembered on the device.
+
+## Running on a phone
+
+The live film and the game use a lighter path than the offline render, built for phone GPUs:
+
+- **Baked sky.** At load, the sky (sun, cirrus, islands, rays) and the sky-with-clouds are painted once into two panoramas, a strip per frame. The sea reflects the panorama with one lookup instead of marching the clouds again, and the horizon haze is read from it too.
+- **Clouds at low resolution.** Clouds are soft, so they are marched into a buffer at 40% of the render resolution, with the depth of their front, and composited at full resolution: planes still fly in front of, behind and into them.
+- **Particles as geometry.** Smoke, spray, tracers, vapour and gulls are instanced quads, depth-tested against the raymarched scene, instead of loops inside every pixel.
+- **Dynamic resolution.** The render scale moves between 30% and 100% of the screen to hold the frame rate; a post pass grades and upscales.
+- **Cheaper CPU work.** Per-cloud values live in uniforms; flight frames are memoized.
+
+It has been checked in headless Chromium (software GL) for correctness, not yet on an iPhone.
+
 
 ## How it is built
 
