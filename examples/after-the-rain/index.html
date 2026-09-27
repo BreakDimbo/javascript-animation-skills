@@ -621,7 +621,7 @@ function shotEye(t, lt) {                                           // 7. close 
   view(IMG.umbrella, { cx: lerp(680, 700, k), cy: lerp(600, 590, k), vh: lerp(640, 540, k) }, () => {
     lightBreath(t, 400, 300, 700, 600, 5, .4, 41);
     const g = bump(t, 55.3, 56.6);
-    if (g > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(691, 582, 30, '#fff2c8', .8 * g); ctx.restore(); glint(691, 582, 16 * g, g); }
+    if (g > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(693, 581, 14, '#fff2c8', .45 * g); ctx.restore(); ell(693, 581, 2.6, 2.6, '#fffbea', 0, .9 * g); }   // a catchlight, not a flare
     blink(688, 586, 10, 10, bump(t, 57.9, 58.15), '#2b2c30');
   });
 }
@@ -800,7 +800,7 @@ function buildFilm(ac) {
       if (h === 1 && halves[0] === halves[1]) return;
       const full = halves[0] === halves[1] ? 3 : 1.5;
       if (bar >= 22 && bar <= 24) return;
-      const vol = bar < 7 ? .35 : bar < 15 ? .45 : bar === 15 ? .3 : bar === 16 ? .5 : bar < 22 ? .75 : 1;
+      const vol = bar < 7 ? .35 : bar < 15 ? .45 : bar === 15 ? .3 : bar === 16 ? .5 : bar < 22 ? .75 : bar === 25 ? .45 : bar === 26 ? .75 : 1;
       v.forEach((m, i) => strings(t, m, full, vol * (i === 0 ? .8 : .6), (i - 1.5) * .3, bar >= 16 ? 2400 : 1300));
       if (bar !== 15) { strings(t, root, full, vol * .9, 0, 700); piano(t, bar === 14 ? root + 12 : root, bar < 7 ? .45 : .55, full); }   // bar 14: no low B under the 42 s cut, it muddies the attack
     });
@@ -810,7 +810,7 @@ function buildFilm(ac) {
   for (let e = 0; e < 240; e++) {
     const bar = Math.floor(e / 8); if (!((bar >= 7 && bar <= 14) || (bar >= 16 && bar <= 21) || (bar >= 25 && bar <= 28))) continue;
     const [root, v] = chordAt(e / 2), m = v[PAT[e % 8]] - (bar >= 16 ? 0 : 0);
-    piano(e * B / 2, m, (e % 8 === 0 ? .42 : .3) * (bar >= 25 ? 1.1 : 1) * (bar === 7 || bar === 16 ? .6 : 1), B, (e % 2 ? .25 : -.25));
+    piano(e * B / 2, m, (e % 8 === 0 ? .42 : .3) * (bar >= 26 ? 1.1 : 1) * (bar === 7 || bar === 16 || bar === 25 ? .6 : 1), B, (e % 2 ? .25 : -.25));
   }
   // rain-drop piano in the opening: single high notes, sparse
   for (let beat = 2; beat < 28; beat++) { if (beat % 3 === 1) continue; const [, v] = chordAt(beat); piano(beat * B + (beat % 2) * B * .5, v[(beat * 7) % 4] + 24, .28, 1.5, (beat % 5 - 2) * .2); }
@@ -822,7 +822,7 @@ function buildFilm(ac) {
   play(B1, 11, (t, m, d) => piano(t, m, .7, d + .2, .1));
   play(A1, 16, (t, m, d) => { strings(t, m, d, 1.1, .1, 3000); piano(t, m + 12, .45, d, .2); });
   play(B1.slice(8), 18, (t, m, d) => { strings(t, m, d, 1.1, .1, 3000); piano(t, m + 12, .45, d, .2); });
-  play(A1, 25, (t, m, d) => { strings(t, m + 12, d, 1, .15, 3600); strings(t, m, d, .8, -.15, 2800); piano(t, m + 12, .5, d, .2); celesta(t, m + 12, .35, .3); });
+  play(A1, 25, (t, m, d) => { const e = clamp((t - 75) / 3 * .6 + .4); strings(t, m + 12, d, e, .15, 3600); strings(t, m, d, .8 * e, -.15, 2800); piano(t, m + 12, .5 * e, d, .2); celesta(t, m + 12, .35 * e, .3); });   // eases in over its first bar
   strings(87, 74 + 12, 3, 1, .1, 3600); strings(87, 78, 3, .8, -.1, 2800); piano(87, 74 + 12, .55, 3); celesta(87, 86, .4); celesta(87.25, 90, .35); celesta(87.5, 93, .3);
   // the heist: pizzicato, a rest, then the leap
   const PZ = [[0, 64], [.5, 67], [1, 71], [2, 69], [2.5, 67], [3, 64], [4, 66], [4.5, 70], [6, 78], [7, 76], [8, 71], [8.5, 74], [9, 79], [10, 76], [10.5, 73], [11, 69]];
@@ -831,7 +831,7 @@ function buildFilm(ac) {
   // the break before the sun: a rising celesta run
   [69, 71, 73, 74, 76, 78, 81, 83, 85, 86, 88, 90].forEach((m, i) => celesta(46.2 + i * .14, m, .4 + i * .03, (i % 2 ? .3 : -.3)));
   // a soft accent on every cut so the edit is heard in the harmony
-  window.CUES.forEach(c => { const [root] = chordAt(Math.round(c / B)), soft = [9, 21, 48].includes(c) ? .5 : c === 42 ? 1.8 : 1; piano(c, root + 12, .32 * soft, 1.2, 0); celesta(c, root + 36, .22 * soft, 0); });
+  window.CUES.forEach(c => { const [root] = chordAt(Math.round(c / B)), soft = [9, 21, 48, 75].includes(c) ? .5 : c === 42 ? 1.8 : 1; piano(c, root + 12, .32 * soft, 1.2, 0); celesta(c, root + 36, .22 * soft, 0); });
 
   // ---- ambience ----
   const inside = t => t > 27 && t < 36 ? 1 : 0;
