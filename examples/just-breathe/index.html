@@ -2198,131 +2198,216 @@ function bootGame() {
 
   // ── sound design: layered guns, pings, booms, whizzes, pickups, alarms; engines; the waltz ──
   const snd = (() => {
-    let ac = null, band = null, eng = null, foeEng = null, boostN = null, beamN = null, beamOn = false, lastZap = 0, lastPop = 0, nextBar = 0, bar = 0, musicOn = false, lastGun = 0, lastTink = 0, lastWhizz = 0;
-    const S = {};
-    function tone(t, type, f0, f1, dur, amp, pan = 0, attack = .003) {
+    // Darksynth, all synthesized: a sixteenth-note sequencer in D minor that follows the game (pads and a delayed
+    // arpeggio in the menus; four-on-the-floor, a pumping bass and a filter that opens as the fight heats up; a
+    // distorted lead when the ace is in the air), and effects to match: plasma guns, digital hits, glitches,
+    // distorted, bit-crushed explosions, risers, a braam for the ace, a tape stop when you go down.
+    let ac = null, band = null, eng = null, foeEng = null, boostN = null, beamN = null, beamOn = false;
+    let lastZap = 0, lastPop = 0, lastGun = 0, lastTink = 0, lastWhizz = 0, nextStep = 0, step = 0, heat = 0, scene = null;
+    let duck = null, musLP = null, drums = null, dly = null, drive = null, crush = null;
+    const S = {}, BPM = 112, S16 = 60 / BPM / 4;
+    const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+    // the four bars: Dm, B♭, F, C (a root for the bass, a triad for the pads and the arpeggio)
+    const PROG = [{ r: 38, ch: [62, 65, 69] }, { r: 34, ch: [58, 62, 65] }, { r: 41, ch: [60, 65, 69] }, { r: 36, ch: [60, 64, 67] }];
+    const LEAD = [[74, 0, 72, 0, 69, 0, 72, 0], [70, 0, 69, 0, 65, 0, 67, 0], [69, 0, 72, 0, 77, 0, 76, 0], [74, 0, 0, 0, 72, 0, 67, 0]];
+    function curve(fn) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) c[i] = fn(i / (n - 1) * 2 - 1); return c; }
+    function voice(t, type, f0, f1, dur, amp, dest, pan = 0, attack = .003, detune = 0) {
       const o = ac.createOscillator(), g = ac.createGain(), p = ac.createStereoPanner();
-      o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+      o.type = type; o.detune.value = detune; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + attack); g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
-      p.pan.value = clamp(pan, -1, 1); o.connect(g); g.connect(p); p.connect(band.sfx); o.start(t); o.stop(t + dur + .05);
+      p.pan.value = clamp(pan, -1, 1); o.connect(g); g.connect(p); p.connect(dest); o.start(t); o.stop(t + dur + .05);
+      return o;
     }
-    function hiss(t, type, f0, f1, dur, amp, q = .8, pan = 0, attack = .002) {
+    function noise(t, type, f0, f1, dur, amp, dest, q = .8, pan = 0, attack = .002) {
       const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), p = ac.createStereoPanner();
       src.buffer = band.noiseBuf; src.loop = true; f.type = type; f.Q.value = q;
       f.frequency.setValueAtTime(f0, t); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(Math.max(f1, 20), t + dur);
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + attack); g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
-      p.pan.value = clamp(pan, -1, 1); src.connect(f); f.connect(g); g.connect(p); p.connect(band.sfx); src.start(t, Math.random() * 1.5); src.stop(t + dur + .05);
+      p.pan.value = clamp(pan, -1, 1); src.connect(f); f.connect(g); g.connect(p); p.connect(dest); src.start(t, Math.random() * 1.5); src.stop(t + dur + .05);
+    }
+    const tone = (t, type, f0, f1, dur, amp, pan = 0, attack = .003) => voice(t, type, f0, f1, dur, amp, band.sfx, pan, attack);
+    const hiss = (t, type, f0, f1, dur, amp, q = .8, pan = 0, attack = .002) => noise(t, type, f0, f1, dur, amp, band.sfx, q, pan, attack);
+    // a note through a filter with its own envelope: the bass, the arpeggio, the pads and the lead are all this
+    function synth(t, midi, dur, amp, { types = ['sawtooth', 'sawtooth'], det = 9, cut0 = 200, cut1 = 1200, q = 4, attack = .004, dest = duck, send = 0, sub = 0 } = {}) {
+      const f = ac.createBiquadFilter(), g = ac.createGain(), fr = hz(midi);
+      f.type = 'lowpass'; f.Q.value = q; f.frequency.setValueAtTime(cut0, t); f.frequency.exponentialRampToValueAtTime(cut1, t + attack + .01); f.frequency.exponentialRampToValueAtTime(Math.max(cut0, 60), t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + attack); g.gain.setTargetAtTime(0, t + dur * .6, dur * .25);
+      types.forEach((ty, i) => { const o = ac.createOscillator(); o.type = ty; o.frequency.value = fr; o.detune.value = (i - (types.length - 1) / 2) * det; o.connect(f); o.start(t); o.stop(t + dur * 1.6 + .1); });
+      if (sub) { const o = ac.createOscillator(), sg = ac.createGain(); o.type = 'sine'; o.frequency.value = fr / 2; sg.gain.value = sub; o.connect(sg); sg.connect(f); o.start(t); o.stop(t + dur * 1.6 + .1); }
+      f.connect(g); g.connect(dest); if (send) { const sg = ac.createGain(); sg.gain.value = send; g.connect(sg); sg.connect(dly); }
     }
     const panOf = p => cam ? clamp(V.dot(V.norm(V.sub(p, cam.pos)), camB.r), -.9, .9) : 0;
+
     S.unlock = () => {
       if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
       ac = new AC(); band = makeBand(ac, 0); band.master.gain.value = .9;
-      const mk = (base, bright, lvl) => {
-        const o1 = ac.createOscillator(), o2 = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain(), p = ac.createStereoPanner();
-        o1.type = 'sawtooth'; o2.type = 'square'; lp.type = 'lowpass'; lp.frequency.value = bright; lp.Q.value = 1.4; g.gain.value = 0;
-        o1.frequency.value = base; o2.frequency.value = base / 2;
-        o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(p); p.connect(band.sfx); o1.start(); o2.start();
-        return { o1, o2, g, p, lp, lvl };
+      // the music: pads, bass and arpeggio duck under the kick and pass a filter that opens with the fight
+      musLP = ac.createBiquadFilter(); musLP.type = 'lowpass'; musLP.frequency.value = 1600; musLP.Q.value = .9; musLP.connect(band.music);
+      duck = ac.createGain(); duck.connect(musLP); drums = ac.createGain(); drums.gain.value = .9; drums.connect(band.music);
+      dly = ac.createDelay(1); dly.delayTime.value = S16 * 3;              // a dotted-eighth echo on the arpeggio
+      const fb = ac.createGain(), fbf = ac.createBiquadFilter(); fb.gain.value = .38; fbf.type = 'lowpass'; fbf.frequency.value = 2600;
+      dly.connect(fbf); fbf.connect(fb); fb.connect(dly); fbf.connect(duck);
+      drive = ac.createWaveShaper(); drive.curve = curve(x => Math.tanh(x * 4)); const driveOut = ac.createGain(); driveOut.gain.value = .32; drive.connect(driveOut); driveOut.connect(band.sfx);   // grit, and a trim after it
+      crush = ac.createWaveShaper(); crush.curve = curve(x => Math.round(x * 6) / 6); crush.connect(band.sfx);   // a bit-crusher's staircase
+      // engines: detuned saws and a sub, a filter that follows the speed, a slow wobble
+      const mk = (base, bright, lvl, types) => {
+        const lp = ac.createBiquadFilter(), g = ac.createGain(), p = ac.createStereoPanner(), lfo = ac.createOscillator(), lg = ac.createGain();
+        lp.type = 'lowpass'; lp.frequency.value = bright; lp.Q.value = 3; g.gain.value = 0; lfo.frequency.value = 5.5; lg.gain.value = bright * .12; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+        const os = types.map((ty, i) => { const o = ac.createOscillator(); o.type = ty; o.frequency.value = base * (i === types.length - 1 ? .5 : 1); o.detune.value = (i - 1) * 11; o.connect(lp); o.start(); return o; });
+        lp.connect(g); g.connect(p); p.connect(band.sfx);
+        return { os, g, p, lp, lvl, bright };
       };
-      eng = mk(88, 800, .05); foeEng = mk(73, 650, .06);
-      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();       // the afterburner roar
-      src.buffer = band.noiseBuf; src.loop = true; f.type = 'bandpass'; f.frequency.value = 500; f.Q.value = .7; g.gain.value = 0;
+      eng = mk(88, 900, .05, ['sawtooth', 'sawtooth', 'sine']); foeEng = mk(73, 700, .06, ['square', 'sawtooth', 'sine']);
+      const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();       // the afterburner: a filtered roar
+      src.buffer = band.noiseBuf; src.loop = true; f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 1.2; g.gain.value = 0;
       src.connect(f); f.connect(g); g.connect(band.sfx); src.start(); boostN = { g, f };
-      {                                                              // the beam: two detuned saws through a wobbling band-pass
-        const o1 = ac.createOscillator(), o2 = ac.createOscillator(), bp = ac.createBiquadFilter(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
-        o1.type = o2.type = 'sawtooth'; o1.frequency.value = 220; o2.frequency.value = 223.5; bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 2.5; g.gain.value = 0;
-        lfo.frequency.value = 11; lg.gain.value = 500; lfo.connect(lg); lg.connect(bp.frequency);
-        o1.connect(bp); o2.connect(bp); bp.connect(g); g.connect(band.sfx); o1.start(); o2.start(); lfo.start(); beamN = { g };
+      {                                                              // the beam: detuned saws and a square through a wobbling band-pass
+        const bp = ac.createBiquadFilter(), g2 = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+        bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 3; g2.gain.value = 0;
+        lfo.frequency.value = 13; lg.gain.value = 700; lfo.connect(lg); lg.connect(bp.frequency); lfo.start();
+        for (const [ty, fq] of [['sawtooth', 220], ['sawtooth', 223.5], ['square', 440.7]]) { const o = ac.createOscillator(); o.type = ty; o.frequency.value = fq; o.connect(bp); o.start(); }
+        bp.connect(g2); g2.connect(band.sfx); beamN = { g: g2 };
       }
+      nextStep = ac.currentTime + .1; step = 0;
     };
-    S.start = () => { if (!ac) return; if (!musicOn) { nextBar = ac.currentTime + .1; bar = 0; } musicOn = true; };
-    S.stopMusic = () => { musicOn = false; };
-    const fightBars = CHORDS.slice(4, 18);
-    function scheduleBar(t0, i) {
-      const b = band, idx = 4 + (i % fightBars.length), ch = CH[CHORDS[idx]], ace = enemies.some(e => e.type === 'ace' && e.state === 'fly');
-      b.bass(t0, ch[0] - 12, .16);
-      for (const beat of [1, 2]) ch.forEach((m, j) => b.accordion(t0 + beat * BEAT, m + 12, BEAT * .45, .02, (j - 1) * .25));
-      b.strings(t0, ch[0] + 12, BAR + .1, .02);
-      b.brush(t0 + BEAT, .04, -.3); b.brush(t0 + 2 * BEAT, .035, .3);
-      if (ace) b.timp(t0, ch[0] - 12, .1);
-      for (const [mb, beat, m, len] of MEL) if (mb === idx) b.accordion(t0 + beat * BEAT, m, len * BEAT * .96, .04);
+    S.start = () => {}; S.stopMusic = () => {};                       // the music follows the game by itself now (see tick)
+
+    // one sixteenth of the track
+    function schedule(i, t) {
+      const s = i % 16, bar = Math.floor(i / 16), P = PROG[bar % 4], hot = heat > .5, ace = scene === 'fight' && enemies.some(e => e.type === 'ace' && e.state === 'fly');
+      if (s === 0) for (const m of P.ch) synth(t, m, S16 * 16, scene === 'menu' ? .028 : .022, { det: 14, cut0: 500, cut1: scene === 'menu' ? 1400 : 2200, q: 1, attack: .5, types: ['sawtooth', 'sawtooth', 'triangle'] });
+      const arp = [P.ch[0], P.ch[1], P.ch[2], P.ch[0] + 12, P.ch[2], P.ch[1]];
+      if (scene === 'menu') {
+        if (s % 2 === 0) synth(t, arp[(s / 2) % arp.length] + 12, S16 * 1.8, .03, { types: ['square'], cut0: 600, cut1: 2400, q: 3, send: .5 });
+        if (s === 0) synth(t, P.r, S16 * 16, .06, { types: ['sine', 'triangle'], cut0: 300, cut1: 500, q: .5, attack: .3 });
+        if (s % 4 === 2) noise(t, 'highpass', 9000, 9000, .03, .012, drums);
+        return;
+      }
+      // the fight: kick on every beat, the bass pumping under it
+      if (s % 4 === 0) {
+        voice(t, 'sine', 150, 42, .34, .55, drums); voice(t, 'square', 2600, 800, .006, .05, drums);
+        duck.gain.cancelScheduledValues(t); duck.gain.setValueAtTime(.3, t); duck.gain.linearRampToValueAtTime(1, t + S16 * 3);
+      }
+      if (hot && (s === 4 || s === 12)) { noise(t, 'bandpass', 1900, 1400, .2, .2, drums, .8); voice(t, 'triangle', 200, 150, .09, .12, drums); }
+      if (hot ? s % 2 === 1 || s % 4 === 2 : s % 4 === 2) noise(t, 'highpass', 8500, 8500, s % 8 === 6 && hot ? .16 : .035, s % 4 === 2 ? .05 : .025, drums, .7, s % 8 < 4 ? -.2 : .2);
+      synth(t, P.r + (s % 4 === 2 ? 12 : 0), S16 * .9, ace ? .12 : .09, { cut0: 140, cut1: hot ? 1600 : 900, q: 6, sub: .6, dest: ace ? drive : duck });
+      synth(t, arp[s % arp.length] + (hot ? 24 : 12), S16 * .85, hot ? .032 : .024, { types: ['sawtooth', 'square'], det: 6, cut0: 900, cut1: hot ? 5200 : 2800, q: 5, send: .45 });
+      if (ace && s % 2 === 0) { const m = LEAD[bar % 4][s / 2]; if (m) synth(t, m + 12, S16 * 3.6, .05, { det: 18, cut0: 800, cut1: 3800, q: 2, attack: .02, send: .35 }); }
+      if (s === 15 && hot && bar % 4 === 3) noise(t, 'highpass', 1200, 9000, S16, .06, drums, .6);   // a little sweep into the next phrase
     }
     S.tick = () => {
       if (!ac) return;
       const now = ac.currentTime;
-      if (musicOn) while (nextBar < now + 1.2) { scheduleBar(nextBar, bar++); nextBar += BAR; }
+      const want = ['title', 'lobby', 'room'].includes(G0.mode) ? 'menu' : G0.mode === 'fly' || G0.mode === 'brief' ? 'fight' : null;
+      if (want !== scene) { scene = want; if (!scene) duck.gain.setTargetAtTime(0, now, .3); else duck.gain.setTargetAtTime(1, now, .1); }
+      const threat = G0.mode === 'fly' && (enemies.some(e => e.state === 'fly' && V.len(V.sub(e.p, player.p)) < 480) || (G0.vs && mateList().some(m => m.state === 'fly' && V.len(V.sub(m.p, player.p)) < 480)) || enemies.some(e => e.type === 'ace' && e.state === 'fly'));
+      heat += ((threat ? 1 : 0) - heat) * .02;
+      musLP.frequency.setTargetAtTime(scene === 'menu' ? 1500 : scene === 'fight' ? 3200 + heat * 11000 : 400, now, .4);
+      if (now > nextStep + 1) nextStep = now + .05;                   // after a pause, don't try to catch up
+      while (nextStep < now + .16) { if (scene) schedule(step, nextStep); step++; nextStep += S16; }
       const flying = player.state === 'fly' && (G0.mode === 'fly' || G0.mode === 'brief' || G0.mode === 'title');
       const f = 70 + player.speed * .42 + (input.boost ? 18 : 0);
-      eng.o1.frequency.setTargetAtTime(f, now, .08); eng.o2.frequency.setTargetAtTime(f / 2, now, .08);
-      eng.g.gain.setTargetAtTime(player.state === 'ditched' ? 0 : flying ? .05 : .02, now, .2);
-      boostN.g.gain.setTargetAtTime(flying && input.boost && player.boost > .02 ? .05 : 0, now, .1);
+      eng.os.forEach((o, i) => o.frequency.setTargetAtTime(i === eng.os.length - 1 ? f / 2 : f, now, .08));
+      eng.lp.frequency.setTargetAtTime(eng.bright + player.speed * 6 + (input.boost ? 900 : 0), now, .1);
+      eng.g.gain.setTargetAtTime(player.state === 'ditched' ? 0 : flying ? .045 : .015, now, .2);
+      boostN.g.gain.setTargetAtTime(flying && input.boost && player.boost > .02 ? .06 : 0, now, .1);
+      boostN.f.frequency.setTargetAtTime(input.boost ? 1100 : 600, now, .2);
       let nd = 1e9, np = null; for (const e of enemies) if (e.state !== 'ditched') { const d = V.len(V.sub(e.p, player.p)); if (d < nd) { nd = d; np = e; } }
       foeEng.g.gain.setTargetAtTime(np ? clamp(30 / (nd + 25), 0, .9) * foeEng.lvl : 0, now, .15);
       if (np) {
         const rel = V.dot(V.sub(np.vel, player.vel), V.norm(V.sub(np.p, player.p)));
         const fq = 73 * clamp(340 / (340 + rel), .7, 1.4) * (np.state === 'down' ? .8 : 1);
-        foeEng.o1.frequency.setTargetAtTime(fq, now, .1); foeEng.o2.frequency.setTargetAtTime(fq / 2, now, .1);
+        foeEng.os.forEach((o, i) => o.frequency.setTargetAtTime(i === foeEng.os.length - 1 ? fq / 2 : fq, now, .1));
         foeEng.p.pan.setTargetAtTime(panOf(np.p), now, .1);
       }
     };
-    // a gunshot: a bright crack, a low thump that drops in pitch, a mechanical tick; heavier for cannon/explosive
+    // guns: yours a plasma pew (a square falling fast, a crack, a sub thump); theirs darker and crushed; heavy ones distorted
     S.gun = (pl, heavy) => {
       if (!ac) return;
       const t = ac.currentTime, mine = pl === player;
       if (mine && t - lastGun < .045) return; if (mine) lastGun = t;
-      const d = V.len(V.sub(pl.p, cam.pos)), v = (mine ? 1 : .9) * clamp(40 / (d + 20), .1, 1), pan = mine ? (pl.gun % 2 ? -.35 : .35) : panOf(pl.p), j = rand(.92, 1.08);
-      hiss(t, 'bandpass', 2600 * j, 1400, .05, .09 * v, .7, pan);
-      tone(t, 'sine', (heavy ? 110 : 150) * j, heavy ? 38 : 55, heavy ? .16 : .08, (heavy ? .22 : .13) * v, pan);
-      tone(t, 'square', 1100 * j, 900, .012, .02 * v, pan);
+      const d = V.len(V.sub(pl.p, cam.pos)), v = (mine ? 1 : .9) * clamp(40 / (d + 20), .1, 1), pan = mine ? (pl.gun % 2 ? -.35 : .35) : panOf(pl.p), j = rand(.94, 1.06);
+      if (mine) { voice(t, 'square', 1500 * j, 260, .07, .05 * v, band.sfx, pan); noise(t, 'highpass', 5000, 5000, .03, .05 * v, band.sfx, .7, pan); }
+      else { voice(t, 'sawtooth', 900 * j, 180, .08, .06 * v, crush, pan); noise(t, 'bandpass', 2400, 1200, .05, .05 * v, crush, 1, pan); }
+      voice(t, 'sine', (heavy ? 110 : 140) * j, heavy ? 32 : 48, heavy ? .18 : .08, (heavy ? .22 : .12) * v, heavy ? drive : band.sfx, pan);
     };
-    S.tink = tier => {                                               // a hit on a rival: a metallic ping, brighter as rounds get hotter
+    S.tink = tier => {                                               // a hit on a rival: two high square ticks and a click, brighter as rounds get hotter
       if (!ac) return; const t = ac.currentTime; if (t - lastTink < .04) return; lastTink = t;
-      const f = 2300 + tier * 250 + rand(-80, 80);
-      tone(t, 'sine', f, f * .96, .09, .05); tone(t, 'sine', f * 1.52, f * 1.5, .06, .025); hiss(t, 'highpass', 4000, 4000, .04, .03);
+      const f = 2600 + tier * 220 + rand(-100, 100);
+      tone(t, 'square', f, f, .03, .03); tone(t + .025, 'square', f * 1.5, f * 1.5, .025, .02); hiss(t, 'highpass', 6000, 6000, .02, .04);
     };
-    S.hurt = () => { if (!ac) return; const t = ac.currentTime; hiss(t, 'lowpass', 900, 250, .3, .18); tone(t, 'triangle', 130, 70, .14, .12); hiss(t + .02, 'bandpass', 3000, 2000, .08, .05, 1.5); };
-    S.boom = (d, big) => {                                          // an explosion: a low sweep, a sub drop, a crackle tail
+    S.hurt = () => {                                                // a hit on you: the signal stutters
+      if (!ac) return; const t = ac.currentTime;
+      for (let i = 0; i < 4; i++) voice(t + i * .035, 'square', rand(180, 1300), rand(120, 900), .03, .07, crush);
+      noise(t, 'lowpass', 1400, 200, .28, .22, drive); tone(t, 'sine', 120, 45, .16, .16);
+    };
+    S.boom = (d, big) => {                                          // an explosion: distorted noise, a sub drop, a crushed crackle
       if (!ac) return; const t = ac.currentTime, v = clamp(90 / (d + 40), .25, 1) * (big ? 1.3 : 1);
-      hiss(t, 'lowpass', 2200, 160, .9, .32 * v, .6); tone(t, 'sine', 90, 28, .7, .3 * v);
-      for (let i = 0; i < 6; i++) hiss(t + .08 + i * rand(.05, .11), 'bandpass', rand(900, 2200), 600, .07, .05 * v, 1.2);
+      noise(t, 'lowpass', 3200, 120, .9, .28 * v, drive, .7); voice(t, 'sine', 100, 24, .9, .32 * v, band.sfx); voice(t, 'sawtooth', 70, 28, .5, .08 * v, drive);
+      for (let i = 0; i < 7; i++) noise(t + .06 + i * rand(.04, .09), 'bandpass', rand(1200, 3500), 700, .05, .06 * v, crush, 1.4);
     };
-    S.whizz = pan => { if (!ac) return; const t = ac.currentTime; if (t - lastWhizz < .08) return; lastWhizz = t; tone(t, 'sine', 2600, 700, .14, .04, pan); hiss(t, 'bandpass', 5000, 1500, .12, .03, 3, pan); };
-    S.pickupSound = kind => { if (!ac) return; const t = ac.currentTime; (kind === 'ammo' ? [62, 66, 69, 74, 78] : [69, 74, 78]).forEach((m, i) => band.piano(t + i * .06, m + 12, .09, (i - 2) * .2)); hiss(t, 'highpass', 6000, 3000, .4, .03); };
-    S.alarm = () => { if (!ac) return; const t = ac.currentTime; tone(t, 'square', 880, 880, .07, .025); tone(t + .12, 'square', 660, 660, .07, .025); };
-    S.levelStart = () => { if (!ac) return; const t = ac.currentTime; [50, 57, 62, 66].forEach((m, i) => band.accordion(t + .05 + i * .1, m + 12, .5, .03, (i - 1.5) * .2)); };
-    S.aceHorn = () => { if (!ac) return; const t = ac.currentTime; band.timp(t, 38, .2); band.timp(t + .35, 38, .2); [45, 49, 52].forEach(m => band.accordion(t + .7, m + 12, 1.2, .03)); };
-    S.clear = () => { if (!ac) return; musicOn = false; const t = ac.currentTime + .1; [62, 66, 69, 74, 78].forEach((m, i) => band.piano(t + i * .11, m + 12, .08, (i - 2) * .25)); band.strings(t, 50, 3.5, .03); };
-    S.breathe = () => { if (!ac) return; musicOn = false; const t = ac.currentTime + .2; [62, 66, 69, 74].forEach((m, i) => band.piano(t + i * .12, m + 12, .07, (i - 1.5) * .3)); band.strings(t, 50, 4, .03); };
-    S.levelUp = unlock => {                                         // a rising arpeggio; an unlock adds a chord and a shimmer
+    S.whizz = pan => { if (!ac) return; const t = ac.currentTime; if (t - lastWhizz < .08) return; lastWhizz = t; tone(t, 'sine', 3400, 500, .13, .045, pan); hiss(t, 'bandpass', 6000, 900, .12, .035, 6, pan); };
+    S.pickupSound = kind => {                                       // a fast square arpeggio into the echo; repair glides up
       if (!ac) return; const t = ac.currentTime;
-      [62, 66, 69, 74].forEach((m, i) => band.piano(t + i * .05, m + 12, .08, (i - 1.5) * .3));
-      tone(t, 'triangle', 600, 1800, .3, .04);
-      if (unlock) { [74, 78, 81, 86].forEach(m => band.piano(t + .25, m + 12, .07)); band.strings(t + .2, 62, 1.6, .035); hiss(t + .2, 'highpass', 7000, 4000, .9, .04); }
+      if (kind === 'ammo') [74, 77, 79, 81, 84, 86, 89, 91].forEach((m, i) => synth(t + i * .035, m, .09, .045, { types: ['square'], cut0: 2000, cut1: 6000, q: 2, dest: band.sfx, send: .4 }));
+      else { tone(t, 'sine', 400, 1600, .35, .06); [62, 66, 69].forEach(m => synth(t + .1, m + 12, .6, .03, { cut0: 800, cut1: 3000, q: 1, dest: band.sfx })); }
+      hiss(t, 'highpass', 7000, 4000, .35, .03);
     };
-    S.zap = () => {                                                 // chain lightning: a crackle and a buzz
+    S.alarm = () => { if (!ac) return; const t = ac.currentTime; for (const [dt, fq] of [[0, 1180], [.1, 880], [.2, 1180]]) { voice(t + dt, 'sawtooth', fq, fq, .08, .03, band.sfx); } };
+    S.levelStart = () => {                                          // a riser, then an impact
+      if (!ac) return; const t = ac.currentTime + .05;
+      noise(t, 'highpass', 300, 9000, 1.3, .07, band.sfx, .7, 0, 1.2); voice(t, 'sawtooth', 110, 440, 1.3, .04, drive, 0, 1.1);
+      voice(t + 1.3, 'sine', 140, 30, .6, .4, band.sfx); noise(t + 1.3, 'highpass', 3000, 2000, 1.4, .08, band.sfx, .5);
+      voice(t + 1.3, 'square', 3200, 700, .01, .06, band.sfx);
+    };
+    S.aceHorn = () => {                                             // a braam: detuned saws, a filter that opens and closes, distorted
+      if (!ac) return; const t = ac.currentTime;
+      for (const m of [38, 45, 50]) synth(t, m, 2.2, .07, { types: ['sawtooth', 'sawtooth', 'sawtooth'], det: 22, cut0: 160, cut1: 2400, q: 3, attack: .35, dest: drive, sub: m === 38 ? .8 : 0 });
+      noise(t, 'bandpass', 200, 2000, 1.2, .08, band.sfx, 1, 0, 1);
+      voice(t + .02, 'sine', 90, 30, 1.2, .3, band.sfx);
+    };
+    S.clear = () => {                                               // a stab in D major and an arpeggio climbing through it
+      if (!ac) return; const t = ac.currentTime + .1;
+      for (const m of [62, 66, 69, 74]) synth(t, m, 1.8, .05, { det: 14, cut0: 900, cut1: 5000, q: 2, attack: .01, dest: band.sfx, send: .4 });
+      [62, 66, 69, 74, 78, 81, 86, 90].forEach((m, i) => synth(t + .2 + i * S16, m, .12, .04, { types: ['square'], cut0: 1500, cut1: 6000, q: 3, dest: band.sfx, send: .5 }));
+      voice(t, 'sine', 120, 35, .5, .3, band.sfx);
+    };
+    S.breathe = () => {                                             // a tape stop: everything sinks and the filter shuts, then a low chord
+      if (!ac) return; const t = ac.currentTime + .05;
+      for (const m of [50, 57, 62, 65]) { const f = ac.createBiquadFilter(), g = ac.createGain(); f.type = 'lowpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(80, t + 1.6); g.gain.setValueAtTime(.1, t); g.gain.exponentialRampToValueAtTime(1e-4, t + 1.8); const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(hz(m), t); o.frequency.exponentialRampToValueAtTime(hz(m) / 8, t + 1.6); o.connect(f); f.connect(g); g.connect(band.sfx); o.start(t); o.stop(t + 1.9); }
+      noise(t, 'lowpass', 2000, 60, 1.6, .1, band.sfx);
+      for (const m of [50, 53, 57]) synth(t + 1.7, m, 4, .06, { det: 16, cut0: 300, cut1: 900, q: 1, attack: 1, dest: band.sfx, send: .3 });
+    };
+    S.levelUp = unlock => {                                         // a fast square arpeggio up; an unlock adds a power chord and a shimmer
+      if (!ac) return; const t = ac.currentTime;
+      [62, 65, 69, 72, 74, 77, 81, 86].forEach((m, i) => synth(t + i * .028, m, .08, .04, { types: ['square'], cut0: 1800, cut1: 6000, q: 2, dest: band.sfx, send: .45 }));
+      if (unlock) { for (const m of [50, 57, 62]) synth(t + .24, m, .9, .06, { det: 18, cut0: 600, cut1: 4000, q: 2, attack: .01, dest: drive }); hiss(t + .24, 'highpass', 9000, 4000, .9, .04); }
+    };
+    S.zap = () => {                                                 // chain lightning: a square jumping around, and crackle
       if (!ac) return; const t = ac.currentTime; if (t - lastZap < .1) return; lastZap = t;
-      for (let i = 0; i < 4; i++) hiss(t + i * .025, 'highpass', 3000, 5000, .04, .07, 1);
-      tone(t, 'square', 180, 90, .15, .035);
+      for (let i = 0; i < 6; i++) voice(t + i * .022, 'square', rand(300, 2400), rand(300, 2400), .022, .045, crush);
+      for (let i = 0; i < 3; i++) hiss(t + i * .03, 'highpass', 4000, 7000, .03, .05, 1);
     };
-    S.rocket = storm => {                                           // a whoosh that climbs
+    S.rocket = storm => {                                           // a launch: a filtered whoosh and a rising saw
       if (!ac) return; const t = ac.currentTime;
-      hiss(t, 'bandpass', 400, storm ? 2600 : 1800, storm ? .7 : .5, storm ? .14 : .1, 1.2, 0, .02);
-      tone(t, 'sawtooth', 70, 140, .3, .04);
+      noise(t, 'bandpass', 500, storm ? 4000 : 2600, storm ? .7 : .5, storm ? .14 : .1, band.sfx, 1.5, 0, .02);
+      voice(t, 'sawtooth', 80, storm ? 600 : 400, .35, .05, drive);
     };
-    S.pop = d => {                                                  // a rocket hit: a short, dry burst
+    S.pop = d => {                                                  // a rocket hit: a short, crushed burst
       if (!ac) return; const t = ac.currentTime; if (t - lastPop < .05) return; lastPop = t;
-      const v = clamp(90 / (d + 40), .2, 1); hiss(t, 'lowpass', 2800, 300, .35, .2 * v, .6); tone(t, 'sine', 120, 40, .25, .16 * v);
+      const v = clamp(90 / (d + 40), .2, 1); noise(t, 'lowpass', 3500, 300, .3, .22 * v, crush, .6); tone(t, 'sine', 130, 40, .22, .16 * v);
     };
     S.beam = on => {
       if (!ac || !beamN || on === beamOn) return; beamOn = on;
-      beamN.g.gain.setTargetAtTime(on ? .05 : 0, ac.currentTime, on ? .03 : .08);
+      beamN.g.gain.setTargetAtTime(on ? .045 : 0, ac.currentTime, on ? .03 : .08);
     };
     S.ui = kind => {                                                // the interface: a two-tone blip on a press, a burst of static on a new screen
       if (!ac) return; const t = ac.currentTime;
-      if (kind === 'glitch') { hiss(t, 'bandpass', 3200, 900, .11, .045, 2.5); tone(t, 'square', 220, 60, .07, .018); }
+      if (kind === 'glitch') { noise(t, 'bandpass', 3200, 900, .11, .05, crush, 2.5); tone(t, 'square', 220, 60, .07, .018); }
       else { tone(t, 'square', 1760, 1760, .028, .022); tone(t + .034, 'square', 2640, 2640, .03, .016); }
     };
+    S.probe = () => ac && { ac, master: band.master };             // for tests: the context and the master bus
     S.suspend = on => { if (ac) on ? ac.suspend() : ac.resume(); };
     return S;
   })();
@@ -3630,7 +3715,7 @@ function bootGame() {
     drawHUD();
   };
   requestAnimationFrame(loop);
-  window.GAME = { startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
+  window.GAME = { snd, startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
 }
 
 // ───────────────────────── live: the film (or, with ?play, the game) ─────────────────────────
