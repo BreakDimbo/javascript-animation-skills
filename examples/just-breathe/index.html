@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="just breathe">
+<meta name="theme-color" content="#0c0a14">
 <title>just breathe.</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0c0a14; }
@@ -1769,6 +1774,29 @@ function bootGame() {
   let paused = false;
   const store = { get(k, d) { try { return Number(localStorage.getItem(k)) || d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
   const rand = (a, b) => a + Math.random() * (b - a);
+  // the notch and the home indicator: read the safe-area insets once per frame from a probe element
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;inset:0;pointer-events:none;visibility:hidden;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.appendChild(probe);
+  let INS = { t: 0, r: 0, b: 0, l: 0 };
+  const readInsets = () => { const cs = getComputedStyle(probe); INS = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; };
+  // full screen: the Fullscreen API where the browser has it (Android, iPad, desktop), from a tap; on an iPhone only
+  // "Add to Home Screen" gives a page the whole screen, so the title says so
+  const fsOK = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const IPHONE = /iPhone|iPod/.test(navigator.userAgent);
+  function goFull() {
+    if (!fsOK() || isFull()) return;
+    const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+    try {
+      const pr = req.call(el, { navigationUI: 'hide' });
+      const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch {} };
+      if (pr && pr.then) pr.then(lock).catch(() => {}); else lock();
+    } catch {}
+  }
+  document.addEventListener('gesturestart', e => e.preventDefault());
+  document.addEventListener('dblclick', e => e.preventDefault());
 
   // ── content ──
   // enemy types: health, how well they fly and shoot, what they are worth, how often they drop a crate
@@ -1942,9 +1970,11 @@ function bootGame() {
 
   // ── input ──
   const input = { sx: 0, sy: 0, fire: false, boost: false, keys: {}, stick: null, firePtr: null, boostPtr: null };
-  const boostBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 150, y: r.bottom - 150, r: 30 }; };
-  const fireBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 78, y: r.bottom - 88, r: 46 }; };
+  const boostBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 150 - INS.r, y: r.bottom - 150 - INS.b, r: 30 }; };
+  const fireBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 78 - INS.r, y: r.bottom - 88 - INS.b, r: 46 }; };
   function press(act) {
+    if (act === 'full') { goFull(); return; }
+    if (MOBILE && act !== 'full') goFull();                            // a tap to fly is also the tap that may take the whole screen
     if (act === 'start') newRun(1);
     else if (act === 'continue') newRun(G0.unlocked);
     else if (act === 'retry') { W = { ...Wsaved }; G0.score = scoreSaved; startLevel(G0.level); }
@@ -2349,8 +2379,13 @@ function bootGame() {
       const bw = 210 * u, bh = 42 * u;
       button(c, u, w / 2 - bw / 2, h * .47, bw, bh, 'fly · level 1', 'start', true);
       if (G0.unlocked > 1) button(c, u, w / 2 - bw / 2, h * .47 + bh + 12 * u, bw, bh, 'continue · level ' + G0.unlocked, 'continue');
-      small(MOBILE ? 'left thumb steers · right thumb fires · small button boosts' : 'arrows / WASD steer · space fires · shift boosts', h * .86);
-      if (G0.best) small('best ' + G0.best, h * .91, .45);
+      small(MOBILE ? 'left thumb steers · right thumb fires · small button boosts' : 'arrows / WASD steer · space fires · shift boosts', h * .8);
+      if (G0.best) small('best ' + G0.best, h * .85, .45);
+      if (MOBILE && h > w) small('turn your phone sideways for a wider sky', h * .74, .75, 14);
+      if (!standalone() && !isFull()) {
+        if (fsOK()) { const fw = 140 * u, fh = 34 * u; button(c, u, w - fw - (16 + INS.r) * u, (14 + INS.t) * u, fw, fh, 'full screen', 'full'); }
+        else if (IPHONE) small('for full screen: Share → Add to Home Screen', h * .9, .6, 12);
+      }
       return;
     }
     if (G0.mode === 'brief') {
@@ -2388,11 +2423,12 @@ function bootGame() {
     const low = player.hp <= player.maxHp * .3 ? .25 + .2 * Math.sin(G0.t * 6) : 0, hurtA = Math.max(G0.hurt * .45, low);
     if (hurtA > 0) { const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .3, w / 2, h / 2, Math.max(w, h) * .7); g.addColorStop(0, 'rgba(120,20,40,0)'); g.addColorStop(1, `rgba(120,20,40,${hurtA})`); c.fillStyle = g; c.fillRect(0, 0, w, h); }
     // score, combo, level
-    c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(21 * u), false); c.fillText(String(G0.score), 18 * u, 26 * u);
-    if (G0.combo > 1) { c.fillStyle = `rgba(255, 205, 110, ${.6 + .4 * G0.comboT / 5})`; c.font = serif(Math.round(18 * u)); c.fillText('×' + G0.combo, 18 * u + c.measureText(String(G0.score)).width + 60 * u, 26 * u); }
-    c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`level ${G0.level} · ${G0.levelName} · wave ${Math.max(1, G0.wave)}/${G0.waves}`, 18 * u, 47 * u);
+    const L0 = (18 + INS.l) * u, T0 = INS.t * u;
+    c.textAlign = 'left'; c.fillStyle = cream(.92); c.font = serif(Math.round(21 * u), false); c.fillText(String(G0.score), L0, T0 + 26 * u);
+    if (G0.combo > 1) { c.fillStyle = `rgba(255, 205, 110, ${.6 + .4 * G0.comboT / 5})`; c.font = serif(Math.round(18 * u)); c.fillText('×' + G0.combo, L0 + c.measureText(String(G0.score)).width + 60 * u, T0 + 26 * u); }
+    c.font = serif(Math.round(12 * u)); c.fillStyle = cream(.55); c.fillText(`level ${G0.level} · ${G0.levelName} · wave ${Math.max(1, G0.wave)}/${G0.waves}`, L0, T0 + 47 * u);
     // health, boost, ammunition
-    const bw = 130 * u, bx = w - bw - 18 * u, by = 18 * u;
+    const bw = 130 * u, bx = w - bw - (18 + INS.r) * u, by = (18 + INS.t) * u;
     c.fillStyle = 'rgba(30, 14, 40, .35)'; c.fillRect(bx, by, bw, 7 * u); c.fillRect(bx, by + 13 * u, bw, 4 * u);
     const hpk = Math.max(0, player.hp) / player.maxHp;
     c.fillStyle = hpk < .3 ? 'rgba(235, 90, 80, .95)' : cream(.9); c.fillRect(bx, by, bw * hpk, 7 * u);
@@ -2445,7 +2481,7 @@ function bootGame() {
     G0.msgs.forEach((m, i) => { const a = Math.min(1, m.age * 4) * (1 - smooth(m.life - .5, m.life, m.age)); c.fillStyle = cream(.92 * a); c.font = serif(Math.round((m.big ? 26 : 18) * u)); c.fillText(m.text, w / 2, h * .2 + i * 26 * u); });
     // touch controls
     if (MOBILE || input.stick) {
-      const st = input.stick, base = st ? [(st.ox - r.left) * u, (st.oy - r.top) * u] : [95 * u, h - 95 * u];
+      const st = input.stick, base = st ? [(st.ox - r.left) * u, (st.oy - r.top) * u] : [(95 + INS.l) * u, h - (95 + INS.b) * u];
       c.strokeStyle = cream(st ? .5 : .22); c.lineWidth = 1.5 * u; c.beginPath(); c.arc(base[0], base[1], 56 * u, 0, Math.PI * 2); c.stroke();
       const kx = st ? clamp(st.x - st.ox, -64, 64) : 0, ky = st ? clamp(st.y - st.oy, -64, 64) : 0;
       c.fillStyle = cream(st ? .5 : .2); c.beginPath(); c.arc(base[0] + kx * u, base[1] + ky * u, 20 * u, 0, Math.PI * 2); c.fill();
@@ -2463,6 +2499,7 @@ function bootGame() {
   const loop = now => {
     requestAnimationFrame(loop);
     const [ow, oh] = sizeCanvas(glv, stage, 1600);
+    readInsets();
     if (!R.baked) { R.bakeStep(); drawHUD(); last = now; return; }
     let dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
     if (G0.stop > 0) { G0.stop -= dt; dt *= .12; }                     // hit-stop: the world holds its breath on a kill
