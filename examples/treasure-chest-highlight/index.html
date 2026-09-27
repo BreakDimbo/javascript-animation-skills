@@ -194,7 +194,7 @@ canvas.layer{width:100%;height:100%}
     <div id="cards"></div>
     <div id="panel">
       <div class="p-gem"><i></i><b class="crown"></b></div>
-      <div class="p-head"><span class="p-elem">火</span><div><div class="p-name">赤曜</div><div class="p-sub">焰尾狐 · 火属性</div></div></div>
+      <div class="p-head"><span class="p-elem">火</span><div><div class="p-name">可莉</div><div class="p-sub">逃跑的太阳 · 火元素</div></div></div>
       <div class="p-stars"></div>
       <div class="p-rows"></div>
       <div class="p-power"><span>战力</span><b>0</b></div>
@@ -270,9 +270,9 @@ const TIERS = [
   { en: 'LEGENDARY', zh: '传说宝箱', light: '#FFE680', main: '#FFB21F', bgA: '#C26A16', bgB: '#2A0F04', glow: '#FFD24A', ray: '#FFE9A0', plank: '#FFB21F', metal: '#FFF3D2', gem: '#FF3D62' },
 ];
 const CHARS = {
-  fire:    { name: '赤曜', sub: '焰尾狐 · 火属性', elem: '火', stars: 5, stats: [['攻击', 1536], ['生命', 12640], ['暴击', 25, '%']], power: 28650 },
-  thunder: { name: '噼啪', sub: '雷团子 · 雷属性', elem: '雷', stars: 4 },
-  water:   { name: '汐汐', sub: '泡泡鳍 · 水属性', elem: '水', stars: 3 },
+  fire:    { name: '可莉', sub: '逃跑的太阳 · 火元素', elem: '火', stars: 5, stats: [['攻击', 1536], ['生命', 12640], ['暴击', 25, '%']], power: 28650 },
+  thunder: { name: '菲谢尔', sub: '断罪皇女 · 雷元素', elem: '雷', stars: 4 },
+  water:   { name: '行秋', sub: '少年春衫薄 · 水元素', elem: '水', stars: 4 },
 };
 const REWARDS = [
   [{ kind: 'coin', qty: 300, rar: 0 }, { kind: 'gem', qty: 20, rar: 0 }],
@@ -477,91 +477,183 @@ function drawBg(c, kind) {
 }
 function groundShadow(c, x, y, rx, ry, a) { c.fillStyle = `rgba(20,6,40,${a})`; c.beginPath(); c.ellipse(x, y, rx, ry, 0, 0, TAU); c.fill(); c.fillStyle = `rgba(20,6,40,${a * 0.6})`; c.beginPath(); c.ellipse(x, y, rx * 0.6, ry * 0.6, 0, 0, TAU); c.fill(); }
 
-/* ---- the fox (legendary, fire): smug wink, fist pump, flame tail ---- */
-function drawFox(c) {
-  const O = ['#FF8B2C', '#D9531A', '#FFC46B'], CR = ['#FFF1DC', '#EDC69A', '#FFFFFF'];
-  const tail = P2(p => { p.moveTo(300, 590); p.bezierCurveTo(400, 615, 470, 535, 452, 435); p.bezierCurveTo(445, 385, 420, 350, 395, 333); p.bezierCurveTo(408, 395, 395, 465, 350, 510); p.bezierCurveTo(330, 530, 312, 540, 292, 545); p.closePath(); });
-  cel(c, tail, ...O, { hi: ell(438, 455, 10, 36, -0.2) });
-  const fl = P2(p => { p.moveTo(378, 362); p.bezierCurveTo(350, 330, 368, 278, 404, 246); p.bezierCurveTo(402, 276, 418, 283, 430, 264); p.bezierCurveTo(453, 305, 448, 354, 415, 374); p.closePath(); });
-  cel(c, fl, '#FFD23F', '#FF8A1E', '#FFF6C2', { hi: P2(p => { p.moveTo(392, 352); p.bezierCurveTo(380, 330, 392, 305, 404, 292); p.bezierCurveTo(406, 318, 420, 330, 412, 352); p.closePath(); }) });
-  cel(c, ell(165, 535, 26, 46, 0.45), ...O);
-  cel(c, ell(250, 535, 102, 92), ...O, { hi: ell(205, 488, 30, 16, -0.6) });
-  cel(c, ell(250, 566, 50, 46), '#FFE9CC', '#E9BE8E', '#FFFFFF', { off: [6, 8], hi: ell(236, 548, 13, 8, -0.5) });
-  const fluff = P2(p => { p.moveTo(192, 462); p.lineTo(212, 492); p.lineTo(230, 472); p.lineTo(250, 498); p.lineTo(270, 472); p.lineTo(288, 492); p.lineTo(308, 462); p.closePath(); });
-  cel(c, fluff, ...CR, { off: [4, 6] });
-  cel(c, ell(198, 620, 50, 27), '#7A2A1C', '#50160E', '#B0503E', { hi: ell(182, 610, 16, 7) });
-  cel(c, ell(302, 620, 50, 27), '#7A2A1C', '#50160E', '#B0503E', { hi: ell(286, 610, 16, 7) });
-  stroke(c, 3, q => { q.moveTo(190, 634); q.lineTo(192, 624); q.moveTo(206, 634); q.lineTo(208, 624); q.moveTo(294, 634); q.lineTo(296, 624); q.moveTo(310, 634); q.lineTo(312, 624); });
-  const tuftL = P2(p => { p.moveTo(135, 345); p.lineTo(86, 385); p.lineTo(126, 386); p.lineTo(98, 420); p.lineTo(165, 408); p.closePath(); });
-  const tuftR = P2(p => { p.moveTo(365, 345); p.lineTo(414, 385); p.lineTo(374, 386); p.lineTo(402, 420); p.lineTo(335, 408); p.closePath(); });
-  cel(c, tuftL, ...O); cel(c, tuftR, ...O);
-  const earL = P2(p => { p.moveTo(148, 318); p.quadraticCurveTo(138, 218, 166, 170); p.quadraticCurveTo(212, 220, 238, 272); p.closePath(); });
-  const earR = P2(p => { p.moveTo(352, 318); p.quadraticCurveTo(362, 218, 334, 170); p.quadraticCurveTo(288, 220, 262, 272); p.closePath(); });
-  cel(c, earL, ...O, { hi: ell(160, 230, 6, 20, 0.2) }); cel(c, earR, ...O);
-  const inL = P2(p => { p.moveTo(166, 290); p.quadraticCurveTo(160, 232, 172, 205); p.quadraticCurveTo(200, 238, 216, 272); p.closePath(); });
-  const inR = P2(p => { p.moveTo(334, 290); p.quadraticCurveTo(340, 232, 328, 205); p.quadraticCurveTo(300, 238, 284, 272); p.closePath(); });
-  cel(c, inL, '#FFD2C0', '#F2A48E', null, { off: [4, 5] }); cel(c, inR, '#FFD2C0', '#F2A48E', null, { off: [4, 5] });
-  cel(c, ell(250, 360, 138, 115), ...O, { hi: ell(190, 300, 42, 20, -0.45) });
-  const hair = P2(p => { p.moveTo(212, 256); p.quadraticCurveTo(226, 212, 246, 222); p.quadraticCurveTo(250, 194, 272, 206); p.quadraticCurveTo(262, 232, 288, 256); p.closePath(); });
-  cel(c, hair, ...O, { off: [4, 6] });
-  cel(c, ell(250, 414, 92, 48), ...CR, { off: [5, 7] });
-  // face
-  stroke(c, 7, q => { q.moveTo(172, 356); q.quadraticCurveTo(198, 330, 224, 356); });
-  stroke(c, 4, q => { q.moveTo(168, 346); q.lineTo(160, 340); });
-  c.save(); const eye = ell(305, 350, 21, 27); c.fillStyle = INK; c.fill(eye); c.clip(eye); c.fillStyle = '#FFB02E'; c.beginPath(); c.ellipse(305, 364, 17, 14, 0, 0, TAU); c.fill(); c.restore();
-  c.fillStyle = '#fff'; c.beginPath(); c.arc(297, 339, 7.5, 0, TAU); c.fill(); c.beginPath(); c.arc(312, 361, 3.5, 0, TAU); c.fill();
-  stroke(c, 6, q => { q.moveTo(280, 312); q.quadraticCurveTo(305, 300, 330, 310); });
-  c.fillStyle = INK; c.beginPath(); c.moveTo(237, 393); c.quadraticCurveTo(250, 386, 263, 393); c.quadraticCurveTo(256, 408, 250, 409); c.quadraticCurveTo(244, 408, 237, 393); c.fill();
-  stroke(c, 5, q => { q.moveTo(222, 420); q.quadraticCurveTo(236, 434, 250, 420); q.quadraticCurveTo(268, 437, 292, 413); });
-  c.fillStyle = '#fff'; c.beginPath(); c.moveTo(266, 428); c.lineTo(277, 425); c.lineTo(272, 441); c.closePath(); c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke();
-  c.fillStyle = 'rgba(255,80,110,.45)'; c.beginPath(); c.ellipse(178, 394, 20, 10, 0, 0, TAU); c.fill(); c.beginPath(); c.ellipse(324, 394, 20, 10, 0, 0, TAU); c.fill();
-  // fist pump arm (in front of the head)
-  cel(c, capsule(318, 505, 378, 425, 24), ...O);
-  cel(c, P2(p => p.arc(388, 412, 31, 0, TAU)), ...O, { hi: ell(378, 398, 10, 6, -0.5) });
-  stroke(c, 3.5, q => { q.moveTo(374, 404); q.quadraticCurveTo(382, 412, 376, 422); q.moveTo(388, 400); q.quadraticCurveTo(398, 410, 390, 424); });
-  star4(c, 440, 372, 18); star4(c, 468, 412, 10); star4(c, 112, 262, 12);
+/* ---- fan-art characters (Genshin Impact © HoYoverse), drawn in code ---- */
+const SKIN = ['#FFE6D2', '#F2B69A', '#FFF8F2'];
+/* build a left/right pair of paths from one description (X mirrors around the centre line) */
+function pair(fn) { return [P2(p => fn(p, x => x)), P2(p => fn(p, x => 500 - x))]; }
+/* chibi eye: filled iris, pupil, two highlights, thick upper lash; lid > 0 = half-closed */
+function animeEye(c, x, y, rx, ry, iris, lid = 0) {
+  const e = ell(x, y, rx, ry);
+  c.save(); c.clip(e);
+  const g = c.createLinearGradient(0, y - ry, 0, y + ry); g.addColorStop(0, shadeHex(iris, -0.55)); g.addColorStop(0.5, iris); g.addColorStop(1, shadeHex(iris, 0.5));
+  c.fillStyle = g; c.fill(e);
+  c.fillStyle = shadeHex(iris, -0.7); c.beginPath(); c.ellipse(x, y + ry * 0.1, rx * 0.46, ry * 0.5, 0, 0, TAU); c.fill();
+  c.fillStyle = '#fff'; c.beginPath(); c.ellipse(x - rx * 0.32, y - ry * 0.32, rx * 0.34, ry * 0.26, -0.4, 0, TAU); c.fill();
+  c.beginPath(); c.arc(x + rx * 0.35, y + ry * 0.42, rx * 0.15, 0, TAU); c.fill();
+  if (lid) { c.fillStyle = SKIN[0]; c.fillRect(x - rx, y - ry, rx * 2, ry * 2 * lid); }
+  c.restore();
+  c.lineWidth = 2.5; c.strokeStyle = INK; c.stroke(e);
+  if (lid) stroke(c, 6, q => { q.moveTo(x - rx * 1.1, y - ry + ry * 2 * lid + 2); q.quadraticCurveTo(x, y - ry + ry * 2 * lid - 3, x + rx * 1.1, y - ry + ry * 2 * lid); });
+  else stroke(c, 6, q => q.ellipse(x, y, rx * 1.06, ry * 1.04, 0, Math.PI * 1.1, Math.PI * 1.9));
 }
-/* ---- the thunder puffball (epic): wide-eyed cheer, both arms up, mid-jump ---- */
-function drawPuff(c) {
-  const Y = ['#FFD93B', '#EF9D18', '#FFF6B0'], PU = ['#9B5BFF', '#6431D1', '#D2B6FF'];
-  const earL = P2(p => { p.moveTo(178, 318); p.lineTo(128, 230); p.lineTo(166, 240); p.lineTo(140, 150); p.lineTo(226, 280); p.lineTo(188, 270); p.lineTo(208, 308); p.closePath(); });
-  const earR = P2(p => { p.moveTo(322, 318); p.lineTo(372, 230); p.lineTo(334, 240); p.lineTo(360, 150); p.lineTo(274, 280); p.lineTo(312, 270); p.lineTo(292, 308); p.closePath(); });
-  cel(c, earL, ...PU, { off: [6, 8] }); cel(c, earR, ...PU, { off: [6, 8] });
-  cel(c, capsule(150, 440, 96, 348, 22), ...Y); cel(c, P2(p => p.arc(92, 338, 25, 0, TAU)), ...Y, { hi: ell(84, 328, 8, 5, -0.5) });
-  cel(c, capsule(350, 440, 404, 348, 22), ...Y); cel(c, P2(p => p.arc(408, 338, 25, 0, TAU)), ...Y);
-  cel(c, ell(205, 596, 34, 20), '#FFB02E', '#DE7512', '#FFE09A'); cel(c, ell(295, 596, 34, 20), '#FFB02E', '#DE7512', '#FFE09A');
-  cel(c, P2(p => p.arc(250, 440, 150, 0, TAU)), ...Y, { off: [12, 14], hi: ell(185, 355, 46, 24, -0.6) });
-  cel(c, ell(250, 508, 82, 60), '#FFF1B8', '#F2C45E', '#FFFFFF', { off: [6, 8] });
-  const tuft = P2(p => { p.moveTo(228, 300); p.lineTo(248, 250); p.lineTo(256, 276); p.lineTo(278, 240); p.lineTo(272, 300); p.closePath(); });
-  cel(c, tuft, ...PU, { off: [4, 5] });
-  [[195, 420], [305, 420]].forEach(([x, y]) => { c.fillStyle = INK; c.beginPath(); c.ellipse(x, y, 27, 33, 0, 0, TAU); c.fill(); star4(c, x - 8, y - 12, 12, '#fff', 0); c.fillStyle = '#fff'; c.beginPath(); c.arc(x + 9, y + 14, 5, 0, TAU); c.fill(); });
-  const mouth = P2(p => { p.moveTo(220, 466); p.quadraticCurveTo(250, 520, 280, 466); p.quadraticCurveTo(250, 476, 220, 466); p.closePath(); });
-  c.save(); c.fillStyle = '#7A1633'; c.fill(mouth); c.clip(mouth); c.fillStyle = '#FF7A95'; c.beginPath(); c.ellipse(250, 500, 20, 12, 0, 0, TAU); c.fill(); c.restore();
-  c.lineWidth = LW_IN; c.strokeStyle = INK; c.lineJoin = 'round'; c.stroke(mouth);
-  [[148, 470], [352, 470]].forEach(([x, y]) => { c.fillStyle = '#FF7AA8'; c.beginPath(); c.arc(x, y, 20, 0, TAU); c.fill(); stroke(c, 3.5, q => { q.moveTo(x - 7, y - 9); q.lineTo(x + 3, y - 1); q.lineTo(x - 3, y + 1); q.lineTo(x + 7, y + 9); }, '#fff'); });
-  stroke(c, 4, q => { q.moveTo(52, 300); q.quadraticCurveTo(44, 330, 56, 360); q.moveTo(448, 300); q.quadraticCurveTo(456, 330, 444, 360); });
-  const bolt = (x, y, s) => { const b = P2(p => { p.moveTo(x, y - s); p.lineTo(x - s * 0.5, y + s * 0.1); p.lineTo(x, y + s * 0.05); p.lineTo(x - s * 0.2, y + s); p.lineTo(x + s * 0.5, y - s * 0.15); p.lineTo(x, y - s * 0.1); p.closePath(); }); cel(c, b, '#FFE45C', '#E0A21E', null, { off: [2, 3], lw: 3.5 }); };
-  bolt(84, 238, 26); bolt(424, 226, 22); bolt(446, 470, 16);
+function blush(c, y = 350, dx = 60) { c.fillStyle = 'rgba(255,110,130,.42)'; c.beginPath(); c.ellipse(250 - dx, y, 17, 8, 0, 0, TAU); c.fill(); c.beginPath(); c.ellipse(250 + dx, y, 17, 8, 0, 0, TAU); c.fill(); }
+
+/* ---- 可莉 (legendary, Pyro): big grin, bomb held high, Dodoco on the hip ---- */
+function drawKlee(c) {
+  const R = ['#E4443C', '#A92630', '#FF9484'], HR = ['#F8E2A4', '#DDB066', '#FFF6D8'];
+  const [flL, flR] = pair((p, X) => { p.moveTo(X(176), 206); p.bezierCurveTo(X(120), 212, X(76), 262, X(50), 338); p.bezierCurveTo(X(92), 300, X(132), 280, X(178), 262); p.closePath(); });
+  cel(c, flL, ...R, { off: [5, 6] }); cel(c, flR, ...R, { off: [5, 6] });
+  const [tL, tR] = pair((p, X) => { p.moveTo(X(152), 330); p.bezierCurveTo(X(116), 362, X(110), 432, X(126), 484); p.bezierCurveTo(X(134), 506, X(152), 508, X(160), 492); p.bezierCurveTo(X(150), 450, X(162), 400, X(186), 360); p.closePath(); });
+  cel(c, tL, ...HR, { off: [5, 6] }); cel(c, tR, ...HR, { off: [5, 6] });
+  cel(c, ell(250, 292, 120, 110), ...HR);
+  for (const x of [228, 272]) cel(c, capsule(x, 560, x + (x < 250 ? -2 : 2), 610, 13), '#FFFFFF', '#CFD7E6', null, { off: [3, 3] });
+  cel(c, ell(222, 620, 30, 17), '#8A4B2A', '#5E2E18', '#C07A50', { hi: ell(212, 613, 9, 4) });
+  cel(c, ell(278, 620, 30, 17), '#8A4B2A', '#5E2E18', '#C07A50', { hi: ell(268, 613, 9, 4) });
+  cel(c, ell(250, 556, 48, 15), '#6E1A26', '#4A0F18', null);
+  const coat = P2(p => { p.moveTo(214, 416); p.bezierCurveTo(196, 450, 182, 520, 172, 566); p.quadraticCurveTo(250, 592, 328, 566); p.bezierCurveTo(318, 520, 304, 450, 286, 416); p.closePath(); });
+  cel(c, coat, ...R, { off: [8, 10], hi: ell(204, 480, 9, 30, 0.25) });
+  cel(c, P2(p => { p.moveTo(232, 418); p.lineTo(250, 462); p.lineTo(268, 418); p.closePath(); }), '#FFFFFF', '#E0D6CC', null, { off: [3, 4] });
+  cel(c, ell(250, 424, 44, 13), '#FFFFFF', '#E0D6CC', null, { off: [3, 4] });
+  stroke(c, 3, q => { q.moveTo(250, 462); q.lineTo(250, 578); });
+  for (const y of [488, 518, 548]) { c.fillStyle = '#F2C04A'; c.beginPath(); c.arc(262, y, 5, 0, TAU); c.fill(); c.lineWidth = 2.5; c.strokeStyle = INK; c.stroke(); }
+  // Dodoco hanging on the hip
+  cel(c, P2(p => p.arc(180, 548, 26, 0, TAU)), '#FFF1D6', '#E6C99A', '#FFFFFF', { off: [4, 5] });
+  cel(c, P2(p => { p.moveTo(158, 532); p.quadraticCurveTo(180, 500, 202, 532); p.closePath(); }), ...R, { off: [3, 3] });
+  c.fillStyle = INK; c.beginPath(); c.arc(172, 548, 3.5, 0, TAU); c.fill(); c.beginPath(); c.arc(188, 548, 3.5, 0, TAU); c.fill();
+  stroke(c, 2.5, q => { q.moveTo(175, 557); q.quadraticCurveTo(180, 562, 185, 557); });
+  const [eL, eR] = pair((p, X) => { p.moveTo(X(152), 296); p.lineTo(X(100), 262); p.quadraticCurveTo(X(122), 318, X(158), 332); p.closePath(); });
+  cel(c, eL, ...SKIN, { off: [3, 4] }); cel(c, eR, ...SKIN, { off: [3, 4] });
+  cel(c, capsule(208, 438, 190, 500, 17), ...R, { off: [4, 5] });
+  cel(c, ell(189, 506, 17, 8), '#FFFFFF', '#E0D6CC', null, { off: [2, 2] });
+  cel(c, P2(p => p.arc(188, 520, 14, 0, TAU)), ...SKIN, { off: [3, 3] });
+  // Jumpy Dumpty bomb, held high beside the head
+  const bx = 412, by = 256;
+  cel(c, P2(p => p.arc(bx, by, 38, 0, TAU)), '#E8453C', '#A82328', '#FF9A8A', { off: [7, 8], hi: ell(bx - 16, by - 18, 11, 7, -0.6) });
+  cel(c, P2(p => { p.roundRect(bx - 12, by - 50, 24, 14, 4); }), '#8A4B2A', '#5E2E18', null, { off: [2, 2] });
+  stroke(c, 4, q => { q.moveTo(bx, by - 50); q.quadraticCurveTo(bx + 6, by - 70, bx + 22, by - 76); });
+  star4(c, bx + 26, by - 82, 16, '#FFE45C');
+  c.fillStyle = INK; c.beginPath(); c.arc(bx - 12, by, 4.5, 0, TAU); c.fill(); c.beginPath(); c.arc(bx + 12, by, 4.5, 0, TAU); c.fill();
+  stroke(c, 3, q => { q.moveTo(bx - 9, by + 12); q.quadraticCurveTo(bx, by + 20, bx + 9, by + 12); });
+  cel(c, capsule(292, 438, 382, 324, 17), ...R, { off: [4, 5] });
+  cel(c, ell(385, 320, 16, 8, -0.9), '#FFFFFF', '#E0D6CC', null, { off: [2, 2] });
+  cel(c, P2(p => p.arc(394, 306, 15, 0, TAU)), ...SKIN, { off: [3, 3] });
+  // head
+  cel(c, ell(250, 302, 104, 96), ...SKIN, { off: [6, 8] });
+  animeEye(c, 212, 322, 20, 26, '#E23B3B'); animeEye(c, 288, 322, 20, 26, '#E23B3B');
+  stroke(c, 4, q => { q.moveTo(196, 284); q.quadraticCurveTo(210, 276, 224, 282); q.moveTo(276, 282); q.quadraticCurveTo(290, 276, 304, 284); });
+  const mouth = P2(p => { p.moveTo(226, 354); p.quadraticCurveTo(250, 392, 274, 354); p.quadraticCurveTo(250, 362, 226, 354); p.closePath(); });
+  c.save(); c.fillStyle = '#8A1E2E'; c.fill(mouth); c.clip(mouth); c.fillStyle = '#FF7A8A'; c.beginPath(); c.ellipse(250, 378, 12, 8, 0, 0, TAU); c.fill(); c.restore();
+  c.lineWidth = LW_IN; c.strokeStyle = INK; c.stroke(mouth);
+  blush(c, 352, 62);
+  const bangs = P2(p => { p.moveTo(146, 340); p.bezierCurveTo(138, 270, 180, 220, 250, 216); p.bezierCurveTo(320, 220, 362, 270, 354, 340);
+    [[338, 300], [320, 318], [302, 272], [284, 300], [264, 264], [246, 298], [226, 266], [210, 304], [190, 276], [176, 318], [162, 296]].forEach(([x, y]) => p.lineTo(x, y)); p.closePath(); });
+  cel(c, bangs, ...HR, { off: [5, 7], hi: ell(206, 248, 22, 8, -0.3) });
+  const hat = P2(p => { p.moveTo(148, 252); p.bezierCurveTo(146, 168, 354, 168, 352, 252); p.quadraticCurveTo(250, 232, 148, 252); p.closePath(); });
+  cel(c, hat, ...R, { off: [7, 8], hi: ell(206, 206, 26, 10, -0.3) });
+  stroke(c, 3, q => { q.moveTo(160, 238); q.quadraticCurveTo(250, 222, 340, 238); });
+  [[-8, 0], [8, 0], [0, -8], [0, 8]].forEach(([dx, dy]) => { c.fillStyle = '#5CC75A'; c.beginPath(); c.arc(196 + dx, 222 + dy, 7, 0, TAU); c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke(); });
+  star4(c, 452, 360, 11); star4(c, 96, 220, 14); star4(c, 118, 420, 9);
 }
-/* ---- the water sprite (rare): sleepy content, floating with bubbles ---- */
-function drawDrop(c) {
-  const B = ['#56C2FF', '#2B86E0', '#D2F4FF'];
-  const tail = P2(p => { p.moveTo(300, 548); p.bezierCurveTo(350, 560, 392, 588, 410, 556); p.bezierCurveTo(404, 604, 372, 628, 338, 616); p.bezierCurveTo(314, 606, 300, 582, 300, 548); p.closePath(); });
-  cel(c, tail, ...B, { off: [5, 6] });
-  const finL = P2(p => { p.moveTo(136, 452); p.bezierCurveTo(92, 430, 66, 470, 76, 502); p.bezierCurveTo(98, 492, 118, 488, 142, 490); p.closePath(); });
-  const finR = P2(p => { p.moveTo(364, 452); p.bezierCurveTo(408, 430, 434, 470, 424, 502); p.bezierCurveTo(402, 492, 382, 488, 358, 490); p.closePath(); });
-  cel(c, finL, ...B, { off: [4, 5] }); cel(c, finR, ...B, { off: [4, 5] });
-  const body = P2(p => { p.moveTo(262, 222); p.bezierCurveTo(310, 277, 385, 342, 380, 447); p.bezierCurveTo(376, 537, 318, 577, 250, 577); p.bezierCurveTo(182, 577, 122, 532, 122, 449); p.bezierCurveTo(122, 352, 205, 302, 262, 222); p.closePath(); });
-  cel(c, body, ...B, { off: [12, 13], hi: ell(178, 390, 14, 46, 0.45) });
-  cel(c, ell(250, 507, 78, 52), '#C4EEFF', '#86CFF5', '#FFFFFF', { off: [5, 7] });
-  stroke(c, 5, q => { q.moveTo(262, 224); q.quadraticCurveTo(292, 200, 278, 180); });
-  stroke(c, 6, q => { q.moveTo(176, 440); q.quadraticCurveTo(200, 458, 224, 440); q.moveTo(276, 440); q.quadraticCurveTo(300, 458, 324, 440); });
-  stroke(c, 3.5, q => { q.moveTo(174, 438); q.lineTo(166, 432); q.moveTo(326, 438); q.lineTo(334, 432); });
-  stroke(c, 4.5, q => { q.moveTo(236, 474); q.quadraticCurveTo(243, 484, 250, 475); q.quadraticCurveTo(257, 484, 264, 474); });
-  c.fillStyle = 'rgba(255,110,160,.5)'; c.beginPath(); c.ellipse(170, 470, 20, 10, 0, 0, TAU); c.fill(); c.beginPath(); c.ellipse(330, 470, 20, 10, 0, 0, TAU); c.fill();
-  [[392, 318, 22], [424, 262, 13], [106, 342, 15], [88, 296, 8]].forEach(([x, y, r]) => { c.fillStyle = 'rgba(210,244,255,.35)'; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); c.lineWidth = 3; c.strokeStyle = INK; c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(x - r * 0.35, y - r * 0.35, r * 0.25, 0, TAU); c.fill(); });
-  const z = (x, y, s, lw) => { const f = q => { q.moveTo(x, y); q.lineTo(x + s, y); q.lineTo(x, y + s); q.lineTo(x + s, y + s); }; stroke(c, lw + 5, f); stroke(c, lw, f, '#fff'); };
-  z(330, 250, 26, 5); z(366, 206, 18, 4);
+
+/* ---- 菲谢尔 (epic, Electro): eyepatch, smug half-lidded eye, commanding Oz ---- */
+function drawFischl(c) {
+  const HR = ['#F6D97A', '#D6A53E', '#FFF3C4'], D = ['#4B3474', '#2C1D4C', '#7C5CB8'], WH = ['#F4EEFF', '#C6B6E6', '#FFFFFF'], OZ = ['#3E3456', '#1E1830', '#7A6AA8'];
+  const back = P2(p => { p.moveTo(150, 280); p.bezierCurveTo(116, 380, 118, 470, 134, 548); [[160, 530], [184, 552], [210, 530]].forEach(([x, y]) => p.lineTo(x, y));
+    p.lineTo(290, 530); [[316, 552], [340, 530], [366, 548]].forEach(([x, y]) => p.lineTo(x, y)); p.bezierCurveTo(382, 470, 384, 380, 350, 280); p.closePath(); });
+  cel(c, back, ...HR, { off: [7, 8] });
+  for (const x of [230, 270]) cel(c, capsule(x, 566, x + (x < 250 ? -2 : 2), 612, 12), '#2A2040', '#16102A', null, { off: [2, 2] });
+  cel(c, ell(226, 622, 28, 16), ...D, { hi: ell(216, 615, 8, 4) }); cel(c, ell(274, 622, 28, 16), ...D, { hi: ell(264, 615, 8, 4) });
+  const skirt = P2(p => { p.moveTo(202, 480); p.quadraticCurveTo(170, 552, 172, 580); p.quadraticCurveTo(250, 602, 328, 580); p.quadraticCurveTo(330, 552, 298, 480); p.closePath(); });
+  cel(c, skirt, ...D, { off: [8, 9] });
+  const frill = P2(p => { p.moveTo(172, 574); for (let i = 0; i <= 8; i++) { const x = 172 + i * 19.5; p.quadraticCurveTo(x + 9.75, 600 + (i % 2 ? 3 : 0), x + 19.5, 578 + Math.sin(i / 8 * Math.PI) * 10); } p.lineTo(328, 574); p.quadraticCurveTo(250, 596, 172, 574); p.closePath(); });
+  cel(c, frill, ...WH, { off: [3, 3] });
+  const bod = P2(p => { p.moveTo(214, 418); p.bezierCurveTo(204, 450, 204, 480, 208, 494); p.lineTo(292, 494); p.bezierCurveTo(296, 480, 296, 450, 286, 418); p.closePath(); });
+  cel(c, bod, ...D, { off: [5, 6], hi: ell(222, 450, 6, 18) });
+  cel(c, ell(250, 424, 42, 13), ...WH, { off: [3, 3] });
+  const bow = P2(p => { p.moveTo(250, 448); p.lineTo(224, 434); p.lineTo(226, 462); p.closePath(); p.moveTo(250, 448); p.lineTo(276, 434); p.lineTo(274, 462); p.closePath(); });
+  cel(c, bow, '#9B6BE0', '#6A3FB5', null, { off: [2, 3] }); cel(c, P2(p => p.arc(250, 448, 7, 0, TAU)), '#C77DFF', '#8C4DE0', null, { off: [1, 1] });
+  // hand on hip
+  cel(c, capsule(212, 438, 192, 498, 15), ...D, { off: [3, 4] });
+  cel(c, P2(p => p.arc(196, 506, 13, 0, TAU)), '#2A2040', '#16102A', null, { off: [2, 2] });
+  // side ringlets, ears, head
+  const [rL, rR] = pair((p, X) => { p.moveTo(X(156), 300); p.bezierCurveTo(X(140), 350, X(146), 400, X(160), 430); p.bezierCurveTo(X(170), 410, X(176), 360, X(180), 320); p.closePath(); });
+  cel(c, ell(152, 318, 12, 18), ...SKIN, { off: [2, 3] }); cel(c, ell(348, 318, 12, 18), ...SKIN, { off: [2, 3] });
+  cel(c, ell(250, 302, 104, 96), ...SKIN, { off: [6, 8] });
+  // eyepatch over her right eye, smug green left eye
+  stroke(c, 4, q => { q.moveTo(190, 300); q.lineTo(152, 272); q.moveTo(234, 300); q.lineTo(300, 256); });
+  cel(c, P2(p => { p.moveTo(188, 300); p.quadraticCurveTo(212, 288, 236, 300); p.quadraticCurveTo(240, 334, 212, 346); p.quadraticCurveTo(184, 334, 188, 300); p.closePath(); }), '#2A1F44', '#16102A', '#5A4A88', { off: [3, 4], hi: ell(202, 306, 6, 4) });
+  c.fillStyle = '#C77DFF'; c.beginPath(); c.moveTo(212, 308); c.lineTo(220, 318); c.lineTo(212, 328); c.lineTo(204, 318); c.closePath(); c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
+  animeEye(c, 288, 322, 20, 25, '#3CB878', 0.34);
+  stroke(c, 4.5, q => { q.moveTo(268, 284); q.quadraticCurveTo(290, 268, 312, 280); });
+  stroke(c, 4, q => { q.moveTo(236, 362); q.quadraticCurveTo(250, 368, 266, 356); q.lineTo(270, 352); });
+  blush(c, 350, 60);
+  const bangs = P2(p => { p.moveTo(146, 330); p.bezierCurveTo(136, 256, 186, 204, 256, 204); p.bezierCurveTo(328, 208, 366, 262, 354, 330);
+    [[342, 296], [326, 312], [318, 268], [298, 290], [280, 250], [262, 286], [240, 250], [218, 290], [196, 262], [178, 304], [162, 286]].forEach(([x, y]) => p.lineTo(x, y)); p.closePath(); });
+  cel(c, bangs, ...HR, { off: [5, 7], hi: ell(214, 236, 24, 8, -0.3) });
+  cel(c, rL, ...HR, { off: [3, 4] }); cel(c, rR, ...HR, { off: [3, 4] });
+  // arm pointing up at Oz (in front of her hair)
+  cel(c, capsule(288, 438, 364, 364, 15), ...D, { off: [3, 4] });
+  cel(c, ell(367, 361, 15, 8, -0.78), ...WH, { off: [2, 2] });
+  cel(c, P2(p => p.arc(376, 350, 13, 0, TAU)), '#2A2040', '#16102A', null, { off: [2, 2] });
+  cel(c, capsule(381, 343, 394, 322, 5), '#2A2040', '#16102A', null, { off: [1, 1], lw: 3 });
+  // bow + feather hair ornament
+  cel(c, P2(p => { p.moveTo(334, 232); p.bezierCurveTo(350, 180, 372, 176, 376, 190); p.bezierCurveTo(364, 206, 352, 222, 340, 240); p.closePath(); }), ...OZ, { off: [3, 3], lw: 3 });
+  const hb = P2(p => { p.moveTo(330, 236); p.lineTo(304, 222); p.lineTo(310, 252); p.closePath(); p.moveTo(330, 236); p.lineTo(356, 226); p.lineTo(350, 256); p.closePath(); });
+  cel(c, hb, '#7C5CB8', '#4B3474', '#B79BEA', { off: [2, 3] });
+  // Oz
+  const wing1 = P2(p => { p.moveTo(392, 214); p.bezierCurveTo(362, 160, 336, 148, 310, 156); p.bezierCurveTo(336, 176, 348, 196, 372, 226); p.closePath(); });
+  const wing2 = P2(p => { p.moveTo(404, 210); p.bezierCurveTo(414, 160, 436, 138, 460, 140); p.bezierCurveTo(446, 172, 430, 196, 414, 222); p.closePath(); });
+  cel(c, wing1, ...OZ, { off: [4, 4] });
+  cel(c, P2(p => { p.moveTo(380, 236); p.lineTo(356, 262); p.lineTo(384, 252); p.closePath(); }), ...OZ, { off: [2, 2] });
+  cel(c, ell(394, 226, 32, 22, -0.35), ...OZ, { off: [4, 4], hi: ell(384, 216, 10, 5, -0.4) });
+  cel(c, P2(p => p.arc(420, 204, 17, 0, TAU)), ...OZ, { off: [3, 3] });
+  cel(c, P2(p => { p.moveTo(434, 198); p.lineTo(454, 206); p.lineTo(434, 212); p.closePath(); }), '#F2C04A', '#C08A1A', null, { off: [1, 1], lw: 3 });
+  c.fillStyle = '#E3B6FF'; c.beginPath(); c.arc(424, 200, 4.5, 0, TAU); c.fill();
+  cel(c, wing2, ...OZ, { off: [4, 4] });
+  const bolt = (x, y, s) => { const b = P2(p => { p.moveTo(x, y - s); p.lineTo(x - s * 0.5, y + s * 0.1); p.lineTo(x, y + s * 0.05); p.lineTo(x - s * 0.2, y + s); p.lineTo(x + s * 0.5, y - s * 0.15); p.lineTo(x, y - s * 0.1); p.closePath(); }); cel(c, b, '#E6C4FF', '#A060F0', null, { off: [2, 3], lw: 3.5 }); };
+  bolt(470, 250, 18); bolt(90, 250, 20); bolt(100, 470, 14);
+}
+
+/* ---- 行秋 (rare, Hydro): calm reader's smile, open book, rain drops circling a raised finger ---- */
+function drawXingqiu(c) {
+  const HR = ['#34488C', '#1E2A5C', '#6A86D0'], WR = ['#F7F4EC', '#CFC6B4', '#FFFFFF'], BL = ['#2F74C8', '#1C4C8C', '#7FB2F0'];
+  cel(c, ell(250, 294, 118, 108), ...HR);
+  cel(c, P2(p => { p.moveTo(236, 380); p.quadraticCurveTo(250, 440, 262, 380); p.closePath(); }), ...HR, { off: [2, 3] });
+  for (const x of [230, 270]) cel(c, capsule(x, 566, x + (x < 250 ? -2 : 2), 612, 13), '#2A3A6A', '#18244A', null, { off: [2, 2] });
+  cel(c, ell(226, 622, 29, 16), '#2A2238', '#140F20', '#5A4E70', { hi: ell(216, 615, 8, 4) }); cel(c, ell(274, 622, 29, 16), '#2A2238', '#140F20', '#5A4E70', { hi: ell(264, 615, 8, 4) });
+  const robe = P2(p => { p.moveTo(212, 416); p.bezierCurveTo(196, 460, 184, 540, 180, 584); p.quadraticCurveTo(250, 600, 320, 584); p.bezierCurveTo(316, 540, 304, 460, 288, 416); p.closePath(); });
+  cel(c, robe, ...WR, { off: [8, 10] });
+  cel(c, P2(p => { p.moveTo(236, 430); p.lineTo(264, 430); p.lineTo(272, 590); p.lineTo(228, 590); p.closePath(); }), ...BL, { off: [4, 5] });
+  cel(c, P2(p => p.roundRect(200, 484, 100, 18, 6)), '#E2B04A', '#B07A1A', '#FFE7A0', { off: [2, 3] });
+  cel(c, P2(p => { p.moveTo(222, 416); p.lineTo(250, 446); p.lineTo(278, 416); p.lineTo(264, 412); p.lineTo(250, 428); p.lineTo(236, 412); p.closePath(); }), ...BL, { off: [2, 2] });
+  // left arm with open book
+  cel(c, capsule(212, 438, 206, 500, 18), ...WR, { off: [4, 5] });
+  const book = P2(p => { p.moveTo(186, 500); p.lineTo(236, 510); p.lineTo(286, 500); p.lineTo(282, 548); p.lineTo(236, 556); p.lineTo(190, 548); p.closePath(); });
+  cel(c, book, ...BL, { off: [3, 3] });
+  cel(c, P2(p => { p.moveTo(192, 504); p.lineTo(236, 514); p.lineTo(236, 550); p.lineTo(196, 543); p.closePath(); }), '#FFFBEA', '#E4D9B8', null, { off: [2, 2] });
+  cel(c, P2(p => { p.moveTo(280, 504); p.lineTo(236, 514); p.lineTo(236, 550); p.lineTo(276, 543); p.closePath(); }), '#FFFBEA', '#E4D9B8', null, { off: [2, 2] });
+  stroke(c, 2, q => { for (const y of [0, 9, 18]) { q.moveTo(200, 516 + y); q.lineTo(228, 522 + y); q.moveTo(244, 522 + y); q.lineTo(272, 516 + y); } }, '#9A8C6A');
+  cel(c, P2(p => p.arc(210, 546, 13, 0, TAU)), ...SKIN, { off: [2, 3] });
+  // right arm raised, index finger up, rain drops circling
+  cel(c, capsule(290, 438, 360, 398, 18), ...WR, { off: [4, 5] });
+  cel(c, P2(p => p.arc(370, 388, 14, 0, TAU)), ...SKIN, { off: [2, 3] });
+  cel(c, capsule(373, 378, 378, 354, 5), ...SKIN, { off: [1, 1], lw: 3 });
+  const drop = (x, y, s) => { const d = P2(p => { p.moveTo(x, y - s * 1.4); p.bezierCurveTo(x + s * 0.9, y - s * 0.2, x + s, y + s * 0.4, x, y + s); p.bezierCurveTo(x - s, y + s * 0.4, x - s * 0.9, y - s * 0.2, x, y - s * 1.4); p.closePath(); }); cel(c, d, '#7FD0FF', '#2F86E0', '#E6F8FF', { off: [2, 2], lw: 3, hi: ell(x - s * 0.3, y, s * 0.2, s * 0.35) }); };
+  stroke(c, 3, q => q.ellipse(380, 340, 58, 24, -0.2, 0, TAU), 'rgba(255,255,255,.7)');
+  drop(430, 318, 14); drop(330, 350, 10); drop(410, 366, 10); drop(378, 296, 9);
+  // head
+  cel(c, ell(152, 318, 12, 18), ...SKIN, { off: [2, 3] }); cel(c, ell(348, 318, 12, 18), ...SKIN, { off: [2, 3] });
+  stroke(c, 3, q => { q.moveTo(148, 334); q.lineTo(148, 360); });
+  cel(c, P2(p => { p.moveTo(142, 360); p.lineTo(154, 360); p.lineTo(156, 392); p.lineTo(140, 392); p.closePath(); }), '#5FD0B8', '#2C9A86', null, { off: [2, 2], lw: 3 });
+  cel(c, ell(250, 302, 104, 96), ...SKIN, { off: [6, 8] });
+  animeEye(c, 212, 322, 19, 24, '#E8A33A', 0.2); animeEye(c, 288, 322, 19, 24, '#E8A33A', 0.2);
+  stroke(c, 4, q => { q.moveTo(194, 284); q.quadraticCurveTo(210, 278, 226, 284); q.moveTo(272, 280); q.quadraticCurveTo(290, 270, 306, 278); });
+  stroke(c, 4, q => { q.moveTo(236, 358); q.quadraticCurveTo(252, 370, 268, 356); });
+  blush(c, 350, 58);
+  const bangs = P2(p => { p.moveTo(144, 336); p.bezierCurveTo(134, 256, 184, 200, 252, 200); p.bezierCurveTo(324, 202, 368, 256, 356, 336);
+    [[344, 292], [330, 306], [322, 262], [302, 286], [288, 246], [268, 282], [250, 244], [232, 280], [214, 250], [196, 300], [176, 272], [168, 330], [160, 380]].forEach(([x, y]) => p.lineTo(x, y)); p.closePath(); });
+  cel(c, bangs, ...HR, { off: [5, 7], hi: ell(222, 226, 24, 7, -0.25) });
+  stroke(c, 3, q => { q.moveTo(236, 212); q.quadraticCurveTo(252, 190, 244, 176); });
 }
 function drawCoins(c) {
   const stack = (x, yb, n, rx) => {
@@ -609,15 +701,17 @@ function drawBadge(c, kind) {
   else { p.moveTo(x, y - 24); p.bezierCurveTo(x + 8, y - 10, x + 18, y, x + 18, y + 8); p.arc(x, y + 8, 18, 0, Math.PI); p.bezierCurveTo(x - 18, y, x - 8, y - 10, x, y - 24); }
   c.fill(p); c.stroke(p);
 }
-const FIGURES = { fire: drawFox, thunder: drawPuff, water: drawDrop, coin: drawCoins, gem: drawGems };
-const SHADOWS = { fire: [250, 640, 150, 26, 0.45], thunder: [250, 648, 105, 18, 0.35], water: [250, 648, 92, 15, 0.3], coin: [250, 660, 190, 26, 0.45], gem: [250, 662, 160, 22, 0.4] };
+const FIGURES = { fire: drawKlee, thunder: drawFischl, water: drawXingqiu, coin: drawCoins, gem: drawGems };
+const SHADOWS = { fire: [250, 634, 134, 24, 0.45], thunder: [250, 634, 132, 24, 0.45], water: [250, 634, 132, 24, 0.45], coin: [250, 660, 190, 26, 0.45], gem: [250, 662, 160, 22, 0.4] };
 function drawArt(cv, kind) {
   const c = cv.getContext('2d'), s = cv.width / ART_W;
   c.setTransform(s, 0, 0, s, 0, 0); drawBg(c, kind);
   if (kind === 'back') { drawBack(c); }
   else {
     const sh = SHADOWS[kind]; groundShadow(c, sh[0], sh[1], sh[2], sh[3], sh[4]);
-    const layer = mk(cv.width, cv.height), lc = layer.getContext('2d'); lc.setTransform(s, 0, 0, s, 0, 0); FIGURES[kind](lc);
+    const layer = mk(cv.width, cv.height), lc = layer.getContext('2d'); lc.setTransform(s, 0, 0, s, 0, 0);
+    if (CHARS[kind]) { lc.translate(250, 632); lc.scale(1.12, 1.12); lc.translate(-250, -632); }
+    FIGURES[kind](lc);
     const tint = mk(cv.width, cv.height), tc = tint.getContext('2d'); tc.drawImage(layer, 0, 0); tc.globalCompositeOperation = 'source-in'; tc.fillStyle = INK; tc.fillRect(0, 0, tint.width, tint.height);
     c.setTransform(1, 0, 0, 1, 0, 0);
     const R = 8.5 * s; for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; c.drawImage(tint, Math.cos(a) * R, Math.sin(a) * R); }
@@ -1309,7 +1403,7 @@ function heroReveal() {
       .fromTo(heroCard.rotation, { z: 0.16 }, { z: 0, duration: 1.0, ease: 'elastic.out(1.3,0.28)', immediateRender: false }, 1.12)
       .fromTo(heroCard.rotation, { x: -0.18 }, { x: 0, duration: 0.9, ease: 'elastic.out(1.2,0.3)', immediateRender: false }, 1.12)
       .add(() => heroLand(), 1.12)
-      .add(() => slamTitle('LEGENDARY!', '获得传说伙伴'), 1.2)
+      .add(() => slamTitle('LEGENDARY!', '获得五星角色'), 1.2)
       .add(() => showPanel(), 1.45)
       .add(() => { HS.float = 0; setLoop('heroFloat', gsap.to(HS, { float: 1, duration: 0.8, ease: 'sine.inOut' })); }, 1.9)
       .add(() => {}, 2.9);
@@ -1605,7 +1699,7 @@ elTitleMain.textContent = TIERS[0].en;
 requestAnimationFrame(frame);
 (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { slamTitle(TIERS[0].en, TIERS[0].zh); startIdle(); drawHudIcons(); });
 
-window.__hl = { get state() { return state; }, get tier() { return tier; }, get vclock() { return vclock; }, C, TUNE };
+window.__hl = { get state() { return state; }, get tier() { return tier; }, get vclock() { return vclock; }, C, TUNE, drawArt, mk };
 </script>
 </body>
 </html>
