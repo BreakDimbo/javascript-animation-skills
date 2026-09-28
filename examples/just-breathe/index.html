@@ -1866,7 +1866,7 @@ function makeNet() {
 // Fly the white fighter through five levels of navy fighters and a black-and-gold ace, then an endless
 // evening. Nobody dies here: a beaten plane smokes, glides down and ditches.
 // Touch: drag on the left half to steer (up climbs), hold the right half to fire, the small button boosts.
-// Keys: arrows or WASD to steer, space to fire, shift to boost.
+// Keys: arrows or WASD to steer, space to fire, shift to boost, Q / E to roll, F to focus.
 function bootGame() {
   const { stage, glv } = makeStage();
   stage.style.cssText = 'width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto;';
@@ -1877,10 +1877,10 @@ function bootGame() {
   const dyn = makeDynRes(MOBILE ? .5 : .75, .3, 1);
   const hud = canvas, hx = hud.getContext('2d');
   let paused = false;
-  const store = { get(k, d) { try { return Number(localStorage.getItem(k)) || d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  const store = { get(k, d) { try { const v = localStorage.getItem(k); return v === null || v === '' || isNaN(v) ? d : Number(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
   const rand = (a, b) => a + Math.random() * (b - a);
   // comfort settings, remembered on the device: a steady camera and arcade controls by default
-  const SET = { cam: store.get('jb-cam', 0), pilot: store.get('jb-pilot', 0), auto: store.get('jb-auto', 0) };
+  const SET = { cam: store.get('jb-cam', 0), pilot: store.get('jb-pilot', 0), auto: store.get('jb-auto', 1) };   // auto-fire on for a new pilot: aiming is the skill, holding a button is not
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the notch and the home indicator: read the safe-area insets once per frame from a probe element
   const probe = document.createElement('div');
@@ -1982,7 +1982,8 @@ function bootGame() {
 
   // ── state ──
   const G0 = { mode: 'title', t: 0, score: 0, level: 1, wave: 0, waves: 1, levelName: '', best: store.get('jb-best', 0), unlocked: store.get('jb-level', 1),
-    msgs: [], hurt: 0, shake: 0, stop: 0, nextWave: 0, modeT: 0, combo: 1, comboT: 0, hitMark: 0, lowT: 0, buttons: [], cards: [], mult: 1 };
+    msgs: [], hurt: 0, shake: 0, stop: 0, nextWave: 0, modeT: 0, combo: 1, comboT: 0, hitMark: 0, lowT: 0, buttons: [], cards: [], mult: 1,
+    ts: 1, bt: 0, focus: 0, focusOn: false, buffT: 0, rollCD: 0, chroma: 0, beepT: 0, firing: false, st: null, tip: '' };
   // online co-op: up to four players. The host flies the rivals, the waves and the crates and says what mode the game is
   // in; everyone flies their own plane, fires their own weapon and tells the host how much they hit each rival.
   const NET = makeNet();
@@ -2007,6 +2008,9 @@ function bootGame() {
   }
   clearWorld();
   const say = (text, life = 2.2, big = false) => G0.msgs.push({ text, age: 0, life, big });
+  const buzz = pat => { try { navigator.vibrate && navigator.vibrate(pat); } catch {} };
+  const newStats = () => { G0.st = { rolls: 0, hits: 0, back: 0, focus: 0, perfect: 0 }; G0.bt = 0; G0.focusOn = false; G0.buffT = 0; G0.rollCD = 0; G0.ts = 1; };
+  newStats();
   function setMode(m) { G0.mode = m; G0.modeT = 0; G0.buttons = []; }
   // five skies: each level (and each versus match) gets one at random, never the same twice running
   let envIdx = 0;
@@ -2016,14 +2020,14 @@ function bootGame() {
     ENV = ENVS[i]; R.bakeStart([0, 150, 0], MOBILE); snd.weather(ENV.fx); G0.wxT = rand(3, 7); G0.bolt = null; FLASH = 0;
   }
   const pickEnv = () => { let i; do i = Math.floor(Math.random() * ENVS.length); while (i === envIdx); return i; };
-  function newRun(level) { W = newWeapons(); G0.score = 0; MP.run++; startLevel(level); }
+  function newRun(level) { W = newWeapons(); G0.score = 0; G0.focus = 0; MP.run++; startLevel(level); }
   function startLevel(n) {
     const L = levelDef(n);
     MP.epoch++; MP.picked = false; MP.pendingStart = false; MP.wipeT = 0; MP.respawn = 0; G0.vs = false;
     setEnv(pickEnv());
     Object.assign(G0, { level: n, wave: 0, waves: L.waves.length, levelName: L.name, mult: L.mult, ease: L.ease, msgs: [], combo: 1, comboT: 0, nextWave: 0 });
     Wsaved = { ...W }; scoreSaved = G0.score;
-    clearWorld();
+    clearWorld(); newStats();
     setMode('brief'); snd.start(); snd.levelStart();
   }
   function spawnWave() {
@@ -2147,6 +2151,9 @@ function bootGame() {
   }
   function damage(e, amount, at, soft, remote) {
     if (e === player && G0.vs && G0.t < (player.shieldT || 0)) return;   // versus: two seconds' grace after coming back
+    if (e === player && dodging()) return;                            // mid-roll: untouchable
+    if (e === player && MP.on && G0.focusOn) amount *= .5;
+    if (e !== player && !remote && G0.buffT > 0) amount *= 1.5;       // after a perfect dodge (or in focus, with others)
     if (e.ghost) MP.dealt[e.id] = (MP.dealt[e.id] || 0) + amount;     // a guest's hit: the host applies it
     else if (e.mate) MP.pv['p' + e.peer] = (MP.pv['p' + e.peer] || 0) + amount;   // versus: their page takes the hit
     else e.hp -= amount;
@@ -2172,8 +2179,8 @@ function bootGame() {
     if (pl === player && G0.vs) vsDied();
     if (pl === player || pl.mate) return;
     G0.combo = G0.comboT > 0 ? Math.min(4, G0.combo + 1) : 1; G0.comboT = 5;
-    const pts = pl.T.score * G0.combo; G0.score += pts;
-    popups.push({ p: pl.p.slice(), text: '+' + pts + (G0.combo > 1 ? '  ×' + G0.combo : ''), age: 0 });
+    const tail = G0.t - (pl.tailT || -9) < .5, pts = Math.round(pl.T.score * G0.combo * (tail ? 1.5 : 1)); G0.score += pts;
+    popups.push({ p: pl.p.slice(), text: '+' + pts + (G0.combo > 1 ? '  ×' + G0.combo : '') + (tail ? '  咬尾' : ''), age: 0 });
     gainXP(pl.T.xp);
     if (Math.random() < pl.T.drop) pickups.push({ id: MP.pid++, p: V.add(pl.p, [0, 8, 0]), t: 0, type: Math.random() < .7 ? 'ammo' : 'repair' });
   }
@@ -2182,6 +2189,7 @@ function bootGame() {
   const input = { sx: 0, sy: 0, fire: false, boost: false, keys: {}, stick: null, firePtr: null, boostPtr: null };
   const boostBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 150 - INS.r, y: r.bottom - 150 - INS.b, r: 30 }; };
   const fireBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 78 - INS.r, y: r.bottom - 88 - INS.b, r: 46 }; };
+  const focusBtn = () => { const r = stage.getBoundingClientRect(); return { x: r.right - 66 - INS.r, y: r.bottom - 200 - INS.b, r: 27 }; };
   function press(act) {
     if (act === 'full') { goFull(); return; }
     if (act.startsWith('set-')) {
@@ -2217,20 +2225,31 @@ function bootGame() {
       return;
     }
     if (G0.mode !== 'fly') return;
-    const bb = boostBtn();
-    if (Math.hypot(e.clientX - bb.x, e.clientY - bb.y) < bb.r * 1.4) input.boostPtr = e.pointerId;
-    else if (e.clientX - r.left > r.width * .45) input.firePtr = e.pointerId;
+    const bb = boostBtn(), fb = focusBtn();
+    if (Math.hypot(e.clientX - fb.x, e.clientY - fb.y) < fb.r * 1.35) focusToggle();
+    else if (Math.hypot(e.clientX - bb.x, e.clientY - bb.y) < bb.r * 1.4) input.boostPtr = e.pointerId;
+    else if (e.clientX - r.left > r.width * .45) { input.firePtr = e.pointerId; input.swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() }; }
     else input.stick = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   }, { passive: false });
-  stage.addEventListener('pointermove', e => { if (input.stick && e.pointerId === input.stick.id) { input.stick.x = e.clientX; input.stick.y = e.clientY; } });
+  stage.addEventListener('pointermove', e => {
+    if (input.stick && e.pointerId === input.stick.id) { input.stick.x = e.clientX; input.stick.y = e.clientY; }
+    const sw = input.swipe;                                            // a quick sideways flick on the fire side: roll that way
+    if (sw && e.pointerId === sw.id) {
+      const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+      if (performance.now() - sw.t > 250) input.swipe = null;
+      else if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) { roll(Math.sign(dx)); input.swipe = null; }
+    }
+  });
   const release = e => {
     if (input.stick && e.pointerId === input.stick.id) input.stick = null;
     if (e.pointerId === input.firePtr) input.firePtr = null;
+    if (input.swipe && e.pointerId === input.swipe.id) input.swipe = null;
     if (e.pointerId === input.boostPtr) input.boostPtr = null;
   };
   stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
   addEventListener('keydown', e => {
     input.keys[e.code] = true; if (e.code === 'Space') e.preventDefault();
+    if (G0.mode === 'fly' && !e.repeat) { if (e.code === 'KeyQ') roll(-1); else if (e.code === 'KeyE') roll(1); else if (e.code === 'KeyF') focusToggle(); }
     if (G0.mode !== 'fly' && G0.modeT > .4 && (e.code === 'Space' || e.code === 'Enter' || /^Digit[123]$/.test(e.code))) {
       snd.unlock();
       const acts = G0.buttons.map(b => b.act).filter(a => !['leave', 'back', 'net', 'full', 'noop', 'vsmode', 'toroom'].includes(a) && !a.startsWith('set-'));
@@ -2364,14 +2383,16 @@ function bootGame() {
       if (want !== scene) { scene = want; if (!scene) duck.gain.setTargetAtTime(0, now, .3); else duck.gain.setTargetAtTime(1, now, .1); }
       const threat = G0.mode === 'fly' && (enemies.some(e => e.state === 'fly' && V.len(V.sub(e.p, player.p)) < 480) || (G0.vs && mateList().some(m => m.state === 'fly' && V.len(V.sub(m.p, player.p)) < 480)) || enemies.some(e => e.type === 'ace' && e.state === 'fly'));
       heat += ((threat ? 1 : 0) - heat) * .02;
-      musLP.frequency.setTargetAtTime(scene === 'menu' ? 1500 : scene === 'fight' ? 3200 + heat * 11000 : 400, now, .4);
+      const slow = G0.ts < .8;                                      // bullet time: the music goes under water, a heartbeat comes up
+      musLP.frequency.setTargetAtTime(slow ? 520 : scene === 'menu' ? 1500 : scene === 'fight' ? 3200 + heat * 11000 : 400, now, slow ? .12 : .4);
+      if (slow && now >= nextBeat) { nextBeat = now + .92; for (const [d, a] of [[0, .32], [.2, .22]]) { voice(now + d, 'sine', 70, 38, .22, a, band.sfx); } }
       if (now > nextStep + 1) nextStep = now + .05;                   // after a pause, don't try to catch up
       while (nextStep < now + .16) { if (scene) schedule(step, nextStep); step++; nextStep += S16; }
       rainN.g.gain.setTargetAtTime(wxKind === 'rain' ? .045 : 0, now, .8);
       windN.g.gain.setTargetAtTime((wxKind === 'snow' ? .06 : wxKind === 'rain' ? .035 : wxKind === 'mist' ? .02 : 0) * (.7 + .3 * Math.sin(now * .4)), now, .6);
       windN.f.frequency.setTargetAtTime(300 + 250 * (.5 + .5 * Math.sin(now * .23)), now, .5);
       const flying = player.state === 'fly' && (G0.mode === 'fly' || G0.mode === 'brief' || G0.mode === 'title');
-      const f = 70 + player.speed * .42 + (input.boost ? 18 : 0);
+      const f = (70 + player.speed * .42 + (input.boost ? 18 : 0)) * (.55 + .45 * G0.ts);
       eng.os.forEach((o, i) => o.frequency.setTargetAtTime(i === eng.os.length - 1 ? f / 2 : f, now, .08));
       eng.lp.frequency.setTargetAtTime(eng.bright + player.speed * 6 + (input.boost ? 900 : 0), now, .1);
       eng.g.gain.setTargetAtTime(player.state === 'ditched' ? 0 : flying ? .045 : .015, now, .2);
@@ -2471,6 +2492,28 @@ function bootGame() {
       if (kind === 'glitch') { noise(t, 'bandpass', 3200, 900, .11, .05, crush, 2.5); tone(t, 'square', 220, 60, .07, .018); }
       else { tone(t, 'square', 1760, 1760, .028, .022); tone(t + .034, 'square', 2640, 2640, .03, .016); }
     };
+    S.roll = dir => {                                               // a whoosh that swings across
+      if (!ac) return; const t = ac.currentTime;
+      noise(t, 'bandpass', 380, 2600, .42, .1, band.sfx, 1.6, -dir * .5, .06); noise(t + .18, 'bandpass', 2600, 600, .3, .06, band.sfx, 1.6, dir * .5, .03);
+      tone(t, 'sine', 240, 620, .3, .03, dir * .3, .02);
+    };
+    S.warn = k => {                                                 // a lock-on beep; the burst itself a crushed down-sweep
+      if (!ac) return; const t = ac.currentTime;
+      if (k < 2) { const f = 1180 + 520 * k; voice(t, 'square', f, f, .05, .022 + .012 * k, band.sfx); }
+      else { voice(t, 'sawtooth', 1400, 420, .14, .035, crush); }
+    };
+    S.perfect = () => {                                             // a reversed shimmer into a bright chord, a sub drop under it
+      if (!ac) return; const t = ac.currentTime;
+      noise(t, 'highpass', 1500, 9000, .35, .06, band.sfx, .7, 0, .3);
+      for (const m of [74, 78, 81, 86]) synth(t + .12, m, .9, .045, { det: 12, cut0: 1200, cut1: 6000, q: 2, attack: .01, dest: band.sfx, send: .5 });
+      voice(t + .12, 'sine', 180, 40, .6, .3, band.sfx);
+    };
+    S.focus = on => {                                               // time bends: a slow glide down in, back up out
+      if (!ac) return; const t = ac.currentTime;
+      voice(t, 'sawtooth', on ? 440 : 110, on ? 110 : 440, .5, .04, drive, 0, .05); noise(t, 'lowpass', on ? 3000 : 300, on ? 300 : 3000, .5, .06, band.sfx, 1, 0, .1);
+      if (on) nextBeat = 0;
+    };
+    let nextBeat = 0;
     S.probe = () => ac && { ac, master: band.master };             // for tests: the context and the master bus
     S.suspend = on => { if (ac) on ? ac.suspend() : ac.resume(); };
     return S;
@@ -2523,6 +2566,48 @@ function bootGame() {
     pl.f = V.rot(pl.f, [0, 1, 0], yaw * dt); pl.up = V.rot(pl.up, [0, 1, 0], yaw * dt); pl.right = V.rot(pl.right, [0, 1, 0], yaw * dt);
     orthonorm(pl);
   }
+  // the roll: a quick swipe on the right half (or Q / E). A 0.55 s barrel roll that carries you ~12 m sideways, untouchable
+  // from 0.05 s to 0.5 s in, then 2.5 s to recover. Rolling into the first moment of a burst is a perfect dodge.
+  const ROLL_T = .55, ROLL_CD = 2.5, ROLL_SIDE = 12;
+  const dodging = () => !!(player.roll && player.roll.t > .05 && player.roll.t < .5);
+  function roll(dir) {
+    const pl = player;
+    if (pl.state !== 'fly' || G0.mode !== 'fly' || pl.roll || G0.rollCD > 0) return false;
+    pl.roll = { t: 0, dir, off: 0, ang: 0, side: V.norm(V.cross(pl.f, [0, 1, 0])), pend: new Set(), perfect: false };
+    G0.rollCD = ROLL_CD; G0.didRoll = true; G0.st.rolls++;
+    snd.roll(dir); buzz(8);
+    for (const e of enemies) if (e.state === 'fly' && e.onMe && e.aimS) {
+      if (e.aimS.st === 'aim' && e.aimS.t <= .35) pl.roll.pend.add(e);   // the burst is about to start
+      else if (e.aimS.st === 'burst' && BURST_T - e.aimS.t <= .25) perfectDodge(e);   // it has only just started
+    }
+    return true;
+  }
+  function perfectDodge(e) {                                         // bullet time, a flash, focus, and three seconds of harder hits
+    const r = player.roll; if (!r || r.perfect) return; r.perfect = true;
+    if (e && !e.ghost && e.aimS && e.aimS.st === 'burst') { e.aimS.st = 'cool'; e.aimS.t = rand(1.2, 2); }   // it overshoots: the burst is broken off
+    if (!MP.on) G0.bt = 1.2;
+    G0.chroma = 1; G0.buffT = 3; G0.focus = Math.min(100, G0.focus + 35); G0.st.perfect++;
+    say('完美闪避', 1.4, true); snd.perfect(); buzz([12, 40, 24]);
+    rings.push({ p: player.p.slice(), age: 0, r: 26, col: [.4, .95, 1] });
+  }
+  // 深呼吸 focus: fills while nobody is lining you up and you are not shooting, fast between waves. From half full
+  // it slows the world to a third (alone; with others it steadies you instead: harder hits, half the damage taken)
+  function focusToggle() {
+    if (G0.mode !== 'fly' || player.state !== 'fly') return;
+    if (G0.focusOn) { G0.focusOn = false; snd.focus(false); return; }
+    if (G0.focus < 50) { snd.ui('glitch'); return; }
+    G0.focusOn = true; G0.st.focus++; snd.focus(true); buzz(10);
+  }
+  function applyRoll(pl, dt) {
+    const r = pl.roll; if (!r) { pl.up0 = null; return; }
+    r.t += dt;
+    const k = Math.min(1, r.t / ROLL_T), e = k * k * (3 - 2 * k), off = ROLL_SIDE * r.dir * e, ang = Math.PI * 2 * r.dir * e;
+    pl.p = V.add(pl.p, V.mul(r.side, off - r.off)); r.off = off;
+    const turn = SET.pilot ? ang - r.ang : ang;                        // pilot controls keep their attitude: roll by the change
+    if (!SET.pilot) pl.up0 = pl.up;
+    pl.up = V.rot(pl.up, pl.f, turn); pl.right = V.rot(pl.right, pl.f, turn); r.ang = ang;
+    if (k >= 1) { pl.roll = null; pl.up0 = null; if (SET.pilot) orthonorm(pl); }
+  }
   function control(dt) {
     const pl = player;
     if (pl.state !== 'fly') { G0.beam = null; snd.beam(false); return; }
@@ -2531,6 +2616,7 @@ function bootGame() {
     if (input.fire) G0.didFire = true;
     const aim = assistTarget(W.assist + 8);                            // the snap reaches a little wider than the guns
     const T = tierOf(W), firing = !!(input.fire || (SET.auto && aim));
+    G0.firing = firing;
     W.rocketCool -= dt; W.stormCool -= dt;
     if (T.rockets && firing && G0.lock && W.rocketCool <= 0) { launch(pl, T.rockets, false); W.rocketCool = T.rockets >= 4 ? .9 : 1.3; }
     if (T.storm && firing && W.stormCool <= 0 && foes(pl).length) { launch(pl, 12, true); W.stormCool = T.storm; }
@@ -2544,6 +2630,7 @@ function bootGame() {
     if (SET.pilot) steerPilot(pl, dt); else steerArcade(pl, dt, aim);
     pl.boost = clamp(pl.boost + (input.boost ? -.28 / W.boostCap : .12 / W.boostCap) * dt, 0, 1);
     move(pl, dt, input.boost && pl.boost > .02 ? 104 : 66);
+    applyRoll(pl, dt);
     pl.cool -= dt;
     if (firing && pl.cool <= 0) { fire(pl, .5, aim); pl.cool = 1 / (W.rate * (1 + .025 * (W.wl - 1)) * T.guns / 2); }
   }
@@ -2560,10 +2647,30 @@ function bootGame() {
     }
     return e.tgt;
   }
+  // every burst is announced: the rival lines up for AIM_T seconds (a red arc at the edge of the screen, a blinking box,
+  // beeps that speed up), fires for BURST_T, then pauses. Seeing it coming is what makes a roll a skill and not luck.
+  const AIM_T = { rookie: 1.2, veteran: .9, ace: .7 }, BURST_T = .8, GS = ['idle', 'aim', 'burst', 'cool'];
+  const COS = d => Math.cos(d * Math.PI / 180);
+  function burstBegins(e) {                                           // a burst starts: was a roll timed to it?
+    if (!e.onMe) return;
+    snd.warn(2);
+    if (player.roll && player.roll.pend.has(e)) perfectDodge(e);
+  }
+  // fair fights: one rival at a time lines up a given pilot, and the next burst can't start until a roll has had time
+  // to come back (a burst every 2.45 s at most). The endless levels allow two at once, with no spacing.
+  const BURST_GAP = 2.45;
+  function canAim(e, tp, aimT) {
+    const tokens = G0.mult > 1.3 ? 2 : 1;
+    let busy = 0;
+    for (const o of enemies) if (o !== e && o.state === 'fly' && o.aimAt === tp && o.aimS && (o.aimS.st === 'aim' || o.aimS.st === 'burst')) busy++;
+    return busy < tokens && (tokens > 1 || G0.t + aimT >= (tp.burstOK || 0));
+  }
   function enemyAI(e, dt) {
     const tp = aiTarget(e, dt);
     const T = e.T, toP = V.sub(tp.p, e.p), dist = V.len(toP), ai = e.ai;
-    ai.t -= dt;
+    const g = e.aimS || (e.aimS = { st: 'idle', t: 0, T: 1, lost: 0 });
+    e.onMe = tp === player;
+    if (ai.mode === 'evade' || (g.st !== 'aim' && g.st !== 'burst')) ai.t -= dt;   // a rival lining up a shot doesn't break off mid-way
     const threat = tp.state === 'fly' && dist < 420 && V.dot(tp.f, V.norm(V.sub(e.p, tp.p))) > Math.cos(25 * Math.PI / 180);
     if (ai.mode === 'engage' && threat && Math.random() < dt * (G0.ease ? .3 : 1 + ai.skill)) { ai.mode = 'evade'; ai.t = 1.6 + Math.random() * 1.2; ai.side = Math.random() < .5 ? -1 : 1; }
     if (ai.t <= 0) {
@@ -2591,10 +2698,21 @@ function bootGame() {
     flyToward(e, d, T.turn * (.85 + .15 * G0.mult) * (e.turnK || 1), dt);
     move(e, dt, ai.mode === 'cruise' ? (G0.ease ? 56 : T.speed) : ai.mode === 'evade' || ai.mode === 'extend' ? T.speed + 20 : dist > 500 ? T.speed + 16 : T.speed);
     e.cool -= dt; e.cannonCool -= dt;
-    const aim = V.norm(V.sub(V.add(tp.p, V.mul(tp.vel, dist / 650)), e.p));
-    const onTarget = tp.state === 'fly' && G0.mode === 'fly' && (ai.mode === 'engage' || ai.mode === 'pass') && dist < 560 && V.dot(e.f, aim) > Math.cos(7 * Math.PI / 180);
-    if (onTarget && e.cool <= 0) { fire(e, T.spread * (e.spreadK || 1) / Math.sqrt(G0.mult)); e.cool = 1 / (T.rate * (e.rateK || 1)); if (Math.random() < dt * 2.2) e.cool = .6; }
-    if (onTarget && T.cannon && e.cannonCool <= 0) { fire(e, G0.ease ? 2.5 : .8, null, true); e.cannonCool = G0.ease ? 4.5 : 2.2; }
+    const aim = V.norm(V.sub(V.add(tp.p, V.mul(tp.vel, dist / 650)), e.p)), ca = V.dot(e.f, aim);
+    const inRange = tp.state === 'fly' && G0.mode === 'fly' && (ai.mode === 'engage' || ai.mode === 'pass') && dist < 560;
+    if (g.st === 'idle') { const aT = AIM_T[e.type] + (G0.ease ? .4 : 0); if (inRange && ca > COS(14) && canAim(e, tp, aT)) { g.st = 'aim'; g.T = g.t = aT; g.lost = 0; e.aimAt = tp; } }
+    else if (g.st === 'aim') {
+      g.lost = inRange && ca > COS(30) ? 0 : g.lost + dt;
+      if (g.lost > .5) g.st = 'idle';                                  // lost you: no shot
+      else if ((g.t -= dt) <= 0) {
+        g.st = 'burst'; g.t = BURST_T; tp.burstOK = G0.t + BURST_GAP;
+        if (T.cannon && e.cannonCool <= 0) { fire(e, G0.ease ? 2.5 : .8, null, true); e.cannonCool = G0.ease ? 4.5 : 2.2; }
+        burstBegins(e);
+      }
+    } else if (g.st === 'burst') {
+      if (e.cool <= 0 && ca > COS(12)) { fire(e, T.spread * (e.spreadK || 1) / Math.sqrt(G0.mult)); e.cool = 1 / (T.rate * (e.rateK || 1)); }
+      if ((g.t -= dt) <= 0) { g.st = 'cool'; g.t = rand(1.2, 2); }
+    } else if ((g.t -= dt) <= 0) g.st = 'idle';
   }
   function fallAndDitch(pl, dt) {
     pl.downT += dt;
@@ -2612,7 +2730,16 @@ function bootGame() {
       const fl = V.norm([pl.f[0], 0, pl.f[2]]); pl.f = V.norm(V.lerp(pl.f, fl, 1 - Math.exp(-dt * 2))); pl.up = V.norm(V.lerp(pl.up, [0, 1, 0], 1 - Math.exp(-dt * 2))); orthonorm(pl);
     }
   }
+  function tipFor(st) {                                               // one thing to try next time, from how this level went
+    if (!st) return '';
+    if (!st.rolls) return MOBILE ? '看到屏幕边缘的红色弧线，在右侧快速横划就能翻滚，翻滚中不会受伤。' : '看到屏幕边缘的红色弧线，按 Q 或 E 翻滚，翻滚中不会受伤。';
+    if (st.hits >= 4 && st.back / st.hits > .5) return '大部分伤害来自身后。被咬尾时翻滚或加速，再转回去找它。';
+    if (!st.focus) return MOBILE ? '专注条过半后点「专注」，世界会慢下来。' : '专注条过半后按 F，世界会慢下来。';
+    if (!st.perfect) return '在红色弧线变亮的一瞬间翻滚，就是完美闪避：时间变慢，伤害提高。';
+    return '从敌机正后方开火，伤害翻倍。';
+  }
   function gameOver() {
+    G0.tip = tipFor(G0.st);
     setMode('over'); snd.breathe();
     if (G0.score > G0.best) { G0.best = G0.score; store.set('jb-best', G0.best); }
   }
@@ -2651,7 +2778,7 @@ function bootGame() {
   function vsBegin(mode) {
     Object.assign(MP, { pv: {}, pvAck: {}, dcSeen: {}, respawn: 0, crateT: 6 });
     Object.assign(G0, { vs: true, level: 1, wave: 0, waves: 0, levelName: '对战', msgs: [], combo: 1, comboT: 0, ease: false, mult: 1 });
-    vsArm(); setMode(mode); snd.start(); snd.levelStart();
+    vsArm(); newStats(); setMode(mode); snd.start(); snd.levelStart();
   }
   function startMatch() { MP.epoch++; MP.kt = {}; MP.winner = null; setEnv(pickEnv()); vsBegin('brief'); }
   function vsDied() {
@@ -2787,7 +2914,7 @@ function bootGame() {
   function guestStart(g) {
     Object.assign(G0, { vs: false, level: g.lv, waves: g.ws, wave: g.w, levelName: String(g.nm).slice(0, 12), mult: g.mu, ease: !!g.ez, msgs: [], combo: 1, comboT: 0 });
     Wsaved = { ...W }; MP.picked = false; MP.respawn = 0; MP.dealt = {}; MP.took = [];
-    clearWorld(); setMode(g.m === 'fly' ? 'fly' : g.m === 'clear' ? 'clear' : g.m === 'over' ? 'over' : 'brief');
+    clearWorld(); newStats(); setMode(g.m === 'fly' ? 'fly' : g.m === 'clear' ? 'clear' : g.m === 'over' ? 'over' : 'brief');
     if (g.m === 'clear') { G0.cards = []; MP.picked = true; }
     snd.start(); snd.levelStart();
   }
@@ -2826,17 +2953,22 @@ function bootGame() {
     if (g.m === 'clear' && G0.mode === 'fly') guestClear();
     if (g.m === 'vsover' && G0.mode === 'fly') { setMode('vsover'); snd.clear(); }
     if (g.m === 'room' && !['room', 'lobby'].includes(G0.mode)) { G0.vs = false; snd.stopMusic(); clearWorld(); setMode('room'); }
-    if (g.m === 'over' && G0.mode !== 'over' && G0.mode !== 'room') { setMode('over'); snd.breathe(); if (G0.score > G0.best) { G0.best = G0.score; store.set('jb-best', G0.best); } }
+    if (g.m === 'over' && G0.mode !== 'over' && G0.mode !== 'room') { G0.tip = tipFor(G0.st); setMode('over'); snd.breathe(); if (G0.score > G0.best) { G0.best = G0.score; store.set('jb-best', G0.best); } }
     if (st !== MP.hostSt) {                                           // the rivals and the crates, as the host has them
       MP.hostSt = st; const tt = clockOf(hp.id, typeof st.t === 'number' ? st.t : now, now), ids = new Set();
       for (const row of Array.isArray(st.e) ? st.e : []) {
         if (!Array.isArray(row) || row.length < 17) continue;
-        const [id, ti, si, hpv, mh, x, y, z, fx, fy, fz, ux, uy, uz, sp, fc, cc] = row, type = TYPE_N[ti], state = STATE_N[si];
+        const [id, ti, si, hpv, mh, x, y, z, fx, fy, fz, ux, uy, uz, sp, fc, cc, gi, gt, gT, gtg] = row, type = TYPE_N[ti], state = STATE_N[si];
         if (!type || !state) continue;
         ids.add(id);
         let e = enemies.find(o => o.id === id);
         if (!e) { e = newPlane(TYPES[type].kind, [x, y, z], [fx, fy, fz], type); Object.assign(e, { T: TYPES[type], id, ghost: true, snaps: [], fc, cc, state }); enemies.push(e); }
         e.hp = hpv; e.maxHp = mh; e.spreadK = G0.ease ? 1.9 : 1;
+        if (GS[gi]) {                                                  // their warning, as the host has it
+          const g = e.aimS || (e.aimS = { st: 'idle', t: 0, T: 1 }), was = g.st;
+          g.st = GS[gi]; g.t = Number(gt) || 0; g.T = Math.max(.1, Number(gT) || 1); e.onMe = gtg === MP.myId;
+          if (g.st === 'burst' && was !== 'burst') burstBegins(e);
+        }
         snap(e, { p: [x, y, z], f: [fx, fy, fz], u: [ux, uy, uz], v: sp }, tt);
         if (state !== e.state) {
           if (state === 'down' && e.state === 'fly') ghostDown(e);
@@ -2867,7 +2999,8 @@ function bootGame() {
     if (G0.vs) { st.pv = { ep: curEp() }; for (const k in MP.pv) st.pv[k] = r2(MP.pv[k]); }
     if (MP.host) {
       st.g = { m: G0.mode, lv: G0.level, w: G0.wave, ws: G0.waves, nm: G0.levelName, sc: G0.score, cb: G0.combo, ez: G0.ease ? 1 : 0, mu: G0.mult, ep: MP.epoch, rs: MP.run, env: envIdx, vs: MP.vs ? 1 : 0, gv: G0.vs ? 1 : 0, kt: MP.kt, wn: MP.winner };
-      st.e = enemies.slice(0, 8).map(e => [e.id, TYPE_N.indexOf(e.type), STATE_N.indexOf(e.state), r2(Math.max(0, e.hp)), e.maxHp, ...e.p.map(r2), ...e.f.map(r3), ...e.up.map(r3), r2(e.speed), e.shots || 0, e.cshots || 0]);
+      st.e = enemies.slice(0, 8).map(e => [e.id, TYPE_N.indexOf(e.type), STATE_N.indexOf(e.state), r2(Math.max(0, e.hp)), e.maxHp, ...e.p.map(r2), ...e.f.map(r3), ...e.up.map(r3), r2(e.speed), e.shots || 0, e.cshots || 0,
+        e.aimS ? GS.indexOf(e.aimS.st) : 0, e.aimS ? r2(e.aimS.t) : 0, e.aimS ? r2(e.aimS.T) : 1, e.tgt && e.tgt.mate ? e.tgt.peer : MP.myId]);
       st.k = pickups.slice(0, 8).map(k => [k.id, k.type === 'ammo' ? 1 : 0, ...k.p.map(r2), r2(k.t)]);
       st.sl = MP.slots;
       if (ms - MP.lastAd > 1000) { MP.lastAd = ms; NET.lobby.set({ ad: { c: MP.code, n: 1 + MP.mates.size, lv: G0.level, v: MP.inLobby ? 1 : 0, vs: MP.vs ? 1 : 0 } }); }
@@ -2887,7 +3020,23 @@ function bootGame() {
     G0.bolt = { pts, br, age: 0 }; FLASH = 1; G0.flash2 = .12;
     snd.thunder(Math.min(3, d / 900), d);
   }
-  function update(dt) {
+  function update(rdt) {
+    // bullet time: the world runs at G0.ts, you at about two thirds of real speed, the meters on real time
+    const slowT = !MP.on && G0.mode === 'fly' && player.state === 'fly' && (G0.focusOn || G0.bt > 0) ? .35 : 1;
+    G0.ts += (slowT - G0.ts) * (1 - Math.exp(-rdt * 10)); if (Math.abs(G0.ts - slowT) < .01) G0.ts = slowT;
+    const dt = rdt * G0.ts, pdt = rdt * (G0.ts + (1 - G0.ts) * .5);
+    G0.rt = (G0.rt || 0) + rdt;
+    G0.bt = Math.max(0, G0.bt - rdt); G0.buffT = Math.max(0, G0.buffT - rdt); G0.rollCD = Math.max(0, G0.rollCD - rdt); G0.chroma = Math.max(0, G0.chroma - rdt * 1.6);
+    if (MP.on && G0.focusOn) G0.buffT = Math.max(G0.buffT, .1);
+    if (G0.mode === 'fly' || G0.mode === 'brief') {
+      const aimed = enemies.filter(e => e.state === 'fly' && e.onMe && e.aimS && (e.aimS.st === 'aim' || e.aimS.st === 'burst'));
+      const lull = G0.mode === 'brief' || (!G0.vs && !enemies.some(e => e.state === 'fly'));
+      if (G0.focusOn) { G0.focus -= 33 * rdt; if (G0.focus <= 0 || player.state !== 'fly') { G0.focus = Math.max(0, G0.focus); G0.focusOn = false; snd.focus(false); } }
+      else if (player.state === 'fly') G0.focus = Math.min(100, G0.focus + (lull ? 35 : !aimed.length && !G0.firing ? 12 : 0) * rdt);
+      const prog = Math.max(-1, ...aimed.filter(e => e.aimS.st === 'aim').map(e => 1 - e.aimS.t / e.aimS.T));   // beeps that speed up as the shot nears
+      if (prog >= 0 && G0.mode === 'fly' && (G0.beepT -= rdt) <= 0) { snd.warn(prog); G0.beepT = .34 - .26 * prog; }
+      else if (prog < 0) G0.beepT = 0;
+    }
     G0.t += dt; G0.modeT += dt;
     FLASH = Math.max(0, FLASH - dt * 4);
     if (G0.flash2 > 0 && (G0.flash2 -= dt) <= 0) FLASH = .7;         // lightning flickers twice
@@ -2902,10 +3051,11 @@ function bootGame() {
       move(player, dt, 64);
     } else {
       const guest = MP.on && !MP.host;                                   // a guest's rivals are the host's: drawn, not flown
-      if (player.state === 'fly') { if (G0.mode === 'brief') { move(player, dt, 66); } else control(dt); } else fallAndDitch(player, dt);
+      if (player.state === 'fly') { if (G0.mode === 'brief') { move(player, dt, 66); } else control(pdt); } else fallAndDitch(player, dt);
       if (!guest && G0.mode === 'brief' && G0.modeT > 2.8) { setMode('fly'); if (!G0.vs) spawnWave(); }
       if (player.p[1] < 2.5 && player.state === 'fly') { player.state = 'down'; explode(player); if (G0.vs) vsDied(); }
       if (!guest) for (const e of enemies) if (e.state === 'fly') enemyAI(e, dt); else fallAndDitch(e, dt);
+      if (guest) for (const e of enemies) if (e.aimS && (e.aimS.st === 'aim' || e.aimS.st === 'burst')) e.aimS.t = Math.max(0, e.aimS.t - dt);   // between the host's updates
       if (!guest) for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].state === 'ditched' && enemies[i].downT > 9) enemies.splice(i, 1);
       if (MP.on && G0.mode === 'fly' && G0.vs) {                       // versus: back in three seconds after going down
         if (player.state !== 'fly' && (MP.respawn -= dt) <= 0) vsRespawn();
@@ -2919,7 +3069,7 @@ function bootGame() {
         if (MP.host) { MP.wipeT = player.state === 'ditched' && mateList().every(m => m.state !== 'fly') ? MP.wipeT + dt : 0; if (MP.wipeT > 3) { MP.wipeT = 0; gameOver(); } }
       }
       if (!guest && !G0.vs && G0.mode === 'fly' && !enemies.some(e => e.state === 'fly')) {
-        if (G0.nextWave <= 0) G0.nextWave = 2.6;
+        if (G0.nextWave <= 0) G0.nextWave = 3.4;                        // a breath between waves: focus fills
         G0.nextWave -= dt;
         if (G0.nextWave <= 0) { if (G0.wave < G0.waves) spawnWave(); else levelClear(); G0.nextWave = 0; }
       }
@@ -2937,8 +3087,15 @@ function bootGame() {
         const s = clamp(V.dot(V.sub(tg.p, b.prev), ab) / abl, 0, 1), hp = V.add(b.prev, V.mul(ab, s));
         const miss = V.len(V.sub(hp, tg.p));
         if (miss < (tg === player ? 3.6 : 4.8)) {
+          if (tg === player && dodging()) { if (!b.whizzed) { b.whizzed = true; snd.whizz(V.dot(V.norm(V.sub(hp, cam.pos)), camB.r)); } continue; }   // rolled through it
           if (b.hits && b.pierce > 0) { b.pierce--; b.hits.push(tg); } else gone = true;   // plasma goes through
-          damage(tg, tg === player && G0.ease ? b.dmg * .5 : b.dmg, hp);
+          let dmg = tg === player && G0.ease ? b.dmg * .5 : b.dmg;
+          if (tg === player) { G0.st.hits++; if (V.dot(V.norm(b.v), player.f) > .5) G0.st.back++; }   // hit from behind
+          else if (b.owner === player && V.dot(V.norm(b.v), tg.f) > COS(40)) {                        // from their six
+            dmg *= 2; tg.tailT = G0.t; hitSparks(hp, tg.vel, [1, .78, .25], 12);
+            if (G0.t - (G0.tailPop || -9) > 1.5) { G0.tailPop = G0.t; popups.push({ p: tg.p.slice(), text: '咬尾 ×2', age: 0 }); }
+          }
+          damage(tg, dmg, hp);
           const T = tierOf(W);
           if (b.owner === player && T.boom) {                           // explosive rounds: a burst that also hurts neighbours
             puff(hp, V.mul(tg.vel, .5), 1 + W.wl * .03, 7, .95, 1, .3, 1, 3);
@@ -3033,7 +3190,7 @@ function bootGame() {
     } else if (pl.state !== 'fly') {
       const a = G0.t * .1; want = V.add(pl.p, [Math.cos(a) * 32, 10, Math.sin(a) * 32]); look = pl.p; up = [0, 1, 0]; fov = 52;
     } else if (SET.cam) {                                              // dynamic: rolls with the plane
-      const upMix = V.norm(V.lerp([0, 1, 0], pl.up, .6));
+      const upMix = V.norm(V.lerp([0, 1, 0], pl.up0 || pl.up, .6));
       want = V.add(pl.p, V.add(V.mul(pl.f, -15), V.mul(upMix, 3.6)));
       look = V.add(pl.p, V.mul(pl.f, 22)); up = upMix; fov = 56 + (pl.speed - 66) * .15;
     } else {                                                           // steady: the horizon stays level
@@ -3042,7 +3199,7 @@ function bootGame() {
       const th = Math.asin(clamp(pl.f[1], -1, 1)) * .6, dir = V.norm(V.add(V.mul(G0.camDir, Math.cos(th)), [0, Math.sin(th), 0]));
       want = V.add(pl.p, V.add(V.mul(dir, -16), [0, 4.2, 0]));
       look = V.add(pl.p, V.mul(dir, 26));
-      up = V.norm(V.lerp([0, 1, 0], pl.up, .12)); fov = 56 + (pl.speed - 66) * .1;
+      up = V.norm(V.lerp([0, 1, 0], pl.up0 || pl.up, .12)); fov = 56 + (pl.speed - 66) * .1;
     }
     const k = 1 - Math.exp(-dt * (spect ? 4 : pl.state === 'fly' && !['title', 'clear', 'lobby', 'room'].includes(G0.mode) ? 7 : 1.6));
     cam.pos = V.lerp(cam.pos, want, k); cam.target = V.lerp(cam.target, look, Math.min(1, k * 1.4));
@@ -3322,6 +3479,8 @@ function bootGame() {
 .jb-ui .mdesc{position:relative;padding:12px 14px 12px 20px;background:rgba(7,3,18,.6);font-size:12.5px;line-height:1.75;color:var(--dim)}
 .jb-ui .mdesc::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;background:repeating-linear-gradient(-45deg,var(--yl) 0 5px,#0a0612 5px 10px)}
 .jb-ui .mdesc b{display:block;font-family:var(--cond);font-size:19px;letter-spacing:.1em;color:var(--tx);margin-bottom:4px}
+.jb-ui .hint{max-width:min(460px,88vw);padding:8px 14px;border-left:2px solid var(--yl);background:rgba(243,255,0,.06);font-size:13.5px;line-height:1.55;color:var(--tx);text-align:left}
+.jb-ui .hint small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.24em;color:var(--yl);margin-bottom:2px}
 .jb-ui .wait{display:flex;align-items:center;justify-content:center;gap:8px;height:50px;padding:0 24px;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--yl);border:1px dashed rgba(243,255,0,.5)}
 /* the mission card */
 .jb-ui .brief{display:flex;align-items:center;justify-content:center;text-align:center}
@@ -3394,7 +3553,7 @@ function bootGame() {
 }`;
   document.head.appendChild(uiCss);
 
-  const ticker = () => { const t = `<span>// 紫色积云与金色海面之间的空战</span><span><b>NOBODY DIES HERE</b> — JUST BREATHE</span><span>// ${MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · SHIFT 加速'}</span><span>SIGNAL: ADRIATIC-1929 // 43.51N 16.44E</span><span>// 联机：合作 CO-OP · 对战 PVP</span>`; return `<footer class="ticker"><div>${t}${t}</div></footer>`; };
+  const ticker = () => { const t = `<span>// 紫色积云与金色海面之间的空战</span><span><b>NOBODY DIES HERE</b> — JUST BREATHE</span><span>// ${MOBILE ? '左手拖动转向 · 右手横划翻滚 · 专注键放慢时间' : '方向键 / WASD 转向 · Q E 翻滚 · F 专注 · SHIFT 加速'}</span><span>SIGNAL: ADRIATIC-1929 // 43.51N 16.44E</span><span>// 联机：合作 CO-OP · 对战 PVP</span>`; return `<footer class="ticker"><div>${t}${t}</div></footer>`; };
   const MENUS = {
     title() {
       const baked = R.ready, sw = (act, label, opts, on) => `<button class="sw" data-act="${act}"><small>${label}</small><span>${opts.map((o, i) => `<em${i === on ? ' class="on"' : ''}>${o}</em>`).join('')}</span></button>`;
@@ -3494,12 +3653,13 @@ function bootGame() {
     over() {
       const host = !MP.on || MP.host;
       return {
-        scene: 'o', key: [G0.level, G0.score, G0.best, MP.on, MP.host].join(),
+        scene: 'o', key: [G0.level, G0.score, G0.best, MP.on, MP.host, G0.tip].join(),
         html: E => `<div class="scr res${E}"><div class="vig red"></div>
           ${MP.on ? `<div class="corner">${k('leave', 'sm', `${I('back')}离开房间`)}</div>` : ''}
           <div class="lbl c a" style="--i:0;color:var(--rd)">!! SIGNAL LOST // 信号中断 !!</div>
           <div class="big gl rgb a" style="--i:1" data-t="深呼吸。">深呼吸。</div>
           <div class="a" style="--i:1">${ECG}</div>
+          ${G0.tip ? `<div class="hint a" style="--i:2"><small>NEXT TIME // 下次试试</small>${esc(G0.tip)}</div>` : ''}
           <div class="rd a" style="--i:2"><div><small>MISSION</small><b>${pad(G0.level, 2)}</b></div><div><small>SCORE</small><b>${zeros(G0.score, 7)}</b></div><div><small>HI-SCORE</small><b>${zeros(G0.best, 7)}</b></div></div>
           ${host ? `<div class="row a" style="--i:3">${k('retry', 'pri', `再试第 ${G0.level} 关<small>RETRY</small>`)}${k('start', '', `从第 1 关开始<small>REBOOT</small>`)}${MP.on ? k('toroom', '', `回到房间<small>BAY</small>`) : ''}</div>` : '<div class="wait a" style="--i:3">AWAITING HOST // 等待房主<span class="blink">_</span></div>'}
         </div>`,
@@ -3576,6 +3736,41 @@ function bootGame() {
     if (hurtA > 0) { const g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .28, w / 2, h / 2, Math.max(w, h) * .72); g.addColorStop(0, 'rgba(255, 30, 70, 0)'); g.addColorStop(1, `rgba(255, 30, 70, ${hurtA})`); c.fillStyle = g; c.fillRect(0, 0, w, h); }
     if (G0.hurt > .35) for (let i = 0; i < 4; i++) { const y = Math.random() * h, hh = (2 + Math.random() * 7) * u; c.fillStyle = i % 2 ? cy(.18 * G0.hurt) : rd(.25 * G0.hurt); c.fillRect(0, y, w, hh); }
 
+    if (G0.ts < .97) {                                                 // bullet time: a cold vignette and slow scanlines
+      const k = (1 - G0.ts) / .65, g = c.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .3, w / 2, h / 2, Math.max(w, h) * .75);
+      g.addColorStop(0, 'rgba(0, 240, 255, 0)'); g.addColorStop(1, `rgba(0, 200, 255, ${.28 * k})`); c.fillStyle = g; c.fillRect(0, 0, w, h);
+      c.fillStyle = cy(.05 * k); for (let y = (G0.rt * 40 * u) % (6 * u); y < h; y += 6 * u) c.fillRect(0, y, w, u);
+    }
+    if (G0.chroma > 0) {                                               // the perfect dodge: the picture splits cyan and magenta at the edges
+      const k = G0.chroma * G0.chroma, e0 = 40 * u * k;
+      c.fillStyle = mg(.35 * k); c.fillRect(0, 0, e0, h); c.fillRect(w - e0 * .5, 0, e0 * .5, h);
+      c.fillStyle = cy(.35 * k); c.fillRect(w - e0, 0, e0, h); c.fillRect(0, 0, e0 * .5, h);
+      c.fillStyle = `rgba(255, 255, 255, ${.25 * k * k})`; c.fillRect(0, 0, w, h);
+    }
+    const lull = G0.mode === 'fly' && !G0.vs && player.state === 'fly' && !enemies.some(e => e.state === 'fly') && G0.nextWave > 0;
+    if (lull) {                                                        // between waves: breathe with the ring (in for two seconds, out for two)
+      const ph0 = (G0.rt % 4) / 4, br = ph0 < .5 ? smooth(0, .5, ph0) : 1 - smooth(.5, 1, ph0), cx = w / 2, cyy = h * (upright ? .4 : .45);
+      const R0 = (30 + 16 * br) * u, a = Math.min(1, G0.modeT < 1 ? 1 : (3.4 - G0.nextWave) * 2, G0.nextWave * 2);
+      c.globalAlpha = a;
+      c.beginPath(); c.arc(cx, cyy, R0, 0, Math.PI * 2); c.fillStyle = `rgba(7, 3, 18, ${.3 + .15 * br})`; c.fill();   // dark enough to read on a pale sky
+      plate(cx - 62 * u, cyy + R0 + 12 * u, 124 * u, 42 * u, 8 * u); c.fillStyle = 'rgba(7, 3, 18, .55)'; c.fill();
+      c.beginPath(); c.arc(cx, cyy, R0, 0, Math.PI * 2); c.lineWidth = 1.5 * u; c.strokeStyle = cy(.35 + .3 * br); glow(CY, 6 + 10 * br); c.stroke(); noglow();
+      c.beginPath(); c.arc(cx, cyy, R0 + 7 * u, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * G0.focus / 100); c.lineWidth = 3 * u; c.strokeStyle = CY; c.stroke();
+      text(ph0 < .5 ? '吸气' : '呼气', cx, cyy + u, F(700, 12, CJK), tx(.85), 'center', 2);
+      text('深呼吸', cx, cyy + R0 + 26 * u, F(700, 15, CJK), TX, 'center', 4);
+      text('FOCUS ' + pad(G0.focus, 3) + '%', cx, cyy + R0 + 45 * u, F(600, 9, MONO), cy(.75), 'center', 2);
+      c.globalAlpha = 1;
+    }
+    // a rival lining you up: a red arc at the edge of the screen on its side, brighter and wider as the shot nears
+    const warnOf = e => !(e.state === 'fly' && e.onMe && e.aimS) ? -1 : e.aimS.st === 'aim' ? clamp(1 - e.aimS.t / e.aimS.T, 0, 1) : e.aimS.st === 'burst' ? 2 : -1;
+    if (player.state === 'fly' && G0.mode === 'fly') for (const e of enemies) {
+      const wk = warnOf(e); if (wk < 0) continue;
+      const sp = project(e.p), d = V.sub(e.p, cam.pos);
+      const a = sp && sp[0] > 0 && sp[0] < w && sp[1] > 0 && sp[1] < h ? Math.atan2(sp[1] - h / 2, sp[0] - w / 2) : Math.atan2(-V.dot(d, camB.u), V.dot(d, camB.r));
+      const al = wk >= 2 ? .95 : .25 + .6 * wk, sprd = .22 + .12 * Math.min(wk, 1);
+      c.save(); c.strokeStyle = rd(al); c.lineWidth = (wk >= 2 ? 9 : 4 + 4 * wk) * u; glow(RD, wk >= 2 ? 22 : 12);
+      c.beginPath(); c.ellipse(w / 2, h / 2, w / 2 - 8 * u, h / 2 - 8 * u, 0, a - sprd, a + sprd); c.stroke(); c.restore(); noglow();
+    }
     // top left: the score on a seven-digit counter (leading zeros dim), the combo, the mission; or the PVP table
     const L0 = (16 + INS.l) * u, T0 = (14 + INS.t) * u;
     if (G0.vs) {
@@ -3620,7 +3815,7 @@ function bootGame() {
 
     // top right: SYSTEMS — hull, boost, ordnance
     const hpk = clamp(player.hp / player.maxHp, 0, 1), lowHp = hpk < .3;
-    const pw = 184 * u, ph = 86 * u, px0 = w - pw - (16 + INS.r) * u, py = (14 + INS.t) * u, ix = px0 + 12 * u, bw = pw - 24 * u;
+    const pw = 184 * u, ph = 104 * u, px0 = w - pw - (16 + INS.r) * u, py = (14 + INS.t) * u, ix = px0 + 12 * u, bw = pw - 24 * u;
     plate(px0, py, pw, ph, 12 * u); c.fillStyle = 'rgba(7, 3, 18, .58)'; c.fill(); c.strokeStyle = lowHp ? rd(.8) : cy(.5); c.lineWidth = u; c.stroke();
     c.fillStyle = lowHp ? RD : CY; c.fillRect(px0 + pw - 30 * u, py - u, 30 * u, 2 * u);
     text(lowHp ? 'SYS//CRITICAL' : 'SYS//NOMINAL', ix, py + 11 * u, F(600, 8.5, MONO), lowHp ? rd(.95) : cy(.8), 'left', 1.5);
@@ -3643,6 +3838,13 @@ function bootGame() {
     text(T.name, ix + lvw + 20 * u, py + 68 * u, F(700, 12, CJK), tx(.85), 'left', 1);
     c.fillStyle = mg(.16); c.fillRect(ix, py + 78 * u, bw, 2 * u);
     glow(MG, 8); c.fillStyle = MG; c.fillRect(ix, py + 78 * u, bw * (W.wl >= 30 ? 1 : W.xp / xpNeed(W.wl)), 2 * u); noglow();
+    const fk = G0.focus / 100, fready = G0.focus >= 50, fx0 = ix + 44 * u, fbw = bw - 44 * u - 40 * u;
+    text('FOCUS', ix, py + 93 * u, F(600, 9, MONO), G0.focusOn ? TX : tx(.6), 'left', 1.5);
+    c.fillStyle = cy(.12); c.fillRect(fx0, py + 91.5 * u, fbw, 3 * u);
+    if (G0.focusOn || fready) glow(CY, 10); c.fillStyle = G0.focusOn ? '#ffffff' : fready ? CY : cy(.55); c.fillRect(fx0, py + 91.5 * u, fbw * fk, 3 * u); noglow();
+    c.fillStyle = tx(.5); c.fillRect(fx0 + fbw * .5 - .5 * u, py + 89 * u, u, 8 * u);
+    const rk = 1 - G0.rollCD / ROLL_CD;
+    text('ROLL', px0 + pw - 12 * u, py + 93 * u, F(700, 9, MONO), rk >= 1 ? CY : tx(.3), 'right', 1.5);
 
     // the ace: a hazard-striped plate and a segmented red bar
     const ace = enemies.find(e => e.type === 'ace' && e.state === 'fly');
@@ -3656,7 +3858,7 @@ function bootGame() {
     }
 
     // the gunsight: corner brackets, a centre pip, speed and altitude on either side; locked, a magenta box turns on the target
-    if (player.state === 'fly' && G0.mode === 'fly') {
+    if (player.state === 'fly' && G0.mode === 'fly' && !lull) {
       const free = project(V.add(player.p, V.mul(player.f, 400))), snap = G0.lead && G0.lock && G0.lock.state === 'fly' ? project(G0.lead) : null;
       if (free) { const tg = snap || free; G0.ret = G0.ret ? [G0.ret[0] + (tg[0] - G0.ret[0]) * .35, G0.ret[1] + (tg[1] - G0.ret[1]) * .35] : tg.slice(0, 2); }
       const rp = free ? G0.ret : null;
@@ -3709,7 +3911,14 @@ function bootGame() {
       }
     };
     const rng = p => pad(V.len(V.sub(p, player.p)), 4) + 'M';
-    for (const e of enemies) if (e.state === 'fly') mark(e.p, e.type === 'ace' ? RD : MG, e.type === 'ace' ? 'ACE' : 'TGT-' + pad(e.id % 100, 2), rng(e.p), 'foe');
+    for (const e of enemies) {
+      if (e.state !== 'fly') continue;
+      const wk = player.state === 'fly' ? warnOf(e) : -1;
+      if (wk >= 0) {
+        const blink = wk >= 2 || Math.sin(G0.t * (8 + 22 * wk)) > 0;
+        mark(e.p, blink ? RD : MG, wk >= 2 ? 'FIRE' : 'AIM', rng(e.p), 'foe');
+      } else mark(e.p, e.type === 'ace' ? RD : MG, e.type === 'ace' ? 'ACE' : 'TGT-' + pad(e.id % 100, 2), rng(e.p), 'foe');
+    }
     for (const m of mateList()) {
       if (m.state === 'ditched') continue;
       if (G0.vs) { if (m.state === 'fly') mark(m.p, MCSS[m.slot], CALL_EN[m.slot], rng(m.p), 'foe'); continue; }   // versus: they are targets
@@ -3758,8 +3967,9 @@ function bootGame() {
       const why = G0.vs ? (player.lastHit && G0.t - player.lastHitT < 8 ? '被 ' + nameOf(player.lastHit) + ' 击落' : '坠海') : canCome ? '队友还在战斗' : '等待队友';
       text(why, cx, cyy + R0 + 18 * u, F(700, 13, CJK), tx(.85), 'center', 2);
     }
-    if (!G0.vs && G0.level === 1 && G0.mode === 'fly' && (!G0.didSteer || !G0.didFire)) {
-      const t = !G0.didSteer ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '按住右侧：开火，准星会自动吸附' : '按住空格开火，准星会自动吸附');
+    const rollTip = !G0.vs && !G0.didRoll && G0.level <= 3 && player.state === 'fly' && enemies.some(e => warnOf(e) >= 0);
+    if (!G0.vs && G0.mode === 'fly' && ((G0.level === 1 && !G0.didSteer) || rollTip)) {
+      const t = !G0.didSteer && G0.level === 1 ? (MOBILE ? '在左侧拖动：转向、爬升' : '方向键或 WASD：转向、爬升') : (MOBILE ? '红色弧线 = 即将开火 · 在右侧快速横划翻滚' : '红色弧线 = 即将开火 · 按 Q / E 翻滚');
       const y = h - ((upright ? 220 : 44) + INS.b) * u, f = F(700, 12.5, CJK), bw2 = tw(t, f, 1) + 90 * u;
       c.globalAlpha = .8 + .2 * Math.sin(G0.t * 4);
       plate(w / 2 - bw2 / 2, y - 14 * u, bw2, 28 * u, 8 * u); c.fillStyle = 'rgba(7, 3, 18, .7)'; c.fill(); c.strokeStyle = yl(.7); c.lineWidth = u; c.stroke();
@@ -3789,6 +3999,19 @@ function bootGame() {
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { c.moveTo(x + dx * s * .45, y + dy * s * .45); c.lineTo(x + dx * s * 1.4, y + dy * s * 1.4); }
         c.stroke(); c.strokeRect(x - s * .8, y - s * .8, s * 1.6, s * 1.6);
       }, 'FIRE');
+      {                                                                // the roll's cooldown: a cyan arc round the fire key
+        const b = fireBtn(), x = (b.x - r.left) * u, y = (b.y - r.top) * u, R1 = (b.r * 1.05 + 7) * u, rk = 1 - G0.rollCD / ROLL_CD;
+        c.lineWidth = 2.5 * u; c.strokeStyle = rk >= 1 ? cy(.55) : cy(.18); c.beginPath(); c.arc(x, y, R1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * rk); c.stroke();
+        if (rk >= 1) text('⇆ ROLL', x, y - R1 - 8 * u, F(700, 8.5, MONO), cy(.7), 'center', 2);
+      }
+      {                                                                // 专注: a circle that fills, bright from half
+        const b = focusBtn(), x = (b.x - r.left) * u, y = (b.y - r.top) * u, R1 = b.r * u, fk = G0.focus / 100, ok = G0.focus >= 50;
+        c.beginPath(); c.arc(x, y, R1, 0, Math.PI * 2); c.fillStyle = G0.focusOn ? cy(.35) : 'rgba(7, 3, 18, .5)'; c.fill();
+        c.lineWidth = u; c.strokeStyle = cy(ok ? .7 : .25); c.stroke();
+        c.lineWidth = 3 * u; c.strokeStyle = G0.focusOn ? '#ffffff' : ok ? CY : cy(.45); if (ok) glow(CY, 10);
+        c.beginPath(); c.arc(x, y, R1 - 4 * u, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fk); c.stroke(); noglow();
+        text('专注', x, y + u, F(800, 12, CJK), ok ? TX : tx(.45), 'center', 1);
+      }
       key(boostBtn(), input.boostPtr !== null, YL, yl, (x, y, R1) => {
         const s = R1 * .3; c.beginPath();
         for (const o of [-.55, .55]) { c.moveTo(x + (o - .5) * s, y - s * .9); c.lineTo(x + (o + .5) * s, y); c.lineTo(x + (o - .5) * s, y + s * .9); }
@@ -3812,7 +4035,7 @@ function bootGame() {
     drawHUD();
   };
   requestAnimationFrame(loop);
-  window.GAME = { setEnv, get envIdx() { return envIdx; }, snd, startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
+  window.GAME = { roll, focusToggle, tipFor, damage, setEnv, get envIdx() { return envIdx; }, snd, startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
 }
 
 // ───────────────────────── live: the film (or, with ?play, the game) ─────────────────────────
