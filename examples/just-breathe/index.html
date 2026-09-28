@@ -86,6 +86,27 @@ const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const mix = (a, b, t) => a + (b - a) * t;
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const SUN = V.norm([0.12, 0.075, -1]);                             // low sun, just west of south-ahead
+// The environment the renderer paints with. The film always uses the first (its sunset); the game picks one of
+// five for each level. wx: overcast, night (stars and a moon), aurora, fog density; wx2: sea state, lightning flash,
+// sun rays, spare. plane and puff scale the lit colour of the planes and the smoke to the light there is.
+const ENVS = [
+  { id: 'dusk', name: '黄昏晴空', en: 'DUSK · CLEAR', sun: SUN, horSun: [1, .6, .28], horAway: [.8, .46, .56], midA: [.42, .32, .6], midB: [.8, .42, .46], zen: [.12, .11, .3], sunC: [1, .7, .34], disc: [1, .93, .75],
+    cir: [.93, .62, .7], cirS: [1, .82, .56], isl: [.3, .22, .42], clSh: [.25, .22, .47], clSh2: [.36, .3, .58], clMid: [.76, .45, .6], clLit: [1, .85, .62], clWarm: [1, .56, .4], line: [1, .7, .38],
+    seaA: [.06, .07, .19], seaB: [.24, .13, .24], glit: [1, .8, .52], wx: [0, 0, 0, 0], wx2: [1, 0, 1, 0], plane: [1, 1, 1], puff: [1, 1, 1], grade: [1, 1, 1], haze: [.92, .64, .6], fx: null },
+  { id: 'storm', name: '暴风雨', en: 'STORM · RAIN', sun: V.norm([.3, .32, -1]), horSun: [.4, .43, .48], horAway: [.27, .3, .36], midA: [.2, .23, .29], midB: [.3, .32, .37], zen: [.1, .12, .16], sunC: [.34, .37, .42], disc: [0, 0, 0],
+    cir: [.3, .33, .38], cirS: [.44, .47, .52], isl: [.12, .13, .16], clSh: [.12, .13, .17], clSh2: [.19, .21, .26], clMid: [.3, .32, .38], clLit: [.54, .58, .64], clWarm: [.34, .36, .42], line: [.18, .2, .24],
+    seaA: [.025, .045, .06], seaB: [.07, .09, .11], glit: [.22, .25, .28], wx: [.85, 0, 0, .00028], wx2: [1.9, 0, 0, 0], plane: [.62, .66, .74], puff: [.55, .58, .64], grade: [.94, .98, 1.06], haze: [.36, .4, .46], fx: 'rain' },
+  { id: 'aurora', name: '极光之夜', en: 'NIGHT · AURORA', sun: V.norm([-.35, .3, -1]), horSun: [.12, .16, .3], horAway: [.06, .08, .18], midA: [.04, .06, .16], midB: [.06, .09, .2], zen: [.01, .015, .05], sunC: [.32, .42, .66], disc: [.92, .96, 1],
+    cir: [.18, .22, .36], cirS: [.36, .44, .64], isl: [.02, .03, .07], clSh: [.05, .06, .14], clSh2: [.08, .1, .2], clMid: [.11, .14, .25], clLit: [.36, .43, .6], clWarm: [.17, .21, .38], line: [.45, .55, .85],
+    seaA: [.01, .015, .04], seaB: [.03, .04, .09], glit: [.7, .8, 1], wx: [0, 1, 1, 0], wx2: [1, 0, .35, 0], plane: [.4, .45, .62], puff: [.3, .34, .46], grade: [.96, 1, 1.08], haze: [.1, .14, .25], fx: 'stars' },
+  { id: 'snow', name: '雪暮', en: 'SNOWFALL · DUSK', sun: V.norm([.5, .12, -1]), horSun: [.98, .78, .72], horAway: [.72, .76, .88], midA: [.62, .68, .84], midB: [.84, .74, .8], zen: [.35, .45, .66], sunC: [1, .82, .7], disc: [1, .95, .9],
+    cir: [.9, .88, .95], cirS: [1, .9, .85], isl: [.55, .58, .7], clSh: [.55, .6, .76], clSh2: [.65, .7, .86], clMid: [.82, .8, .9], clLit: [1, .96, .92], clWarm: [1, .8, .78], line: [1, .9, .85],
+    seaA: [.14, .2, .3], seaB: [.3, .3, .4], glit: [1, .92, .85], wx: [.3, 0, 0, .00045], wx2: [.8, 0, .5, 0], plane: [.98, 1, 1.06], puff: [1.05, 1.08, 1.15], grade: [1, 1, 1.04], haze: [.8, .82, .92], fx: 'snow' },
+  { id: 'fog', name: '金色晨雾', en: 'MORNING · FOG', sun: V.norm([-.2, .22, -1]), horSun: [1, .9, .7], horAway: [.9, .86, .8], midA: [.84, .82, .8], midB: [.98, .88, .72], zen: [.55, .62, .75], sunC: [1, .9, .65], disc: [1, .96, .85],
+    cir: [1, .95, .85], cirS: [1, .92, .75], isl: [.62, .6, .6], clSh: [.64, .62, .67], clSh2: [.74, .73, .78], clMid: [.9, .86, .84], clLit: [1, .97, .9], clWarm: [1, .9, .75], line: [1, .92, .7],
+    seaA: [.25, .28, .3], seaB: [.45, .42, .38], glit: [1, .95, .8], wx: [.12, 0, 0, .0015], wx2: [.6, 0, 1.4, 0], plane: [1.02, 1.02, 1], puff: [1.1, 1.08, 1.02], grade: [1.02, 1, .97], haze: [.9, .86, .78], fx: 'mist' },
+];
+let ENV = ENVS[0], FLASH = 0;                                        // the environment the renderer is painting now; a lightning flash
 const G = 9.8;
 
 // ───────────────────────── flight paths ─────────────────────────
@@ -514,6 +535,9 @@ precision highp sampler2D;
 uniform vec2 uRes; uniform float uTime; uniform float uFrame;
 uniform vec3 uCamPos, uCamR, uCamU, uCamF; uniform float uFocal;
 uniform vec3 uSun;
+uniform vec3 uHorSun, uHorAway, uMidA, uMidB, uZen, uSunC, uDisc, uCir, uCirS, uIsl;   // the environment's palette (see ENVS)
+uniform vec3 uClSh, uClSh2, uClMid, uClLit, uClWarm, uLine, uSeaA, uSeaB, uGlit, uPlaneK;
+uniform vec4 uWx, uWx2;
 uniform vec3 uPP[8]; uniform mat3 uPR[8]; uniform vec2 uPK[8]; uniform float uPF[8]; uniform int uNP;   // uPF: hit flash   // planes: position, rotation, (livery, prop angle)
 uniform sampler2D uPanoSky, uPanoFull, uCloudTex, uCloudDepth;
 uniform vec3 uBake; uniform float uPanoClouds;
@@ -555,23 +579,36 @@ vec3 skyBase(vec3 rd){
   float y = rd.y, sd = dot(rd, uSun);
   float h = max(y, 0.);
   float sunSide = pow(max(dot(normalize(vec3(rd.x, 0., rd.z)), normalize(vec3(uSun.x, 0., uSun.z))), 0.)*.5+.5, 2.);
-  vec3 horSun = vec3(1.00, .60, .28), horAway = vec3(.80, .46, .56);
-  vec3 hor = mix(horAway, horSun, sunSide);
-  vec3 mid = mix(vec3(.42, .32, .60), vec3(.80, .42, .46), sunSide*.55);
-  vec3 zen = vec3(.12, .11, .30);
+  vec3 hor = mix(uHorAway, uHorSun, sunSide);
+  vec3 mid = mix(uMidA, uMidB, sunSide*.55);
+  vec3 zen = uZen;
   vec3 c = mix(hor, mid, smoothstep(0., .14, h));
   c = mix(c, zen, smoothstep(.10, .70, h));
   // the low sun: a hot core, a wide glow that warms the whole horizon near it
-  float g = max(sd, 0.);
-  c += vec3(1.0, .70, .34) * (pow(g, 10.) * .30 + pow(g, 80.) * .50 + pow(g, 900.) * .6);
-  c += vec3(1.0, .93, .75) * smoothstep(.99955, .99975, sd) * 1.6;
+  float g = max(sd, 0.), clear = 1. - uWx.x;
+  c += uSunC * (pow(g, 10.) * .30 + pow(g, 80.) * .50 + pow(g, 900.) * .6) * mix(clear, 1., uWx.y * .3);
+  c += uDisc * smoothstep(.99955 - uWx.y * .0002, .99975 - uWx.y * .0001, sd) * 1.6 * clear;   // the sun, or at night a slightly larger moon
   // thin painted cirrus, lit pink-gold toward the sun
   if (y > 0.) {
     vec2 uv = rd.xz / (y + .06);
     float n = fbm2(uv * vec2(.55, 2.6) + vec2(uTime*.004, 3.));
     float band = smoothstep(.55, .78, n) * smoothstep(.02, .12, y) * (1. - smoothstep(.35, .7, y));
-    vec3 cc = mix(vec3(.93, .62, .70), vec3(1.0, .82, .56), pow(g, 3.));
-    c = mix(c, cc, band * .38);
+    vec3 cc = mix(uCir, uCirS, pow(g, 3.));
+    c = mix(c, cc, band * .38 * (1. - uWx.y * .6));
+    if (uWx.x > 0.) {                                                 // an overcast deck: mottled, lower and darker overhead
+      float m = fbm2(uv * .9 + vec2(4.1, 1.3)) * .65 + fbm2(uv * 3.1) * .35;
+      c = mix(c, mix(uMidA, uZen, smoothstep(0., .6, y)) * (.7 + .6 * m), uWx.x * smoothstep(.0, .08, y));
+    }
+    if (uWx.y > 0.) {                                                 // stars, thinning toward the horizon
+      vec2 q = floor(vec2(atan(rd.x, -rd.z), asin(y)) * 320.);
+      float st = step(.9965, hash12(q)) * hash12(q + 7.1);
+      c += vec3(.85, .92, 1.) * st * uWx.y * smoothstep(.02, .2, y) * 1.4;
+    }
+    if (uWx.z > 0.) {                                                 // the aurora: green curtains fraying into violet
+      float az = atan(rd.x, -rd.z), n2 = fbm2(vec2(az * 2.4, y * 1.6) + 5.);
+      float cur = pow(.5 + .5 * sin(az * 5. + n2 * 7.), 3.) * smoothstep(.015, .09, y) * (1. - smoothstep(.22, .55, y)) * smoothstep(.15, .6, n2 + .2);
+      c += mix(vec3(.15, 1., .55), vec3(.75, .3, 1.), smoothstep(.08, .4, y)) * cur * uWx.z * 1.1;
+    }
   }
   return c;
 }
@@ -584,14 +621,14 @@ vec3 skyCol(vec3 rd){
     vec3 a = rd - uSun * sd;
     float ang = atan(dot(a, upv), dot(a, rgt));
     float rays = smoothstep(.45, .85, vnoise2(vec2(ang * 5., 1.3)) * .65 + vnoise2(vec2(ang * 13., 7.)) * .35);
-    c += vec3(1., .78, .5) * rays * pow(g, 5.) * (1. - pow(g, 400.)) * .075 * smoothstep(-.02, .03, y);
+    c += uSunC * vec3(1., 1.1, 1.4) * .75 * rays * pow(g, 5.) * (1. - pow(g, 400.)) * .075 * smoothstep(-.02, .03, y) * uWx2.z * (1. - uWx.x);
   }
   // long low streaks of cloud lying on the horizon
   float az = atan(rd.x, -rd.z);
   if (y > 0. && y < .07) {
     float n = fbm2(vec2(az * 7., y * 160.));
     float band = smoothstep(.56, .74, n) * smoothstep(.0, .012, y) * (1. - smoothstep(.025, .07, y));
-    c = mix(c, mix(vec3(.82, .52, .64), vec3(1., .80, .56), pow(g, 2.)), band * .5);
+    c = mix(c, mix(uCir * .9, uCirS, pow(g, 2.)), band * .5);
   }
   // distant islands of the Adriatic: rocky silhouettes in the haze, lit on their rims near the sun
   if (y < .035) {
@@ -603,8 +640,8 @@ vec3 skyCol(vec3 rd){
       if (abs(x) < 1.) top = max(top, I.z * pow(1. - x * x, .8) * mix(.35, 1., smoothstep(-1., -.3, x * (i == 3 ? -1. : 1.))) * (.72 + .28 * vnoise2(vec2(az * 70., float(i))) + .12 * vnoise2(vec2(az * 260., float(i)))));
     }
     if (y < top) {
-      vec3 ic = mix(vec3(.30, .22, .42), skyBase(normalize(vec3(rd.x, .02, rd.z))), .5);
-      ic += vec3(1., .7, .4) * smoothstep(top - .0012, top, y) * pow(max(dot(normalize(vec3(rd.x, 0., rd.z)), normalize(vec3(uSun.x, 0., uSun.z))), 0.), 4.) * .5;
+      vec3 ic = mix(uIsl, skyBase(normalize(vec3(rd.x, .02, rd.z))), .5);
+      ic += uSunC * (1. - uWx.x) * smoothstep(top - .0012, top, y) * pow(max(dot(normalize(vec3(rd.x, 0., rd.z)), normalize(vec3(uSun.x, 0., uSun.z))), 0.), 4.) * .5;
       c = ic;
     }
   }
@@ -683,16 +720,16 @@ vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   float E = .55 / x.y;
   vec3 nb = normalize(k.xyy*clusterD(ci, p + k.xyy*E) + k.yyx*clusterD(ci, p + k.yyx*E) + k.yxy*clusterD(ci, p + k.yxy*E) + k.xxx*clusterD(ci, p + k.xxx*E));
   float wrap = dot(normalize(nb * 2. + n), uSun) * .5 + .5 + (ao - 1.) * .1 + h01 * .08;
-  vec3 shadow = mix(vec3(.25, .22, .47), vec3(.36, .30, .58), max(n.y, 0.));   // tops catch the violet sky
-  vec3 midc = vec3(.76, .45, .60), litc = vec3(1.0, .85, .62);
+  vec3 shadow = mix(uClSh, uClSh2, max(n.y, 0.));                     // tops catch the sky
+  vec3 midc = uClMid, litc = uClLit;
   float s1 = smoothstep(.40, .52, wrap), s2 = smoothstep(.57, .69, wrap);
   vec3 c = mix(shadow, midc, s1);
   c = mix(c, litc, s2);
-  c = mix(c, vec3(1.0, .56, .40), s1 * (1. - s2) * .55);             // warm band at the terminator
-  c += vec3(.24, .10, .04) * max(-n.y, 0.) * (1. - s2);                // the sunlit sea glows under them
+  c = mix(c, uClWarm, s1 * (1. - s2) * .55);                           // warm band at the terminator
+  c += uGlit * vec3(.24, .12, .08) * max(-n.y, 0.) * (1. - s2) * (1. - uWx.x);   // the sunlit sea glows under them
   c *= 1. + brush * .06;
   float graze = 1. - abs(dot(n, rd));
-  c += vec3(1., .70, .38) * pow(max(dot(rd, uSun), 0.), 4.) * pow(graze, 2.) * 1.8;  // gold lining
+  c += uLine * pow(max(dot(rd, uSun), 0.), 4.) * pow(graze, 2.) * 1.8 * (1. - uWx.x * .8);  // the lining toward the light
   float fog = 1. - exp(-t * .00005);
   return mix(c, hazeCol(rd), fog * .7);
 }
@@ -972,7 +1009,7 @@ float unpackDepth(vec4 v){ return exp((v.x + v.y / 255.) * log(60001.)) - 1.; }
 vec2 seaGrad(vec2 p, float foot){
   // foot: the size of one pixel on the water; waves shorter than a few pixels fade out (no moire)
   vec2 g = vec2(0);
-  float amp = .30, k = .07, ang = .35;
+  float amp = .30 * uWx2.x, k = .07, ang = .35;                       // uWx2.x: the sea state
 #ifdef FAST
   for (int i = 0; i < 7; i++) {
 #else
@@ -1035,18 +1072,18 @@ vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnem
   for (int w = 0; w < 8; w++) {
     if (w >= uNP) break;
     float ph; vec4 pcol = tracePlane(w, p + vec3(0, .05, 0), r, 400., ph);
-    refl = mix(refl, pcol.rgb, pcol.a);
+    refl = mix(refl, pcol.rgb * uPlaneK, pcol.a);
   }
-  vec3 deep = mix(vec3(.06, .07, .19), vec3(.24, .13, .24), pow(max(dot(normalize(vec3(rd.x, 0., rd.z)), normalize(vec3(uSun.x, 0., uSun.z))), 0.), 3.));
+  vec3 deep = mix(uSeaA, uSeaB, pow(max(dot(normalize(vec3(rd.x, 0., rd.z)), normalize(vec3(uSun.x, 0., uSun.z))), 0.), 3.));
   vec3 c = mix(deep, refl, fres);
   // sun glitter: sharp and sparkling near, a broad gold path toward the horizon
   float rough = mix(1400., 70., smoothstep(0., 5000., t));
   float sp = pow(max(dot(r, uSun), 0.), rough);
   float sparkle = mix(1., step(.55, vnoise2(p.xz * .9 + uTime * 2.)) * 2.2, smoothstep(600., 50., t));
-  c += vec3(1., .80, .52) * sp * 2.4 * sparkle;
+  c += uGlit * sp * 2.4 * sparkle * (1. - uWx.x * .9);
   if (ruffle > .01) {   // wind-ruffled water under the prop wash: darker, with hard sun glints
     c = mix(c, deep * 1.25 + vec3(.04, .02, .05), ruffle * .45);
-    c += vec3(1., .82, .55) * step(.78, vnoise2(p.xz * 4.5 + uTime * 9.)) * ruffle * .5;
+    c += uGlit * step(.78, vnoise2(p.xz * 4.5 + uTime * 9.)) * ruffle * .5;
   }
   if (foam > .01) {
     float tex = vnoise2(p.xz * .8 + vec2(0., uTime * .3)) * .6 + vnoise2(p.xz * 2.3 - uTime * .2) * .4;
@@ -1066,7 +1103,7 @@ vec3 render(vec3 ro, vec3 rd, out float tDepth){
   float tSea = rd.y < 0. ? -ro.y / rd.y : 1e9;
   vec3 col;
 #ifdef FAST
-  col = tSea < 1e8 ? seaShade(ro, rd, tSea, 0, 0., 0.) : texture(uPanoSky, panoUV(rd)).rgb + vec3(1., .9, .7) * smoothstep(.9995, .99975, dot(rd, uSun)) * .8;
+  col = tSea < 1e8 ? seaShade(ro, rd, tSea, 0, 0., 0.) : texture(uPanoSky, panoUV(rd)).rgb + uDisc * smoothstep(.9995, .99975, dot(rd, uSun)) * .8 * (1. - uWx.x);
 #else
   col = tSea < 1e8 ? seaShade(ro, rd, tSea, uReflSteps, 0., 0.) : skyCol(rd);
 #endif
@@ -1088,7 +1125,7 @@ vec3 render(vec3 ro, vec3 rd, out float tDepth){
     if (best < 0) break;
     used[best] = true;
     if (!cloudDone && tc > bt) { col = col * (1. - cl.a) + cl.rgb; cloudDone = true; }
-    col = mix(col, pc[best].rgb, pc[best].a);
+    col = mix(col, pc[best].rgb * uPlaneK, pc[best].a);
   }
   if (!cloudDone) col = col * (1. - cl.a) + cl.rgb;
   tDepth = tSolid;
@@ -1111,6 +1148,7 @@ void main(){
 #else
   float tD;
   vec3 col = render(uCamPos, rd, tD);
+  if (uWx.w > 0.) col = mix(col, hazeCol(rd), 1. - exp(-min(tD, 2500.) * uWx.w));   // fog: everything fades into the haze with distance
   col = col / (1. + max(col - .85, 0.) * .9);                        // soft shoulder; the grade finishes in the post pass
   outCol = vec4(clamp(col, 0., 1.), 1.);
   gl_FragDepth = depthOf(tD, rd);
@@ -1156,7 +1194,7 @@ const PART_FS = `#version 300 es
 precision highp float;
 ${NOISE_GLSL}
 in vec2 vUV; in vec4 vA, vC; in float vD; flat in int vType;
-uniform vec3 uSun, uCamR, uCamU, uCamF, uHaze;
+uniform vec3 uSun, uCamR, uCamU, uCamF, uHaze, uPuffK;
 out vec4 o;
 void main(){
   float x = abs(vUV.x);
@@ -1166,7 +1204,7 @@ void main(){
     float a = smoothstep(1., .35, dd + edge * .5) * vC.y;
     vec3 nn = normalize(uCamR * vUV.x + uCamU * vUV.y - uCamF * sqrt(max(0., 1. - dd * dd)));
     float lit = smoothstep(-.3, .6, dot(nn, uSun));
-    vec3 pc = mix(vec3(vC.x) * vec3(.62, .55, .78), vec3(vC.x) * vec3(1.15, .95, .78) + .05, lit);
+    vec3 pc = mix(vec3(vC.x) * vec3(.62, .55, .78), vec3(vC.x) * vec3(1.15, .95, .78) + .05, lit) * uPuffK;
     pc = mix(pc, vec3(1., .55, .2), vC.z * .8);
     o = vec4(pc * a, a);
   } else if (vType == 1) {
@@ -1175,7 +1213,7 @@ void main(){
     o = vec4((cc * core + gc * glow * .22) * vA.w, 0.);   // additive
   } else if (vType == 2) {
     float a = smoothstep(2.5, 0., x) * vA.w * .75;
-    o = vec4(vec3(1., .90, .88) * a, a);
+    o = vec4(vec3(1., .90, .88) * uPuffK * a, a);
   } else {
     float a = smoothstep(1., .35, x) * .95;
     vec3 c = mix(vec3(.16, .10, .22), uHaze, 1. - exp(-vD * .0007));
@@ -1184,7 +1222,7 @@ void main(){
 }`;
 const POST_FS = `#version 300 es
 precision highp float;
-uniform sampler2D uScene; uniform vec2 uRes; uniform float uFrame;
+uniform sampler2D uScene; uniform vec2 uRes; uniform float uFrame; uniform vec3 uGrade; uniform float uFlash;
 out vec4 o;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 void main(){
@@ -1192,6 +1230,7 @@ void main(){
   vec3 col = texture(uScene, uv).rgb;
   col = pow(max(col, 0.), vec3(1.08, 1.04, 1.));                    // a touch more contrast in the warm channels
   vec2 v = uv - .5; col *= 1. - dot(v, v) * .55;                      // vignette
+  col = col * uGrade + vec3(.75, .85, 1.) * uFlash * (.6 + .4 * col);   // the environment's grade; a lightning flash
   col += (hash12(gl_FragCoord.xy + uFrame * 17.3) - .5) * .018;       // grain
   o = vec4(clamp(col, 0., 1.), 1.);
 }`;
@@ -1302,18 +1341,22 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    if (++PANO.strip >= PANO.strips) PANO.done = true;
+    if (++PANO.strip >= PANO.strips) PANO.done = PANO.ever = true;
     return PANO.done;
   }
 
   let cam = null, wakes = [], planes = [];
+  const ENV_U = [['uHorSun', 'horSun'], ['uHorAway', 'horAway'], ['uMidA', 'midA'], ['uMidB', 'midB'], ['uZen', 'zen'], ['uSunC', 'sunC'], ['uDisc', 'disc'], ['uCir', 'cir'], ['uCirS', 'cirS'], ['uIsl', 'isl'],
+    ['uClSh', 'clSh'], ['uClSh2', 'clSh2'], ['uClMid', 'clMid'], ['uClLit', 'clLit'], ['uClWarm', 'clWarm'], ['uLine', 'line'], ['uSeaA', 'seaA'], ['uSeaB', 'seaB'], ['uGlit', 'glit'], ['uPlaneK', 'plane']];
   function commonUniforms(pr, S) {
     gl.uniform1f(pr.loc('uTime'), S.t); gl.uniform1f(pr.loc('uFrame'), S.frame);
     if (cam) {
       gl.uniform3fv(pr.loc('uCamPos'), cam.pos); gl.uniform3fv(pr.loc('uCamR'), cam.r); gl.uniform3fv(pr.loc('uCamU'), cam.u); gl.uniform3fv(pr.loc('uCamF'), cam.f);
       gl.uniform1f(pr.loc('uFocal'), cam.focal);
     }
-    gl.uniform3fv(pr.loc('uSun'), SUN);
+    gl.uniform3fv(pr.loc('uSun'), ENV.sun);
+    for (const [u, k] of ENV_U) gl.uniform3fv(pr.loc(u), ENV[k]);
+    gl.uniform4fv(pr.loc('uWx'), ENV.wx); gl.uniform4fv(pr.loc('uWx2'), ENV.wx2);
     gl.uniform1i(pr.loc('uData'), 0); gl.uniform1i(pr.loc('uPanoSky'), 1); gl.uniform1i(pr.loc('uPanoFull'), 2);
     gl.uniform1i(pr.loc('uCloudTex'), 3); gl.uniform1i(pr.loc('uCloudDepth'), 4);
     gl.uniform1i(pr.loc('uNC'), S.nc);
@@ -1379,7 +1422,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
       const aspect = S.sceneW / S.sceneH;
       gl.uniformMatrix4fv(pp.loc('uVP'), false, viewProj(cam, aspect));
       gl.uniform3fv(pp.loc('uCamPos'), cam.pos); gl.uniform3fv(pp.loc('uCamR'), cam.r); gl.uniform3fv(pp.loc('uCamU'), cam.u); gl.uniform3fv(pp.loc('uCamF'), cam.f);
-      gl.uniform1f(pp.loc('uPixK'), 2 / (cam.focal * S.sceneH)); gl.uniform3fv(pp.loc('uSun'), SUN); gl.uniform3fv(pp.loc('uHaze'), [.92, .64, .6]);
+      gl.uniform1f(pp.loc('uPixK'), 2 / (cam.focal * S.sceneH)); gl.uniform3fv(pp.loc('uSun'), ENV.sun); gl.uniform3fv(pp.loc('uHaze'), ENV.haze); gl.uniform3fv(pp.loc('uPuffK'), ENV.puff);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
       gl.disable(gl.BLEND); gl.depthMask(true);
     }
@@ -1388,12 +1431,12 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     const po = need('post'); gl.useProgram(po.pr); gl.bindVertexArray(triVAO);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, S.outW, S.outH);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, scene.colors[0]);
-    gl.uniform1i(po.loc('uScene'), 5); gl.uniform2f(po.loc('uRes'), S.outW, S.outH); gl.uniform1f(po.loc('uFrame'), S.frame);
+    gl.uniform1i(po.loc('uScene'), 5); gl.uniform2f(po.loc('uRes'), S.outW, S.outH); gl.uniform1f(po.loc('uFrame'), S.frame); gl.uniform3fv(po.loc('uGrade'), ENV.grade); gl.uniform1f(po.loc('uFlash'), FLASH);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   // warm up the programs this renderer will use (compiling lazily mid-film would stutter)
   (fast ? ['fast', 'cloud', 'pano', 'part', 'post'] : ['quality', 'part', 'post']).forEach(need);
-  return { gl, frame, bakeStart, bakeStep, get baked() { return PANO.done; }, get bakeProgress() { return PANO.done ? 1 : PANO.strip / PANO.strips; } };
+  return { gl, frame, bakeStart, bakeStep, get baked() { return PANO.done; }, get ready() { return PANO.ever; }, get bakeProgress() { return PANO.done ? 1 : PANO.strip / PANO.strips; } };
 }
 
 // camera {pos, f, r, u, focal} -> column-major view-projection (near .3, far 80000; matches depthOf in the shader)
@@ -1965,10 +2008,19 @@ function bootGame() {
   clearWorld();
   const say = (text, life = 2.2, big = false) => G0.msgs.push({ text, age: 0, life, big });
   function setMode(m) { G0.mode = m; G0.modeT = 0; G0.buttons = []; }
+  // five skies: each level (and each versus match) gets one at random, never the same twice running
+  let envIdx = 0;
+  function setEnv(i) {
+    i = clamp(i | 0, 0, ENVS.length - 1); envIdx = i;
+    if (ENVS[i] === ENV) return;
+    ENV = ENVS[i]; R.bakeStart([0, 150, 0], MOBILE); snd.weather(ENV.fx); G0.wxT = rand(3, 7); G0.bolt = null; FLASH = 0;
+  }
+  const pickEnv = () => { let i; do i = Math.floor(Math.random() * ENVS.length); while (i === envIdx); return i; };
   function newRun(level) { W = newWeapons(); G0.score = 0; MP.run++; startLevel(level); }
   function startLevel(n) {
     const L = levelDef(n);
     MP.epoch++; MP.picked = false; MP.pendingStart = false; MP.wipeT = 0; MP.respawn = 0; G0.vs = false;
+    setEnv(pickEnv());
     Object.assign(G0, { level: n, wave: 0, waves: L.waves.length, levelName: L.name, mult: L.mult, ease: L.ease, msgs: [], combo: 1, comboT: 0, nextWave: 0 });
     Wsaved = { ...W }; scoreSaved = G0.score;
     clearWorld();
@@ -2269,9 +2321,18 @@ function bootGame() {
         for (const [ty, fq] of [['sawtooth', 220], ['sawtooth', 223.5], ['square', 440.7]]) { const o = ac.createOscillator(); o.type = ty; o.frequency.value = fq; o.connect(bp); o.start(); }
         bp.connect(g2); g2.connect(band.sfx); beamN = { g: g2 };
       }
+      const loop = (type, fq, q) => { const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(); src.buffer = band.noiseBuf; src.loop = true; f.type = type; f.frequency.value = fq; f.Q.value = q; g.gain.value = 0; src.connect(f); f.connect(g); g.connect(band.sfx); src.start(); return { g, f }; };
+      rainN = loop('highpass', 1500, .5); windN = loop('lowpass', 420, 2);   // weather beds: rain hiss, a wind that swells
       nextStep = ac.currentTime + .1; step = 0;
     };
-    S.start = () => {}; S.stopMusic = () => {};                       // the music follows the game by itself now (see tick)
+    S.start = () => {}; S.stopMusic = () => {};
+    let wxKind = null, rainN = null, windN = null;
+    S.weather = kind => { wxKind = kind; };
+    S.thunder = (delay, d) => {                                     // a crack if it is near, then the long roll
+      if (!ac) return; const t = ac.currentTime + delay, v = clamp(2600 / (d + 600), .25, 1);
+      noise(t, 'lowpass', 900, 70, 2.8, .3 * v, drive, .7, rand(-.4, .4), .04); voice(t, 'sine', 70, 28, 2, .25 * v, band.sfx, 0, .05);
+      if (d < 1800) noise(t - .05, 'bandpass', 3000, 900, .25, .12 * v, crush, 1);
+    };                       // the music follows the game by itself now (see tick)
 
     // one sixteenth of the track
     function schedule(i, t) {
@@ -2306,6 +2367,9 @@ function bootGame() {
       musLP.frequency.setTargetAtTime(scene === 'menu' ? 1500 : scene === 'fight' ? 3200 + heat * 11000 : 400, now, .4);
       if (now > nextStep + 1) nextStep = now + .05;                   // after a pause, don't try to catch up
       while (nextStep < now + .16) { if (scene) schedule(step, nextStep); step++; nextStep += S16; }
+      rainN.g.gain.setTargetAtTime(wxKind === 'rain' ? .045 : 0, now, .8);
+      windN.g.gain.setTargetAtTime((wxKind === 'snow' ? .06 : wxKind === 'rain' ? .035 : wxKind === 'mist' ? .02 : 0) * (.7 + .3 * Math.sin(now * .4)), now, .6);
+      windN.f.frequency.setTargetAtTime(300 + 250 * (.5 + .5 * Math.sin(now * .23)), now, .5);
       const flying = player.state === 'fly' && (G0.mode === 'fly' || G0.mode === 'brief' || G0.mode === 'title');
       const f = 70 + player.speed * .42 + (input.boost ? 18 : 0);
       eng.os.forEach((o, i) => o.frequency.setTargetAtTime(i === eng.os.length - 1 ? f / 2 : f, now, .08));
@@ -2589,7 +2653,7 @@ function bootGame() {
     Object.assign(G0, { vs: true, level: 1, wave: 0, waves: 0, levelName: '对战', msgs: [], combo: 1, comboT: 0, ease: false, mult: 1 });
     vsArm(); setMode(mode); snd.start(); snd.levelStart();
   }
-  function startMatch() { MP.epoch++; MP.kt = {}; MP.winner = null; vsBegin('brief'); }
+  function startMatch() { MP.epoch++; MP.kt = {}; MP.winner = null; setEnv(pickEnv()); vsBegin('brief'); }
   function vsDied() {
     if (!MP.on) return;
     const kb = player.lastHit && G0.t - player.lastHitT < 8 ? player.lastHit : '';
@@ -2746,6 +2810,7 @@ function bootGame() {
     if (sl !== undefined && sl !== MP.slot) { MP.slot = clamp(sl | 0, 1, 3); player.kind = KINDS[MP.slot]; }
     MP.vs = !!g.vs;
     if (g.gv) { MP.kt = {}; if (g.kt && typeof g.kt === 'object') for (const k in g.kt) MP.kt[k] = g.kt[k] | 0; MP.winner = typeof g.wn === 'string' ? g.wn : null; }
+    if (g.m !== 'room' && g.ep !== MP.seenEpoch && typeof g.env === 'number') setEnv(g.env);   // the host's sky
     if (g.m !== 'room' && g.ep !== MP.seenEpoch && g.gv) { MP.seenEpoch = g.ep; vsBegin(g.m === 'fly' ? 'fly' : g.m === 'vsover' ? 'vsover' : 'brief'); }
     else if (g.m !== 'room' && g.ep !== MP.seenEpoch) {                // a level starts, or starts again
       if (g.rs !== MP.seenRun) { if (MP.seenRun !== -1) W = newWeapons(); MP.seenRun = g.rs; }
@@ -2801,7 +2866,7 @@ function bootGame() {
       dm, tk: MP.took.slice(-8), pd: MP.picked ? MP.seenEpoch : -1, dc: MP.dc, kb: MP.kb, pv: null };
     if (G0.vs) { st.pv = { ep: curEp() }; for (const k in MP.pv) st.pv[k] = r2(MP.pv[k]); }
     if (MP.host) {
-      st.g = { m: G0.mode, lv: G0.level, w: G0.wave, ws: G0.waves, nm: G0.levelName, sc: G0.score, cb: G0.combo, ez: G0.ease ? 1 : 0, mu: G0.mult, ep: MP.epoch, rs: MP.run, vs: MP.vs ? 1 : 0, gv: G0.vs ? 1 : 0, kt: MP.kt, wn: MP.winner };
+      st.g = { m: G0.mode, lv: G0.level, w: G0.wave, ws: G0.waves, nm: G0.levelName, sc: G0.score, cb: G0.combo, ez: G0.ease ? 1 : 0, mu: G0.mult, ep: MP.epoch, rs: MP.run, env: envIdx, vs: MP.vs ? 1 : 0, gv: G0.vs ? 1 : 0, kt: MP.kt, wn: MP.winner };
       st.e = enemies.slice(0, 8).map(e => [e.id, TYPE_N.indexOf(e.type), STATE_N.indexOf(e.state), r2(Math.max(0, e.hp)), e.maxHp, ...e.p.map(r2), ...e.f.map(r3), ...e.up.map(r3), r2(e.speed), e.shots || 0, e.cshots || 0]);
       st.k = pickups.slice(0, 8).map(k => [k.id, k.type === 'ammo' ? 1 : 0, ...k.p.map(r2), r2(k.t)]);
       st.sl = MP.slots;
@@ -2810,8 +2875,24 @@ function bootGame() {
     MP.room.set(st);
   }
 
+  // a storm's lightning: a jagged bolt from the cloud base to the sea somewhere ahead, a flash, thunder after the light
+  function strike() {
+    const f = V.norm([camB.f[0], 0, camB.f[2]]), a = rand(-1, 1), d = rand(1300, 3200);
+    const dir = V.norm(V.add(V.mul(f, Math.cos(a)), V.mul(V.cross(f, [0, 1, 0]), Math.sin(a))));
+    const base = V.add(cam.pos, V.mul(dir, d)), pts = [];
+    let q = [base[0], 720, base[2]];
+    for (let i = 0; i <= 12; i++) { pts.push(q); q = [q[0] + rand(-45, 45), q[1] - 60, q[2] + rand(-45, 45)]; }
+    const fork = pts[Math.floor(rand(3, 7))], br = [fork];
+    for (let i = 0; i < 4; i++) br.push([br[i][0] + rand(-60, 60), br[i][1] - 55, br[i][2] + rand(-60, 60)]);
+    G0.bolt = { pts, br, age: 0 }; FLASH = 1; G0.flash2 = .12;
+    snd.thunder(Math.min(3, d / 900), d);
+  }
   function update(dt) {
     G0.t += dt; G0.modeT += dt;
+    FLASH = Math.max(0, FLASH - dt * 4);
+    if (G0.flash2 > 0 && (G0.flash2 -= dt) <= 0) FLASH = .7;         // lightning flickers twice
+    if (G0.bolt && (G0.bolt.age += dt) > .4) G0.bolt = null;
+    if (ENV.fx === 'rain' && (G0.wxT -= dt) <= 0) { G0.wxT = rand(5, 11); strike(); }
     if (MP.on && MP.room) netRecv(dt);
     if (G0.mode !== 'fly' && G0.beam) { G0.beam = null; snd.beam(false); }
     if (['title', 'clear', 'lobby', 'room'].includes(G0.mode)) {         // a lazy circle over the sea
@@ -2981,6 +3062,17 @@ function bootGame() {
       const blink = k.t > 16 ? (Math.sin(k.t * 20) > 0 ? 1 : .2) : 1;
       puffs.push({ p: k.p, r: 2.2 + Math.sin(G0.t * 6) * .4, g: 1, a: .9 * blink, warm: k.type === 'ammo' ? 1 : 0 });
     }
+    const wrapM = (v, B) => ((v % B) + B) % B, rainSegs = [];
+    if (ENV.fx === 'rain' || ENV.fx === 'snow') {                     // rain and snow: a box of drops that stays put in the world around the camera
+      const rain = ENV.fx === 'rain', B = rain ? 60 : 44, N = rain ? 220 : 170, t = G0.t, cv = player.state === 'fly' ? player.vel : [0, 0, 0], rnd = rng(9);
+      for (let i = 0; i < N; i++) {
+        const x0 = rnd(), y0 = rnd(), z0 = rnd(), ph = rnd() * 6.28, fall = rain ? 28 : 2.5 + y0 * 2, wx = rain ? 6 : 1.6 * Math.sin(t * .7 + ph);
+        const q = [cam.pos[0] - B / 2 + wrapM(x0 * B + wx * t - (cam.pos[0] - B / 2), B), cam.pos[1] - B / 2 + wrapM(y0 * B - fall * t - (cam.pos[1] - B / 2), B), cam.pos[2] - B / 2 + wrapM(z0 * B + (rain ? 0 : Math.cos(t * .5 + ph) * 1.2) - (cam.pos[2] - B / 2), B)];
+        if (q[1] < .5) continue;
+        if (rain) { const v = [wx - cv[0], -fall - cv[1], -cv[2]]; rainSegs.push({ a: V.sub(q, V.mul(v, .022)), b: q, heat: -.42, w: .035 }); }   // streaks stretched by your own speed
+        else puffs.push({ p: q, r: .16 + .12 * x0, g: 1.1, a: 1, warm: 0 });
+      }
+    }
     puffs.sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos)));
     const segs = [];
     for (const b of bullets) segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), b.heavy ? .045 : .03 + (b.owner === player ? W.wl * .0012 : 0))), b: b.p, heat: b.heat, w: b.w, col: b.col });
@@ -2992,6 +3084,11 @@ function bootGame() {
         const st = Math.min(t0.st, t1.st) * (1 - age / .55);
         if (st > .03) { segs.push({ a: t1.a, b: t0.a, heat: -st, w: .1 }); segs.push({ a: t1.b, b: t0.b, heat: -st, w: .1 }); }
       }
+    }
+    segs.push(...rainSegs);
+    if (G0.bolt) {                                                    // the bolt: white-blue, a fork, fading fast
+      const k = 1 - G0.bolt.age / .4;
+      for (const line of [G0.bolt.pts, G0.bolt.br]) for (let i = 1; i < line.length; i++) segs.push({ a: line[i - 1], b: line[i], heat: 2.6 * k, w: line === G0.bolt.pts ? 2.2 : 1.2, col: [.75, .85, 1] });
     }
     const camFade = q => smooth(25, 60, V.len(V.sub(q, cam.pos)));   // trails thin out as they pass the camera
     for (const m of missiles) {                                         // a hot head and a curling smoke trail
@@ -3300,7 +3397,7 @@ function bootGame() {
   const ticker = () => { const t = `<span>// 紫色积云与金色海面之间的空战</span><span><b>NOBODY DIES HERE</b> — JUST BREATHE</span><span>// ${MOBILE ? '左手拖动转向 · 右手按住开火 · 小按钮加速' : '方向键 / WASD 转向 · 空格开火 · SHIFT 加速'}</span><span>SIGNAL: ADRIATIC-1929 // 43.51N 16.44E</span><span>// 联机：合作 CO-OP · 对战 PVP</span>`; return `<footer class="ticker"><div>${t}${t}</div></footer>`; };
   const MENUS = {
     title() {
-      const baked = R.baked, sw = (act, label, opts, on) => `<button class="sw" data-act="${act}"><small>${label}</small><span>${opts.map((o, i) => `<em${i === on ? ' class="on"' : ''}>${o}</em>`).join('')}</span></button>`;
+      const baked = R.ready, sw = (act, label, opts, on) => `<button class="sw" data-act="${act}"><small>${label}</small><span>${opts.map((o, i) => `<em${i === on ? ' class="on"' : ''}>${o}</em>`).join('')}</span></button>`;
       return {
         scene: 't' + baked, key: ['t', baked, G0.unlocked, G0.best, SET.cam, SET.pilot, SET.auto, isFull()].join(),
         html: E => `<div class="scr title${E}"><div class="grid"></div><div class="vig"></div>
@@ -3372,12 +3469,12 @@ function bootGame() {
     brief() {
       const name = G0.vs ? `先击落 ${VS_GOAL} 架` : String(G0.levelName);
       return {
-        scene: 'b' + G0.level + G0.vs, key: [G0.level, G0.levelName, G0.vs, W.wl].join(),
+        scene: 'b' + G0.level + G0.vs + ENV.id, key: [G0.level, G0.levelName, G0.vs, W.wl, ENV.id].join(),
         html: E => `<div class="scr brief${E}"><div class="frame"><i></i><i></i><i></i><i></i></div>
           <div class="bx a" style="--i:0">
             <div class="mono" style="font-size:11px;letter-spacing:.32em;color:var(--cy)">${G0.vs ? 'PVP // FREE-FOR-ALL' : 'MISSION ' + pad(G0.level, 2) + ' // 第 ' + G0.level + ' 关'} <span class="blink">▮</span></div>
             <div class="big rgb" data-scr="${esc(name)}">${esc(name)}</div>
-            <div class="data">${G0.vs ? `<span><small>RULE</small>击落就升级</span>` : `<span><small>HOSTILES</small>${pad(G0.waves, 2)} WAVES</span>`}<span><small>ORDNANCE</small><span style="flex-direction:row;padding:0;border:0"><i class="c" style="--c:${rgbOf(tierOf(W).col)}"></i>LV.${pad(W.wl, 2)} ${esc(tierOf(W).name)}</span></span></div>
+            <div class="data">${G0.vs ? `<span><small>RULE</small>击落就升级</span>` : `<span><small>HOSTILES</small>${pad(G0.waves, 2)} WAVES</span>`}<span><small>WEATHER</small>${ENV.name} · ${ENV.en}</span><span><small>ORDNANCE</small><span style="flex-direction:row;padding:0;border:0"><i class="c" style="--c:${rgbOf(tierOf(W).col)}"></i>LV.${pad(W.wl, 2)} ${esc(tierOf(W).name)}</span></span></div>
           </div></div>`,
         tick: root => { root.style.opacity = G0.modeT > 2.3 ? (Math.sin(G0.modeT * 60) > 0 ? .8 : .2) * (1 - smooth(2.3, 2.8, G0.modeT)) : 1; },
       };
@@ -3460,7 +3557,7 @@ function bootGame() {
     if (hud.width !== w || hud.height !== h) { hud.width = w; hud.height = h; }
     const c = hx, u = dpr; c.clearRect(0, 0, w, h);
     renderMenu();
-    if (!R.baked || (G0.mode !== 'fly' && G0.mode !== 'brief')) return;
+    if (!R.ready || (G0.mode !== 'fly' && G0.mode !== 'brief')) return;
     const CY = '#00f0ff', MG = '#ff2bd6', YL = '#f3ff00', RD = '#ff3355', TX = '#e6f6ff';
     const cy = a => `rgba(0, 240, 255, ${a})`, mg = a => `rgba(255, 43, 214, ${a})`, yl = a => `rgba(243, 255, 0, ${a})`, rd = a => `rgba(255, 51, 85, ${a})`, tx = a => `rgba(230, 246, 255, ${a})`;
     const F = (wt, px, fam) => `${wt} ${Math.round(px * u)}px ${fam}`;
@@ -3706,7 +3803,7 @@ function bootGame() {
     requestAnimationFrame(loop);
     const [ow, oh] = sizeCanvas(glv, stage, 1600);
     readInsets();
-    if (!R.baked) { R.bakeStep(); drawHUD(); last = now; return; }
+    if (!R.baked) { R.bakeStep(); if (!R.ready) { drawHUD(); last = now; return; } }   // a new sky bakes under the live picture
     let dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
     if (G0.stop > 0) { G0.stop -= dt; dt *= .12; }                     // hit-stop: the world holds its breath on a kill
     if (!paused) { update(dt); updateCamera(dt); snd.tick(); }
@@ -3715,7 +3812,7 @@ function bootGame() {
     drawHUD();
   };
   requestAnimationFrame(loop);
-  window.GAME = { snd, startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
+  window.GAME = { setEnv, get envIdx() { return envIdx; }, snd, startMatch, MP, NET, get mates() { return mateList(); }, hostRoom, joinRoom, leaveRoom, G: G0, update, updateCamera, SET, get cam() { return cam; }, get W() { return W; }, get player() { return player; }, get enemies() { return enemies; }, get pickups() { return pickups; }, input, newRun, startLevel, spawnWave, levelClear, press };
 }
 
 // ───────────────────────── live: the film (or, with ?play, the game) ─────────────────────────
