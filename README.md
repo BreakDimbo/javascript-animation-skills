@@ -4,7 +4,7 @@
 
 ![JavaScript Animation Skills: "I only asked you to fix one line", a 30-second film drawn entirely in code](./showcase.gif)
 
-*"I only asked you to fix one line" ([source](./examples/i-only-asked-you-to-fix-one-line)): an agent turns a one-line typo fix into a new city overnight. No images, no fonts to load, no libraries: one 81 KB HTML file, and every note and sound effect is synthesized by the same file with Web Audio. A second example, ["What a newborn sees"](./examples/what-a-newborn-sees), is a 42-second explainer. A third, ["just breathe."](./examples/just-breathe), goes 3D: a sunset dogfight over the sea, raymarched in WebGL2, with the same render and check scripts, and a playable phone game in the same file (`?play`), with online co-op and versus for up to four.*
+*"I only asked you to fix one line" ([source](./examples/i-only-asked-you-to-fix-one-line)): an agent turns a one-line typo fix into a new city overnight. No images, no fonts to load, no libraries: one 81 KB HTML file, and every note and sound effect is synthesized by the same file with Web Audio. A second example, ["What a newborn sees"](./examples/what-a-newborn-sees), is a 42-second explainer. A third, ["just breathe."](./examples/just-breathe), goes 3D: a sunset dogfight over the sea, raymarched in WebGL2, with the same render and check scripts, and a playable phone game in the same file (`?play`): an eight-leg campaign that ends at an armed airship, with online co-op and versus (free-for-all or 2v2) for up to four.*
 
 ## Gallery: made by an agent from one prompt
 
