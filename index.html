@@ -101,10 +101,10 @@ const ENVS = [
     seaA: [.01, .015, .04], seaB: [.03, .04, .09], glit: [.13, .16, .25], wx: [0, 1, 1, 0], wx2: [1, 0, .35, 0], plane: [.4, .45, .62], puff: [.3, .34, .46], grade: [.96, 1, 1.08], haze: [.1, .14, .25], ui: '#9fe0cf', fx: 'stars' },
   { id: 'snow', name: '雪暮', en: 'SNOWFALL · DUSK', sun: V.norm([.5, .12, -1]), horSun: [.98, .78, .72], horAway: [.72, .76, .88], midA: [.62, .68, .84], midB: [.84, .74, .8], zen: [.35, .45, .66], sunC: [1, .82, .7], disc: [1, .95, .9],
     cir: [.9, .88, .95], cirS: [1, .9, .85], isl: [.55, .58, .7], clSh: [.55, .6, .76], clSh2: [.65, .7, .86], clMid: [.82, .8, .9], clLit: [1, .96, .92], clWarm: [1, .8, .78], line: [1, .9, .85],
-    seaA: [.14, .2, .3], seaB: [.3, .3, .4], glit: [1, .92, .85], wx: [.3, 0, 0, .00045], wx2: [.8, 0, .5, 0], plane: [.98, 1, 1.06], puff: [1.05, 1.08, 1.15], grade: [1, 1, 1.04], haze: [.8, .82, .92], ui: '#bcd6ee', fx: 'snow' },
-  { id: 'fog', name: '金色晨雾', en: 'MORNING · FOG', sun: V.norm([-.2, .22, -1]), horSun: [1, .9, .7], horAway: [.9, .86, .8], midA: [.84, .82, .8], midB: [.98, .88, .72], zen: [.55, .62, .75], sunC: [1, .9, .65], disc: [1, .96, .85],
+    seaA: [.06, .09, .19], seaB: [.16, .18, .32], glit: [1, .92, .85], wx: [.3, 0, 0, .00045], wx2: [.8, 0, .5, 0], plane: [.98, 1, 1.06], puff: [1.05, 1.08, 1.15], grade: [1, 1, 1.04], haze: [.8, .82, .92], ui: '#bcd6ee', fx: 'snow' },
+  { id: 'fog', name: '金色晨雾', en: 'MORNING · FOG', sun: V.norm([-.2, .22, -1]), horSun: [1, .9, .7], horAway: [.9, .86, .8], midA: [.66, .72, .82], midB: [.98, .88, .72], zen: [.4, .5, .72], sunC: [1, .9, .65], disc: [1, .96, .85],
     cir: [1, .95, .85], cirS: [1, .92, .75], isl: [.62, .6, .6], clSh: [.64, .62, .67], clSh2: [.74, .73, .78], clMid: [.9, .86, .84], clLit: [1, .97, .9], clWarm: [1, .9, .75], line: [1, .92, .7],
-    seaA: [.25, .28, .3], seaB: [.45, .42, .38], glit: [1, .95, .8], wx: [.12, 0, 0, .0015], wx2: [.6, 0, 1.4, 0], plane: [1.02, 1.02, 1], puff: [1.1, 1.08, 1.02], grade: [1.02, 1, .97], haze: [.9, .86, .78], ui: '#d9a86a', fx: 'mist' },
+    seaA: [.14, .18, .24], seaB: [.4, .38, .34], glit: [1, .95, .8], wx: [.12, 0, 0, .0011], wx2: [.6, 0, 1.4, 0], plane: [1.02, 1.02, 1], puff: [1.1, 1.08, 1.02], grade: [1.02, 1, .97], haze: [.9, .86, .78], ui: '#d9a86a', fx: 'mist' },
 ];
 let ENV = ENVS[0], FLASH = 0;                                        // the environment the renderer is painting now; a lightning flash
 const G = 9.8;
@@ -297,13 +297,14 @@ function cumulus(seed, cx, base, cz, width, height, opts = {}) {
     add(cx + sd * width * (.16 + .08 * R()), base + rB * (.35 + .2 * R()), rz(), rB);   // a broad foot: the base spreads wider than the tower
     const us = [.34 + .08 * R(), .7 + .08 * R()];                     // a tower that narrows only gradually, the upper lobe high enough that the top grows out of it without a waist
     for (let i = 0; i < 2; i++) {
-      const u = us[i], r = width * (.28 - i * .03) * (.92 + .16 * R()), y = base + r * .6 + u * Math.max(0, height - r * 1.2) * .92, prev = spheres[spheres.length - 1];
+      const u = us[i], r = width * (.28 + i * .015) * (.92 + .16 * R()), y = base + r * .6 + u * Math.max(0, height - r * 1.2) * .92, prev = spheres[spheres.length - 1];
       const x = cx + sd * (Math.pow(u, 1.3) * width * .1 + (i ? -1 : 1) * width * (.04 + .03 * R())), z = rz();   // the tower stands over its base, leaning only a little, its lobes set off to alternate sides so its flanks are uneven
       add(x, y, z, Math.max(r, Math.hypot(x - prev[0], y - prev[1], z - prev[2]) * .6));
     }
     const nk = spheres[3], nc = 4 + (R() < .5 ? 1 : 0);              // the crown: four or five unequal bulges spreading past the neck on both sides, at uneven heights
     for (let i = 0; i < nc; i++) {
-      const r = width * (.13 + .07 * R()) * (1 - Math.abs(i / (nc - 1) - .5) * .6), f = nc > 1 ? i / (nc - 1) - .5 : 0, x = nk[0] + f * width * (.36 + .06 * R()) + sd * width * .02, y = base + height - r * (1.15 - .3 * R()) - f * f * height * (.6 + .3 * R());   // a rounded top no wider than the tower: the outer bulges smaller and lower
+      const r = width * (.13 + .07 * R()) * (1 - Math.abs(i / (nc - 1) - .5) * .5), f = nc > 1 ? i / (nc - 1) - .5 : 0, x = nk[0] + f * width * (.37 + .06 * R()) + sd * width * .02, y = base + height - r * (1.15 - .3 * R()) - f * f * height * (.45 + .25 * R());   // a rounded top no wider than the tower, its outer bulges a little smaller and lower (a flat, even crown reads as a block)
+  // a rounded top no wider than the tower: the outer bulges smaller and lower
       add(x, y, rz(), r);
     }
     const t1 = spheres[2]; add(t1[0] - sd * t1[3] * .75, t1[1] - t1[3] * .3, rz(), t1[3] * (.55 + .2 * R()));
@@ -369,8 +370,9 @@ function tracersAt(t, bursts, at, guns, target) {
       let dir = fr.f;
       if (target) { const tp = target(tf + .35); dir = V.norm(V.lerp(fr.f, V.norm(V.sub(tp, muzzle)), .55)); }
       const v = V.add(fr.vel, V.mul(dir, 420));
-      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .035)));
-      out.push({ a: tail, b: head, heat: .9 - age * .5, w: .09 });
+      const J = rng(Math.round(tf * 997) + (guns === HERO_GUNS ? 0 : 5))(), lenK = .55 + .9 * J, bright = J > .86 ? 1.5 : 1;   // each round a little different: its length, its brightness, now and then a brighter one
+      const head = V.add(muzzle, V.mul(v, age)), tail = V.add(muzzle, V.mul(v, Math.max(0, age - .035 * lenK)));
+      out.push({ a: tail, b: head, heat: (.9 - age * .5) * (.75 + .5 * J) * bright * (1 - .5 * smooth(.5, 1., age)), w: .09 * (.85 + .3 * J) * (bright > 1 ? 1.25 : 1) });   // and it dims toward the end of its flight
     }
   }
   return out;
@@ -587,7 +589,7 @@ uniform sampler2D uPanoSky, uPanoFull, uCloudTex, uCloudDepth;
 uniform vec3 uBake; uniform float uPanoClouds;
 uniform int uPlaneSteps, uShadowSteps;
 uniform sampler2D uData;
-uniform int uNC, uNPuff, uNTr;
+uniform int uNC, uNPuff, uNTr; uniform float uInkK;   // uInkK: output pixels per scene pixel (>= 1), so the ink outline keeps its width on screen
 uniform int uSteps, uReflSteps;
 uniform int uNWake; uniform vec4 uWakeBox;
 #ifdef PASS_CLOUD
@@ -788,7 +790,8 @@ vec3 cloudShade(int ci, vec3 p, vec3 rd, float t){
   float wrap = dot(normalize(nb * 2. + n), uSun) * .5 + .5 + (ao - 1.) * .1 + h01 * .08;
   vec3 shadow = mix(uClSh, uClSh2, max(n.y, 0.));                     // tops catch the sky
   vec3 midc = uClMid, litc = uClLit;
-  float s1 = smoothstep(.40, .52, wrap), s2 = smoothstep(.57, .69, wrap);
+  float big = smoothstep(1600., 2400., b.w);                            // the huge far towers: the step from shadow to light gets wide and soft, or it reads as a two-coloured pillar
+  float s1 = smoothstep(.40 - .16 * big, .52 + .14 * big, wrap), s2 = smoothstep(.57 - .12 * big, .69 + .16 * big, wrap);
   vec3 c = mix(shadow, midc, s1);
   c = mix(c, litc, s2);
   c = mix(c, uClWarm, s1 * (1. - s2) * .55);                           // warm band at the terminator
@@ -928,6 +931,52 @@ vec2 airshipMap(vec3 q, float m0){
   if (tur < r.x) r = vec2(tur, m0 + 7.);
   return r;
 }
+vec2 enemyExtras(vec2 r, vec3 p, float kd, bool icp){
+  float m0 = kd * 10.;
+  if (icp) { r.x *= .9; if (abs(p.x) < .4 && p.z < -3.) r.x = min(r.x, sdEll(p - vec3(0., 1.28, -4.2 + p.y * -.2), vec3(.05, .7, .55))); return r; }   // interceptor: the taller fin
+  if (kd > 5.5 && (kd < 6.5 || kd > 7.5)) {                              // bomber and transport: engines on the wings, a fat long fuselage
+    float nac = sdEll(vec3(abs(p.x) - 2.3, p.y + .22, p.z - 1.25), vec3(.34, .34, 1.15));
+    if (nac < r.x) r = vec2(nac, m0 + 1.);
+    if (r.x < 1.2 && abs(p.x) < 1.3) {
+      float fat = sdEll(p - vec3(0., .02, -1.), vec3(.78, .78, 3.8));
+      if (fat < r.x) r = vec2(fat, m0 + 1.);
+      if (kd < 6.5) {                                                     // bomber: a glazed nose, a dorsal and a tail turret, twin fins
+        float nose = sdEll(p - vec3(0., .12, 3.3), vec3(.6, .6, .8));
+        if (nose < r.x) r = vec2(nose, m0 + 5.);
+        float tur = min(sdEll(p - vec3(0., .95, .3), vec3(.36, .3, .5)), sdEll(p - vec3(0., .25, -4.75), vec3(.3, .3, .45)));
+        if (tur < r.x) r = vec2(tur, m0 + 7.);
+        float fin2 = sdEll(vec3(abs(p.x) - 1.7, p.y - .75, p.z + 4.25 + p.y * .2), vec3(.05, .75, .55));
+        if (fin2 < r.x) r = vec2(fin2, m0 + 4.);
+      }
+    }
+  } else if (r.x < 1.2 && abs(p.x) > 1.2 && abs(p.x) < 3.5 && kd > 6.5 && kd < 7.5) {   // missile boat: twin floats, struts, a missile under each wing
+    float fl = min(sdEll(vec3(abs(p.x) - 1.75, p.y + 1.0, p.z - .6), vec3(.28, .26, 2.0)), sdEll(vec3(abs(p.x) - 1.75, p.y + .55, p.z - 1.), vec3(.06, .2, .5)));
+    if (fl < r.x) r = vec2(fl, m0 + 3.);
+    float ms = sdEll(vec3(abs(p.x) - 3.1, p.y + .62, p.z - .4), vec3(.11, .11, 1.1));
+    if (ms < r.x) r = vec2(ms, m0 + 7.);
+  } else if (abs(p.x) < .4 && p.z > 1.4 && kd > 1.5 && kd < 2.5) {   // the ace: a long cannon fairing over the nose and a barrel forward of the spinner
+    float fr = min(sdEll(p - vec3(0., .34, 2.75), vec3(.22, .16, 1.15)), sdEll(p - vec3(0., .02, 4.1), vec3(.07, .07, .9)));
+    if (fr < r.x) r = vec2(fr, m0 + 7.);
+  }
+  return r;
+}
+#ifdef XM
+vec2 planeMap(int w, vec3 p){
+  float kd = uPK[w].x;
+  if (kd > 8.5) return airshipMap(p, kd * 10.);
+  bool xm = kd > 1.5 && (kd < 2.5 || kd > 5.5) && gLod < .45;   // the enemy types get their own shapes, once a pixel is small enough to see them
+  bool icp = xm && kd > 6.5 && kd < 7.5 && uPK[w].z < 1.1;                // interceptor: narrow swept wings, a stubby tail end
+  vec3 q = p;
+  if (icp) { q.x *= 1.25; q.z += abs(p.x) * .3; q.z *= p.z < 0. ? 1.15 : 1.; }
+  vec2 r = fighterMap(q, kd * 10.);                                       // the only call: a second inlined copy of the fighter slows every plane
+  if (xm) return enemyExtras(r, p, kd, icp);
+  if (kd > 5.5 && (kd < 6.5 || kd > 7.5)) {
+    float nac = sdEll(vec3(abs(p.x) - 2.3, p.y + .22, p.z - 1.25), vec3(.34, .34, 1.15));
+    if (nac < r.x) r = vec2(nac, kd * 10. + 1.);
+  }
+  return r;
+}
+#else
 vec2 planeMap(int w, vec3 p){
   float kd = uPK[w].x;
   if (kd > 8.5) return airshipMap(p, kd * 10.);
@@ -938,6 +987,7 @@ vec2 planeMap(int w, vec3 p){
   }
   return r;
 }
+#endif
 vec3 planeNormal(int w, vec3 p, float e, out float lap){
   const vec2 k = vec2(1, -1);
   vec4 d = vec4(planeMap(w, p + k.xyy*e).x, planeMap(w, p + k.yyx*e).x, planeMap(w, p + k.yxy*e).x, planeMap(w, p + k.xxx*e).x);
@@ -994,6 +1044,7 @@ vec3 paint(float m, vec3 q, float fp){
     } else if (k > 6.5) { gMetal = .8; gRough = .35; c = vec3(.3, .31, .36); }
     return c;
   }
+  if (kind > 7.5 && kind < 8.5 && k < 1.5) c = mix(c, vec3(.12, .16, .25), step(abs(q.y - .2), .07) * step(abs(fract(q.z * 2.6) - .5), .28) * step(.4, abs(q.x)) * step(-3., q.z) * step(q.z, 2.4) * fade);   // the transport: a row of windows
   vec3 ax = vec3(0.);
   if (k < 1.5) {
     s = q.z - 3.35; ax = vec3(0., 0., 1.);
@@ -1183,8 +1234,8 @@ vec4 tracePlane(int w, vec3 ro, vec3 rd, float tmax, out float tHit){
     float edge = 1. - smoothstep(.12, .3, abs(dot(n, rd)));
     col.rgb = mix(col.rgb, vec3(.13, .08, .18), edge * .6);
     tHit = hitT;
-  } else if (minR < 1.4) {
-    col = vec4(vec3(.13, .08, .18), (1. - smoothstep(.5, 1.4, minR)) * .95);
+  } else if (minR * uInkK < 1.4) {
+    col = vec4(vec3(.13, .08, .18), (1. - smoothstep(.5, 1.4, minR * uInkK)) * .95);
     tHit = t1;
   }
   // canopy glass: a transparent ellipsoid with the sky in it and a hard sun glint
@@ -1314,13 +1365,14 @@ vec3 seaShade(vec3 ro, vec3 rd, float t, int reflSteps, float tHero, float tEnem
   // cloud shadows: follow the ray from the water to the sun up to each cloud's middle height; inside its round, soft footprint the water is darker and the glitter dims
   float cs = 0.;
   if (uSun.y > .02 && uWx.x < .6 && uWx.y < .5 && t < 9000.) {          // not in the far haze, not under an overcast or at night
+    float soft = mix(.3, 0., clamp(t / 5000., 0., 1.));                  // farther off the edge is softer, and the shadow fades out with distance and at grazing angles (flattened, it read as a dark slab)
     vec2 sh = normalize(uSun.xz) * 1.5;                                 // painted, not literal: shadows fall as if the sun stood 34 degrees high, or they would land far behind the player
     for (int i = 0; i < 24; i++) {
       if (i >= uNC) break;
       vec4 b = cB(i); vec2 d = p.xz + sh * (b.y - p.y) - b.xz; float r2 = b.w * b.w * .4, dd = dot(d, d);
-      if (dd < r2) cs = max(cs, 1. - smoothstep(r2 * .3, r2, dd));
+      if (dd < r2) cs = max(cs, 1. - smoothstep(r2 * soft, r2, dd));
     }
-    cs *= (1. - smoothstep(.2, .6, uWx.x)) * (1. - uWx.y);
+    cs *= (1. - smoothstep(.2, .6, uWx.x)) * (1. - uWx.y) * (1. - smoothstep(800., 5000., t)) * smoothstep(.02, .14, -rd.y);
   }
   deep *= 1. - .7 * cs;
   vec3 c = mix(deep, refl, fres) * (1. - .42 * cs);                   // the reflected sky too: the whole patch of water reads as shaded
@@ -1370,9 +1422,11 @@ vec3 render(vec3 ro, vec3 rd, out float tDepth){
 #ifdef FAST
   vec2 cuv = gl_FragCoord.xy / uRes;
   vec4 cl = texture(uCloudTex, cuv);
-  if (cl.a > .01 && cl.a < .99) {                                   // the cloud buffer is small: smooth its edges over a few taps so they don't step
-    vec2 o = .6 / vec2(textureSize(uCloudTex, 0));
-    cl = (cl * 2. + texture(uCloudTex, cuv + o) + texture(uCloudTex, cuv - o) + texture(uCloudTex, cuv + vec2(o.x, -o.y)) + texture(uCloudTex, cuv + vec2(-o.x, o.y))) * (1. / 6.);
+  if (cl.a > .004 && cl.a < .996) {                                 // the cloud buffer is small: over the whole edge band (only there), blur it over nine taps a texel apart so the edge doesn't step
+    vec2 o = 1. / vec2(textureSize(uCloudTex, 0));
+    vec4 t0 = texture(uCloudTex, cuv + vec2(o.x, 0.)), t1 = texture(uCloudTex, cuv - vec2(o.x, 0.)), t2 = texture(uCloudTex, cuv + vec2(0., o.y)), t3 = texture(uCloudTex, cuv - vec2(0., o.y));
+    vec4 t4 = texture(uCloudTex, cuv + o), t5 = texture(uCloudTex, cuv - o), t6 = texture(uCloudTex, cuv + vec2(o.x, -o.y)), t7 = texture(uCloudTex, cuv + vec2(-o.x, o.y));
+    cl = (cl * 2. + t0 + t1 + t2 + t3 + (t4 + t5 + t6 + t7) * .7) * (1. / 8.8);
   }
   float tc = unpackDepth(texture(uCloudDepth, cuv));
 #else
@@ -1410,7 +1464,11 @@ void main(){
 #else
   float tD;
   vec3 col = render(uCamPos, rd, tD);
-  if (uWx.w > 0.) col = mix(col, hazeCol(rd), 1. - exp(-min(tD, 2500.) * uWx.w));   // fog: everything fades into the haze with distance
+  if (uWx.w > 0.) {                                                    // fog: everything fades into the haze with distance, thickest at the sea and thinner with height, so the tops of clouds and the sun show through
+    float fd = min(tD, 2500.), hm = uCamPos.y + rd.y * fd * .5;
+    fd *= mix(1., .25, smoothstep(30., 300., hm)) * (tD > 1e8 ? 1. - .65 * smoothstep(.02, .3, rd.y) : 1.);
+    col = mix(col, hazeCol(rd), 1. - exp(-fd * uWx.w));
+  }
   col = col / (1. + max(col - .85, 0.) * .9);                        // soft shoulder; the grade finishes in the post pass
   outCol = vec4(clamp(col, 0., 1.), 1.);
   gl_FragDepth = depthOf(tD, rd);
@@ -1434,7 +1492,7 @@ float vnoise(vec3 p){
 const PART_VS = `#version 300 es
 in vec2 corner; in vec4 iA, iB, iC;
 uniform mat4 uVP; uniform vec3 uCamPos, uCamR, uCamU; uniform float uPixK;
-out vec2 vUV; out vec4 vA, vC; out float vD; flat out int vType;
+out vec2 vUV; out vec4 vA, vC; out float vD; out vec2 vE; flat out int vType;
 void main(){
   int type = int(iC.w + .5); vType = type; vA = iA; vC = iC;
   vec3 wp;
@@ -1447,7 +1505,7 @@ void main(){
     float ext = type == 1 ? 5. : (type == 2 ? 2.5 : 1.);
     vec3 side = cross(dir, m - uCamPos); side = length(side) > 1e-6 ? normalize(side) : uCamU;
     wp = m + side * corner.x * w * ext + dir * corner.y * w * ext;
-    vUV = vec2(corner.x * ext, corner.y);
+    vUV = vec2(corner.x * ext, corner.y); vE = vec2(L * .5 + w * ext, w * ext);   // half length of the quad and how far it reaches past the segment's ends
   }
   vD = length(wp - uCamPos);
   gl_Position = uVP * vec4(wp, 1.);
@@ -1455,7 +1513,7 @@ void main(){
 const PART_FS = `#version 300 es
 precision highp float;
 ${NOISE_GLSL}
-in vec2 vUV; in vec4 vA, vC; in float vD; flat in int vType;
+in vec2 vUV; in vec4 vA, vC; in float vD; in vec2 vE; flat in int vType;
 uniform vec3 uSun, uCamR, uCamU, uCamF, uHaze, uPuffK;
 out vec4 o;
 void main(){
@@ -1464,15 +1522,18 @@ void main(){
     float dd = length(vUV); if (dd > 1.) discard;
     float dark = 1. - smoothstep(.12, .5, vC.x);                          // black smoke (a beaten plane's trail) rather than a bright puff
     float edge = vnoise(vec3(vUV * 2.2, vA.x * .37 + vA.z * .11)) * .5;
+    float snow = step(vC.z, -.5);                                          // warm -1: a snowflake, a small crisp cold-white dot
     float a = smoothstep(1., mix(.35, .1, dark), dd + edge * (.5 + .35 * dark)) * vC.y;   // black smoke frays more at the rim
+    a = mix(a, smoothstep(1., .55, dd) * vC.y, snow);
     a *= smoothstep(2., 9., vD);                                          // a puff the camera flies into thins out instead of filling the screen
     vec3 nn = normalize(uCamR * vUV.x + uCamU * vUV.y - uCamF * sqrt(max(0., 1. - dd * dd)));
     float lit = smoothstep(-.3, .6, dot(nn, uSun));
     vec3 pc = mix(vec3(vC.x) * vec3(.62, .55, .78), vec3(vC.x) * vec3(1.15, .95, .78) + .05, lit) * uPuffK;
     vec3 pd = mix(vec3(.085, .06, .135), vec3(.3, .22, .17), lit) * (.8 + .8 * edge);   // still dark, but warm grey-brown toward the light and violet away from it
     pc = mix(pc, pd * uPuffK, dark);
-    pc = mix(pc, vec3(1., .55, .2), vC.z * .8);
-    float hot = vC.z * smoothstep(.75, .0, dd) * (.5 + .5 * vnoise(vec3(vUV * 3., vA.z * .13)));
+    pc = mix(pc, vec3(1., .55, .2), max(vC.z, 0.) * .8);
+    pc = mix(pc, vec3(.9, .95, 1.) * uPuffK, snow);
+    float hot = max(vC.z, 0.) * smoothstep(.75, .0, dd) * (.5 + .5 * vnoise(vec3(vUV * 3., vA.z * .13)));
     pc += vec3(1., .72, .32) * hot * 1.6 + vec3(1., .95, .8) * hot * hot * 1.2;   // fire glows from inside, white at the heart
     o = vec4(pc * a, a);
   } else if (vType == 1) {
@@ -1484,6 +1545,8 @@ void main(){
     o = vec4((cc * core + gc * glow * .26) * vA.w, 0.);   // additive
   } else if (vType == 2) {
     float a = smoothstep(2.5, 0., x) * vA.w * .75;
+    a *= clamp((1. - abs(vUV.y)) * vE.x / max(2. * vE.y, 1e-4), 0., 1.);   // a linear ramp over the overlap with the next segment: no seams
+    a *= smoothstep(2., 9., vD);                                            // and thin out close to the camera, like smoke
     o = vec4(vec3(1., .90, .88) * uPuffK * a, a);
   } else {
     float a = smoothstep(1., .35, x) * .95;
@@ -1525,7 +1588,8 @@ void main(){
   // the picture is often upscaled from a smaller buffer: bring the edges back, limited so glints and grain don't crawl
   vec2 tx = .8 / vec2(textureSize(uScene, 0));
   vec3 nb = (texture(uScene, uv + vec2(tx.x, 0.)).rgb + texture(uScene, uv - vec2(tx.x, 0.)).rgb + texture(uScene, uv + vec2(0., tx.y)).rgb + texture(uScene, uv - vec2(0., tx.y)).rgb) * .25;
-  col += clamp((col - nb) * .55, -.05, .05);
+  float sk = smoothstep(.45, .8, float(textureSize(uScene, 0).x) / uRes.x);   // no sharpening from a much smaller buffer: it only deepens the blocky halos
+  col += clamp((col - nb) * .55, -.05, .05) * sk;
   col += texture(uBloom, uv).rgb * .6;
   vec3 hi = max(col - .8, 0.); col = min(col, vec3(.8)) + .2 * (1. - exp(-hi / .2));   // a soft shoulder: hot things roll off to white instead of clipping
   col = pow(max(col, 0.), vec3(1.08, 1.04, 1.));                    // a touch more contrast in the warm channels
@@ -1535,7 +1599,8 @@ void main(){
   o = vec4(clamp(col, 0., 1.), 1.);
 }`;
 
-function createRenderer(glc, { preserve = false, fast = true } = {}) {
+function createRenderer(glc, { preserve = false, fast = true, xm = false } = {}) {
+  const opts = { xm };
   const gl = glc.getContext('webgl2', { preserveDrawingBuffer: preserve, antialias: false, depth: false, alpha: false, powerPreference: 'high-performance' });
   if (!gl) return null;
   const half = !!gl.getExtension('EXT_color_buffer_float');
@@ -1558,6 +1623,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
   const need = name => P[name] || (P[name] = ({
     quality: () => program(VERT, passSrc('')),
     fast: () => program(VERT, passSrc('#define FAST')),
+    fastx: () => program(VERT, passSrc('#define FAST\n#define XM')),   // the same with the enemy types' own shapes: only used while one of them is on screen, so every other frame (and the film) costs what it did
     cloud: () => program(VERT, passSrc('#define PASS_CLOUD')),
     pano: () => program(VERT, passSrc('#define PASS_PANO')),
     part: () => program(PART_VS, PART_FS),
@@ -1664,7 +1730,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     gl.uniform4fv(pr.loc('uWx'), ENV.wx); gl.uniform4f(pr.loc('uWx2'), ENV.wx2[0], S.flash || 0, ENV.wx2[2], ENV.wx2[3]);   // y: the lightning flash, lighting the clouds
     gl.uniform1i(pr.loc('uData'), 0); gl.uniform1i(pr.loc('uPanoSky'), 1); gl.uniform1i(pr.loc('uPanoFull'), 2);
     gl.uniform1i(pr.loc('uCloudTex'), 3); gl.uniform1i(pr.loc('uCloudDepth'), 4);
-    gl.uniform1i(pr.loc('uNC'), S.nc);
+    gl.uniform1i(pr.loc('uNC'), S.nc); gl.uniform1f(pr.loc('uInkK'), S.outH && S.sceneH ? Math.max(1, Math.min(3, S.outH / S.sceneH)) : 1);
     gl.uniform4fv(pr.loc('uCB'), CLOUD_U[0]); gl.uniform4fv(pr.loc('uCX'), CLOUD_U[1]); gl.uniform4fv(pr.loc('uCS'), CLOUD_U[2]);
     const pp = new Float32Array(24), pm = new Float32Array(72), pk = new Float32Array(24), pf = new Float32Array(8);
     planes.slice(0, 8).forEach((q, i) => { pp.set(q.p, i * 3); pm.set(q.m, i * 9); pk[i * 3] = q.kind; pk[i * 3 + 1] = q.prop; pk[i * 3 + 2] = q.s || 1; pf[i] = q.flash || 0; });
@@ -1686,7 +1752,9 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     S.wakeBox = box;
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dataTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 8, TW, 2, gl.RGBA, gl.FLOAT, data.subarray(8 * TW * 4, 10 * TW * 4));
-    const cw = S.fast ? Math.max(8, Math.round(S.sceneW * S.cloudScale)) : 0, ch = S.fast ? Math.max(8, Math.round(S.sceneH * S.cloudScale)) : 0;
+    // the cloud buffer follows the scene (cloudScale of it) but never drops below a share of the screen (cloudFloor of the output), so dynamic resolution can't make the clouds blocky
+    const ck = Math.max(S.cloudScale, S.cloudFloor && S.outW ? Math.min(1, S.cloudFloor * S.outW / S.sceneW) : 0);
+    const cw = S.fast ? Math.max(8, Math.round(S.sceneW * ck)) : 0, ch = S.fast ? Math.max(8, Math.round(S.sceneH * ck)) : 0;
     ensure(S.sceneW, S.sceneH, cw, ch);
     gl.bindVertexArray(triVAO); gl.disable(gl.BLEND);
     if (S.fast) {
@@ -1703,7 +1771,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
       gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, clouds.colors[1]);
     }
     // main
-    const pr = need(S.fast ? 'fast' : 'quality'); gl.useProgram(pr.pr);
+    const pr = need(S.fast ? (opts.xm && S.planes.some(q => q.kind > 1.5 && (q.kind < 2.5 || q.kind > 5.5) && q.kind < 8.5) ? 'fastx' : 'fast') : 'quality'); gl.useProgram(pr.pr);
     gl.bindFramebuffer(gl.FRAMEBUFFER, scene.fb); gl.viewport(0, 0, S.sceneW, S.sceneH);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.ALWAYS); gl.depthMask(true);
     commonUniforms(pr, S); gl.uniform2f(pr.loc('uRes'), S.sceneW, S.sceneH);
@@ -1751,7 +1819,7 @@ function createRenderer(glc, { preserve = false, fast = true } = {}) {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   // warm up the programs this renderer will use (compiling lazily mid-film would stutter)
-  (fast ? ['fast', 'cloud', 'pano', 'part', 'post', 'bloom'] : ['quality', 'part', 'post', 'bloom']).forEach(need);
+  (fast ? ['fast', 'cloud', 'pano', 'part', 'post', 'bloom'].concat(xm ? ['fastx'] : []) : ['quality', 'part', 'post', 'bloom']).forEach(need);
   return { gl, frame, bakeStart, bakeStep, get baked() { return PANO.done; }, get ready() { return PANO.ever; }, get bakeProgress() { return PANO.done ? 1 : PANO.strip / PANO.strips; } };
 }
 
@@ -1770,6 +1838,7 @@ function camBasis(cam) {
   return { pos: cam.pos, f, r, u, focal: 1 / Math.tan(cam.fov * Math.PI / 360) };
 }
 // dynamic resolution: hold the frame rate by moving the render scale between lo and hi
+const CLOUD_FLOOR = .25;                                               // the cloud buffer is never smaller than this share of the output resolution
 function makeDynRes(start, lo, hi) {
   const s = { scale: start, ema: 16.7, last: 0, n: 0 };
   s.tick = now => {
@@ -1869,6 +1938,7 @@ function filmScene(frame) {
 
 // the words, the fades, and the layout claims, drawn over the picture in 1280x720 coordinates
 let LAYOUT = [];
+let FADE_OUT = false, FILM_FADE = 0;                                   // the live film fades in a full-screen layer (the 2D overlay only covers the central 16:9)
 function overlay(c2, t, cam, hf) {
   LAYOUT = [];
   const hp = project(cam, hf.p);
@@ -1888,7 +1958,8 @@ function overlay(c2, t, cam, hf) {
   }
   // open from black, close to black
   const fade = Math.min(smooth(0, 1.2, t), 1 - smooth(DUR - 1.6, DUR, t));
-  if (fade < 1) { c2.fillStyle = `rgba(8, 6, 14, ${1 - fade})`; c2.fillRect(0, 0, W, H); }
+  FILM_FADE = 1 - fade;
+  if (fade < 1 && !FADE_OUT) { c2.fillStyle = `rgba(8, 6, 14, ${1 - fade})`; c2.fillRect(0, 0, W, H); }
   window.LAYOUT = LAYOUT;
   if (q.has('debug')) { c2.fillStyle = '#fff'; c2.font = '14px monospace'; c2.fillText(`${t.toFixed(2)}s ${SHOT_T[shotAt(t)].name} H ${hf.p.map(v => v.toFixed(0))}`, 10, 20); }
 }
@@ -2187,7 +2258,7 @@ function bootGame() {
   const { stage, glv } = makeStage();
   stage.style.cssText = 'width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto;';
   document.body.style.overscrollBehavior = 'none';
-  const R = createRenderer(glv, { fast: true });
+  const R = createRenderer(glv, { fast: true, xm: true });
   if (!R) { stage.textContent = '这个游戏需要 WebGL2。'; return; }
   R.bakeStart([0, 150, 0], MOBILE);
   const dyn = makeDynRes(MOBILE ? .5 : .75, .3, 1);
@@ -2413,8 +2484,8 @@ function bootGame() {
     let p, f;
     if (at) { p = at.p; f = at.f; }
     else {
-      const side = (i - (n - 1) / 2) * (type === 'interceptor' ? 28 : L.ease ? 45 : 70), dist = L.ease ? rand(350, 450) : rand(700, 900);
-      p = V.add(player.p, V.add(V.mul(fl, dist + (type === 'airship' ? 400 : 0)), V.mul(rt, side + (type === 'boat' ? rand(-200, 200) : 0))));
+      const side = (i - (n - 1) / 2) * (type === 'interceptor' ? 28 : L.ease ? 45 : 70), dist = type === 'airship' ? rand(500, 600) : L.ease ? rand(350, 450) : rand(700, 900);   // the airship comes in close enough to be seen whole, side on
+      p = V.add(player.p, V.add(V.mul(fl, dist), V.mul(rt, side + (type === 'boat' ? rand(-200, 200) : 0))));
       p[1] = clamp(player.p[1] + rand(-15, 30), 120, 900);
       f = L.ease ? fl : V.mul(fl, -1);
       if (type === 'boat') { p[1] = WL + .6; f = V.norm([rand(-1, 1), 0, rand(-1, 1)]); }
@@ -2590,7 +2661,7 @@ function bootGame() {
     bullets.push({ p: m, prev: m, v: V.add(pl.vel, V.mul(dir, speed)), owner: pl, life: pw ? W.life : 1.35, dmg: pw ? W.dmg * T.dmg : heavy ? 2 : 1,
       col: pw ? T.col : heavy ? [1, .35, .2] : [1, .92, .6], heavy, whizzed: false,
       w: pw ? T.w : heavy ? .2 : .09, heat: pw ? T.heat : heavy ? 1.4 : .95, pierce: pw ? T.pierce : 0, hits: pw && T.pierce ? [] : null });
-    pl.muzzle = .06;
+    pl.muzzle = .06; pl.mglow = 1;
     snd.gun(pl, heavy || (pw && T.boom));
     if (pw) MP.shots++; else if (heavy) pl.cshots = (pl.cshots || 0) + 1; else pl.shots = (pl.shots || 0) + 1;
   }
@@ -2665,7 +2736,7 @@ function bootGame() {
       G0.hurt = 1; G0.shake = Math.max(G0.shake, .45); snd.hurt(); try { navigator.vibrate && navigator.vibrate(25); } catch {}
       hitSparks(at, e.vel, [1, .8, .5]);
     } else {
-      G0.hitMark = .14; snd.tink(Math.min(8, W.wl / 4)); hitSparks(at, e.vel, tierOf(W).col, 7 + Math.floor(W.wl / 4));
+      G0.hitMark = .14; snd.tink(Math.min(8, W.wl / 4)); hitSparks(at, e.vel, tierOf(W).col, 11 + Math.floor(W.wl / 3)); puff(at, V.mul(e.vel, .5), .9 + W.wl * .02, 2.5, 1.2, .9, .16, 1, 3);
       if (tierOf(W).burn) puff(at, V.mul(e.vel, .5), .6, 3, 1, .8, .35, 1, 2);
       if (V.len(V.sub(e.p, cam.pos)) < 120) G0.shake = Math.max(G0.shake, .06);
     }
@@ -3948,7 +4019,7 @@ function bootGame() {
     }
     // smoke from the hurt and the falling, spray from anything low and fast, samples for wakes and vapour
     for (const pl of [player, ...mateList(), ...enemies, ...allies]) {
-      pl.muzzle -= dt; pl.flash = Math.max(0, pl.flash - dt * 7);
+      pl.muzzle -= dt; pl.mglow = Math.max(0, (pl.mglow || 0) - dt * 8); pl.flash = Math.max(0, pl.flash - dt * 7);
       const hurt = pl.hp <= pl.maxHp * .5 || pl.state === 'down';
       if (hurt && pl.state !== 'ditched' && (pl.smokeT -= dt) <= 0) {
         pl.smokeT = pl.state === 'down' ? .05 : .11;
@@ -4018,6 +4089,7 @@ function bootGame() {
     cam.up = V.norm(V.lerp(cam.up, up, k)); cam.fov += (fov - cam.fov) * k;
     if (cam.pos[1] < 1.5) cam.pos[1] = 1.5;
     if (G0.shake > 0 && !REDUCED) { const s = G0.shake * G0.shake * 1.2; cam.target = V.add(cam.target, [Math.sin(G0.t * 83) * s, Math.sin(G0.t * 71 + 1) * s, Math.sin(G0.t * 97 + 2) * s]); }
+    if (pl.state === 'fly' && pl.mglow > 0 && !REDUCED && (G0.mode === 'fly')) { const r = .05 * pl.mglow * pl.mglow; cam.target = V.add(cam.target, [Math.sin(G0.t * 131) * r, Math.sin(G0.t * 117 + 1) * r, Math.sin(G0.t * 149 + 2) * r]); }   // a very light recoil shake while firing
     camB = camBasis(cam);
   }
 
@@ -4025,7 +4097,7 @@ function bootGame() {
   const matOfP = pl => [...pl.right, ...pl.up, ...pl.f];
   function scene(frameNo) {
     const friends = [player, ...mateList(), ...allies.filter(a => a.state !== 'ditched')], foes = enemies.slice().sort((a, b) => (a.state === 'fly' ? 0 : 1) - (b.state === 'fly' ? 0 : 1) || V.len(V.sub(a.p, cam.pos)) - V.len(V.sub(b.p, cam.pos)));
-    const planes = [...friends, ...foes].slice(0, 8).map(pl => ({ p: pl.p, m: matOfP(pl), kind: pl.kind, prop: pl.prop, flash: pl.flash * .8, s: pl.scale || 1 }));
+    const planes = [...friends, ...foes].slice(0, 8).map(pl => ({ p: pl.p, m: matOfP(pl), kind: pl.kind, prop: pl.prop, flash: Math.max(pl.flash * .8, (pl.mglow || 0) * .1), s: pl.scale || 1 }));
     const puffs = parts.map(q => { const k = q.age / q.life; return { p: q.p, r: q.r + q.grow * q.age, g: q.g, a: q.a * (1 - k) * Math.min(1, q.age * 12), warm: q.warm * (1 - k * .7) }; });
     for (const k of pickups) {                                          // a glowing crate: a warm core that pulses
       const blink = k.t > 16 ? (Math.sin(k.t * 20) > 0 ? 1 : .2) : 1;
@@ -4035,16 +4107,30 @@ function bootGame() {
     if (ENV.fx === 'rain' || ENV.fx === 'snow') {                     // rain and snow: a box of drops that stays put in the world around the camera
       const rain = ENV.fx === 'rain', B = rain ? 60 : 44, N = rain ? 220 : 170, t = G0.t, cv = player.state === 'fly' ? player.vel : [0, 0, 0], rnd = rng(9);
       for (let i = 0; i < N; i++) {
-        const x0 = rnd(), y0 = rnd(), z0 = rnd(), ph = rnd() * 6.28, fall = rain ? 28 : 2.5 + y0 * 2, wx = rain ? 6 : 1.6 * Math.sin(t * .7 + ph);
+        const x0 = rnd(), y0 = rnd(), z0 = rnd(), ph = rnd() * 6.28, fall = rain ? 28 : 2.5 + y0 * 2, wx = rain ? 6 : 1.6 * Math.sin(t * .7 + ph) + 2.4;   // snow drifts on a steady wind, so it falls slanted
         const q = [cam.pos[0] - B / 2 + wrapM(x0 * B + wx * t - (cam.pos[0] - B / 2), B), cam.pos[1] - B / 2 + wrapM(y0 * B - fall * t - (cam.pos[1] - B / 2), B), cam.pos[2] - B / 2 + wrapM(z0 * B + (rain ? 0 : Math.cos(t * .5 + ph) * 1.2) - (cam.pos[2] - B / 2), B)];
         if (q[1] < .5) continue;
         if (rain) { const v = [wx - cv[0], -fall - cv[1], -cv[2]]; rainSegs.push({ a: V.sub(q, V.mul(v, .022)), b: q, heat: -.42, w: .035 }); }   // streaks stretched by your own speed
-        else puffs.push({ p: q, r: .16 + .12 * x0, g: 1.1, a: 1, warm: 0 });
+        else puffs.push({ p: q, r: .05 + .09 * x0 * x0, g: 1.1, a: 1, warm: -1 });   // snow: small white flakes (warm -1 is the flag), nearer ones bigger by perspective only
       }
     }
+    // seen from behind a tracer flies away from the camera and foreshortens to a point: give each of the player's rounds a small hot head with a dark backing (so it shows against the sun too) that keeps a minimum size on screen; the muzzles glow for a moment
+    for (const b of bullets) {
+      if (b.owner !== player || b.heavy) continue;
+      const d = V.len(V.sub(b.p, cam.pos)), r = Math.max(.14, d * .008) * (1 + W.wl * .012), fade = smooth(400, 60, d) * .6 + .4;
+      puffs.push({ p: b.p, r: r * 2.1, g: .04, a: .6 * fade, warm: 0 }); puffs.push({ p: b.p, r, g: 1.3, a: 1 * fade, warm: 1 });
+    }
+    for (const pl of [...friends, ...enemies]) if (pl.mglow > .02 && pl.state === 'fly') { const wl = pl === player ? W.wl : 0; for (let g = 0; g < (wl ? Math.min(2, WS(wl).guns) : 2); g++) puffs.push({ p: P(pl, GUN_POS[g]), r: (.9 + wl * .03) * (.5 + pl.mglow), g: 1.3, a: .95 * pl.mglow, warm: 1 }); }
     puffs.sort((a, b) => V.len(V.sub(b.p, cam.pos)) - V.len(V.sub(a.p, cam.pos)));
     const segs = [];
-    for (const b of bullets) segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), b.heavy ? .045 : .03 + (b.owner === player ? W.wl * .0012 : 0))), b: b.p, heat: b.heat, w: b.w, col: b.col });
+    if (ENV.wx[1] > .5) for (const pl of [...friends, ...foes.filter(f => f.state === 'fly')].slice(0, 8)) {   // night: wingtip lights (red left, green right, slow blink) and a white tail light on every fighter; the player's exhaust glows faintly
+      if (pl.state !== 'fly' && pl !== player) continue;
+      const k = pl.scale || 1, bl = .75 + .25 * Math.sin(G0.t * 3.1 + (pl.id || 0) * 1.7), L = (x, c) => { const a = P(pl, [x, .2, .3]); segs.push({ a, b: V.add(a, V.mul(pl.right, x > 0 ? -.35 * k : .35 * k)), heat: 2 * bl, w: .24 * k, col: c }); };
+      L(5.3, [.3, 1, .45]); L(-5.3, [1, .12, .1]);                       // the plane's right wing is +x
+      const tl = P(pl, [0, .55, -4.3]); segs.push({ a: tl, b: V.add(tl, V.mul(pl.f, -.3 * k)), heat: 1.1 * (.6 + .4 * Math.sin(G0.t * 5 + (pl.id || 0))), w: .14 * k, col: [.9, .95, 1] });
+      if (pl === player) for (const sx of [-.5, .5]) { const a = P(pl, [sx, .16, 2.3]); segs.push({ a, b: V.add(a, V.mul(pl.f, -.5)), heat: .5 + .2 * Math.sin(G0.t * 37 + sx * 9), w: .1, col: [1, .5, .2] }); }
+    }
+    for (const b of bullets) { if (b.jit === undefined) b.jit = Math.random(); const jk = b.jit, br = jk > .88 ? 1.4 : 1; segs.push({ a: V.sub(b.p, V.mul(V.sub(b.v, b.owner.vel), (b.heavy ? .045 : .03 + (b.owner === player ? W.wl * .0012 : 0)) * (.6 + .9 * jk))), b: b.p, heat: b.heat * (.8 + .4 * jk) * br, w: b.w * (br > 1 ? 1.2 : 1), col: b.col }); }   // each round a little different in length and brightness, now and then a brighter one
     for (const pl of [...friends, ...enemies]) {
       const wl = pl === player ? W.wl : pl.mate ? pl.wl : 0;
       if (pl.muzzle > 0) for (let g = 0; g < (wl ? WS(wl).guns : 2); g++) { const m = P(pl, GUN_POS[g]), big = wl ? 1 + wl * .03 : 1; segs.push({ a: m, b: V.add(m, V.mul(pl.f, big)), heat: 1.3 * big, w: .16 * big, col: wl >= 5 ? WS(wl).col : undefined }); }
@@ -4846,10 +4932,11 @@ function bootGame() {
         for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(rp[0] + sx * (s - arm), rp[1] + sy * s); c.lineTo(rp[0] + sx * s, rp[1] + sy * s); c.lineTo(rp[0] + sx * s, rp[1] + sy * (s - arm)); }
         c.moveTo(rp[0] - 30 * u, rp[1]); c.lineTo(rp[0] - 23 * u, rp[1]); c.moveTo(rp[0] + 23 * u, rp[1]); c.lineTo(rp[0] + 30 * u, rp[1]);
         c.stroke(); c.fillStyle = col; c.fillRect(rp[0] - 1.5 * u, rp[1] - 1.5 * u, 3 * u, 3 * u);
-        text(pad(player.speed * 3.6, 3), rp[0] - 36 * u, rp[1] - 6 * u, F(700, 11, MONO), tx(.75), 'right');
-        text('SPD', rp[0] - 36 * u, rp[1] + 7 * u, F(500, 8, MONO), tx(.4), 'right', 1);
-        text(pad(player.p[1], 4), rp[0] + 36 * u, rp[1] - 6 * u, F(700, 11, MONO), tx(.75), 'left');
-        text('ALT', rp[0] + 36 * u, rp[1] + 7 * u, F(500, 8, MONO), tx(.4), 'left', 1);
+        const rdx = (locked ? 96 : 36) * u;                              // locked: the readouts step out to the sides, clear of the lock box and the target's code and range
+        text(pad(player.speed * 3.6, 3), rp[0] - rdx, rp[1] - 6 * u, F(700, 11, MONO), tx(.75), 'right');
+        text('SPD', rp[0] - rdx, rp[1] + 7 * u, F(500, 8, MONO), tx(.4), 'right', 1);
+        text(pad(player.p[1], 4), rp[0] + rdx, rp[1] - 6 * u, F(700, 11, MONO), tx(.75), 'left');
+        text('ALT', rp[0] + rdx, rp[1] + 7 * u, F(500, 8, MONO), tx(.4), 'left', 1);
         if (G0.hitMark > 0) {
           const kk = G0.hitMark / .14, hs = (7 + (1 - kk) * 7) * u; c.strokeStyle = `rgba(255, 255, 255, ${kk})`; c.lineWidth = 2 * u; c.beginPath();
           for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(rp[0] + sx * hs, rp[1] + sy * hs); c.lineTo(rp[0] + sx * hs * 1.7, rp[1] + sy * hs * 1.7); }
@@ -4874,8 +4961,9 @@ function bootGame() {
           const arm = Math.max(4 * u, s * .4); c.beginPath();
           for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { c.moveTo(sp[0] + sx * (s - arm), sp[1] + sy * s * .75); c.lineTo(sp[0] + sx * s, sp[1] + sy * s * .75); c.lineTo(sp[0] + sx * s, sp[1] + sy * (s * .75 - arm)); }
           c.stroke();
-          text(label, sp[0] + s + 5 * u, sp[1] - s * .75 + 5 * u, F(700, 9, MONO), col, 'left', 1);
-          if (sub) text(sub, sp[0] + s + 5 * u, sp[1] - s * .75 + 17 * u, F(500, 9, MONO), tx(.65), 'left', 1);
+          const lx = sp[0] + Math.max(s, G0.lock && p === G0.lock.p ? clamp(1000 / sp[2], 14, 44) * u * 1.1 : 0) + 5 * u;   // the locked one: the code and range sit outside the rotating lock box
+          text(label, lx, sp[1] - s * .75 + 5 * u, F(700, 9, MONO), col, 'left', 1);
+          if (sub) text(sub, lx, sp[1] - s * .75 + 17 * u, F(500, 9, MONO), tx(.65), 'left', 1);
         } else if (kind === 'crate') {
            hex(sp[0], sp[1], s * .6); c.stroke();
           text(label, sp[0], sp[1] + s * .6 + 11 * u, F(700, 9, MONO), col, 'center', 1.5);
@@ -5050,7 +5138,7 @@ function bootGame() {
     const sc = dyn.tick(now);
     const sc0 = G0.mode === 'replay' && G0.replay ? replayScene() : scene(frameNo++);
     if (G0.mode === 'fly' && !MP.on && frameNo % 2 === 0) { G0.rec.push({ s: sc0, rt: G0.rt || 0 }); while (G0.rec.length && G0.rt - G0.rec[0].rt > 5) G0.rec.shift(); }
-    R.frame({ ...sc0, flash: FLASH, fast: true, sceneW: Math.max(64, Math.round(ow * sc)), sceneH: Math.max(36, Math.round(oh * sc)), outW: ow, outH: oh, cloudScale: .4, steps: MOBILE ? 52 : 68 });
+    R.frame({ ...sc0, flash: FLASH, fast: true, sceneW: Math.max(64, Math.round(ow * sc)), sceneH: Math.max(36, Math.round(oh * sc)), outW: ow, outH: oh, cloudScale: .4, cloudFloor: CLOUD_FLOOR, steps: MOBILE ? 52 : 68 });
     drawHUD();
   };
   requestAnimationFrame(loop);
@@ -5089,6 +5177,10 @@ function bootFilm() {
   let start = 0, audio = null;
   const play = document.createElement('button'); play.className = 'jb-btn'; play.textContent = '起飞 ›';
   play.style.cssText = 'right: 14px; bottom: 14px;'; stage.appendChild(play);
+  // full bleed: on a screen wider than 16:9 the picture is rendered at the screen's own aspect (the shot stays framed for 16:9 in the middle, the sides just show more sky and sea); the words stay in the central 16:9
+  FADE_OUT = true; const fadeEl = document.createElement('div'); fadeEl.style.cssText = 'position:absolute;inset:0;background:#08060e;opacity:0;pointer-events:none'; stage.appendChild(fadeEl);
+  canvas.style.cssText = 'position:absolute;top:0;bottom:0;left:50%;height:100%;width:auto;aspect-ratio:16/9;transform:translateX(-50%);pointer-events:none';
+  const fit = () => { const vw = innerWidth, vh = window.innerHeight, wide = vw / vh > 16 / 9; stage.style.width = wide ? '100vw' : ''; stage.style.height = wide ? '100dvh' : ''; stage.style.aspectRatio = wide ? 'auto' : ''; };
   play.addEventListener('click', e => { e.stopPropagation(); location.search = '?play'; });
   stage.addEventListener('click', () => {
     if (audio) { audio.close(); audio = null; return; }
@@ -5096,13 +5188,13 @@ function bootFilm() {
   });
   const loop = now => {
     requestAnimationFrame(loop);
-    const [ow, oh] = sizeCanvas(glv, stage);
+    fit(); const [ow, oh] = sizeCanvas(glv, stage);
     if (!R.baked) { R.bakeStep(); ctx.fillStyle = '#08060e'; ctx.fillRect(0, 0, W, H); start = now; return; }
     const f = Math.floor((now - start) / 1000 * FPS) % FRAMES, sc = dyn.tick(now);
     const { S, t, cam, hf } = filmScene(f);
-    R.frame({ ...S, fast: true, sceneW: Math.round(ow * sc), sceneH: Math.round(oh * sc), outW: ow, outH: oh, cloudScale: .4, steps: MOBILE ? 56 : 72 });
+    R.frame({ ...S, fast: true, sceneW: Math.round(ow * sc), sceneH: Math.round(oh * sc), outW: ow, outH: oh, cloudScale: .4, cloudFloor: CLOUD_FLOOR, steps: MOBILE ? 56 : 72 });
     ctx.clearRect(0, 0, W, H);
-    overlay(ctx, t, cam, hf);
+    overlay(ctx, t, cam, hf); fadeEl.style.opacity = FILM_FADE;
   };
   requestAnimationFrame(loop);
 }
