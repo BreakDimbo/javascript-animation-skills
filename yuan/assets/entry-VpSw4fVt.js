@@ -1,0 +1,1 @@
+import{i as e}from"./MainScreen-Bcc6aY9s.js";export{e as openExpress};
