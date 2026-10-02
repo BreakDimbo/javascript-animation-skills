@@ -1,0 +1,1 @@
+.sp-root{background:#fbe4d6;position:absolute;inset:0;overflow:hidden}.sp-bg{background:#fbe4d6 url(../assets/bg/splash.jpg) 50%/cover no-repeat;position:absolute;inset:0}.sp-logo{width:406px;height:239px;animation:.5s ease-out both sp-pop;position:absolute;top:196px;left:12px;overflow:visible}@keyframes sp-pop{0%{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
