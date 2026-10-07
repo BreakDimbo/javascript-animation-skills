@@ -1,0 +1,1 @@
+import{i as e}from"./MainScreen-BauFLlcd.js";export{e as openExpress};
