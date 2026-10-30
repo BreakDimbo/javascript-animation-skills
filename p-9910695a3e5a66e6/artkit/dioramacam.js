@@ -25,7 +25,7 @@ export function createDioramaCam(camera, dom, { catLen = 0.45 } = {}){
   });
   dom.addEventListener('wheel', e => { cam.Dt = THREE.MathUtils.clamp(cam.Dt * Math.exp(e.deltaY * 0.001), HOME_D * .5, HOME_D * 3); e.preventDefault(); }, { passive: false });
   addEventListener('keydown', e => { if (e.code === 'KeyH') cam.home(); });
-  const _q = new THREE.Quaternion(), off = new THREE.Vector3();
+  const _q = new THREE.Quaternion(), off = new THREE.Vector3(), _goal = new THREE.Vector3(), _tu = new THREE.Vector3();   // perf: per-frame scratch
   cam.update = (dt, cat) => {
     dt = Math.min(dt, 0.05); const up = cat.up;
     if (!cam.yaw){ cam.yaw = (cam.initYaw || cat.fwd).clone(); cam.prevUp = up.clone(); }
@@ -33,10 +33,10 @@ export function createDioramaCam(camera, dom, { catLen = 0.45 } = {}){
     if (cam.dYaw){ _q.setFromAxisAngle(up, cam.dYaw); cam.yaw.applyQuaternion(_q); cam.dYaw = 0; }
     cam.yaw.addScaledVector(up, -cam.yaw.dot(up)).normalize();
     // smooth follow: target eases to the cat's ground point (jumps don't bob the frame)
-    const goal = up.clone().multiplyScalar(cat.R + (cat.ground ?? cat.alt) + 0.1);
+    const goal = _goal.copy(up).multiplyScalar(cat.R + (cat.ground ?? cat.alt) + 0.1);
     if (!cam.init){ cam.target.copy(goal); cam.init = true; } else cam.target.lerp(goal, 1 - Math.exp(-dt * 3.2));
     const k = 1 - Math.exp(-dt * 5); cam.D += (cam.Dt - cam.D) * k; cam.elev += (cam.elevT - cam.elev) * k;
-    const tu = cam.target.clone().normalize();
+    const tu = _tu.copy(cam.target).normalize();
     off.copy(cam.yaw).multiplyScalar(-Math.cos(cam.elev)).addScaledVector(tu, Math.sin(cam.elev)).multiplyScalar(cam.D);
     camera.position.copy(cam.target).add(off); camera.up.copy(tu); camera.lookAt(cam.target);
     // board ↔ planet: at the home distance one ragged board sits on paper (FINAL17 framing: 6.6 × 9.2 m, centred 0.75 m beyond the

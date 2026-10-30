@@ -1,0 +1,24 @@
+<meta name="robots" content="noindex,nofollow"><!doctype html><meta charset="utf-8"><body><script type="module">
+// Bakes what the meadow's paintGround feeds createMeadow (hedges + rand count; json-only) so the game skips ~5 s of painting at start.
+// Run: python3 bake_meadow.py        Check parity with the live paint: python3 bake_meadow.py --check
+import * as THREE from '../shared/vendor/three.module.js';
+import { bakeMeadowGround, createMeadow, MEADOW_PAINT_V } from '../b2-meadow/meadow.js';
+const qs = new URLSearchParams(location.search);
+if (qs.has('v')) window.__check = { v: MEADOW_PAINT_V };   // just the version (stale test)
+else if (!qs.has('check')){
+  const t0 = performance.now(), b = bakeMeadowGround();
+  window.__bake = { json: JSON.stringify({ v: b.v, seed: b.seed, TEXN: b.TEXN, PATCH: b.PATCH, randCalls: b.randCalls, hedges: b.hedges, fields: b.fields }),
+    ms: performance.now() - t0 };
+} else (async () => {
+  const json = await (await fetch('./baked/meadow_ground_2048.json')).json(), t0 = performance.now(), live = bakeMeadowGround(), liveMs = performance.now() - t0;
+  // 2) the rand stream: hedge lumps + sheep built after the paint must be identical with the bake
+  const t1 = performance.now(), mL = createMeadow(new THREE.Scene(), { radius: 600, R: 600 }, new THREE.Vector3(0, 1, 0)), buildLive = performance.now() - t1;
+  const t2 = performance.now(), mB = createMeadow(new THREE.Scene(), { radius: 600, R: 600 }, new THREE.Vector3(0, 1, 0), { baked: { json } }), buildBaked = performance.now() - t2;
+  const inst = (m) => { let o = null; m.group.traverse(x => { if (x.isInstancedMesh && !o) o = x; }); return o; };
+  const iL = inst(mL), iB = inst(mB); let mDiff = iL.count === iB.count ? 0 : 1e9; for (let i = 0; i < iL.instanceMatrix.array.length && mDiff < 1e9; i++) mDiff = Math.max(mDiff, Math.abs(iL.instanceMatrix.array[i] - iB.instanceMatrix.array[i]));
+  const sh = (m) => m.sheep.map(s => [s.u, s.v, s.heading, s.size, s.state, s.t].join()).join('|');
+  window.__check = { v: MEADOW_PAINT_V, jsonV: json.v, fresh: json.v === MEADOW_PAINT_V, randCalls: live.randCalls, jsonRandCalls: json.randCalls,
+    hedgesEqual: JSON.stringify(live.hedges) === JSON.stringify(json.hedges), lumps: [iL.count, iB.count], lumpMaxDiff: mDiff, sheepEqual: sh(mL) === sh(mB), groundBaked: [mL.groundBaked, mB.groundBaked],
+    paintMs: Math.round(liveMs), createLiveMs: Math.round(buildLive), createBakedMs: Math.round(buildBaked) };
+})();
+</script>

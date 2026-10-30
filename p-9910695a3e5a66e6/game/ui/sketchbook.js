@@ -46,7 +46,7 @@ export function createSketchbook({ route, wild, regionAt }){
     for (const f of route.finds){ const d = dist(f.u, f.v, cu, cv); if (d < NEAR + (f.kind === 'drift' ? 1 : 0)) out.push([d, f.kind === 'drift' && seen.has('drift') ? 'butterfly' : f.kind]); }
     for (const s of route.sleep){ const d = dist(s.u, s.v, cu, cv); if (d < NEAR) out.push([d, 'sleep']); }
     if (wild) for (const r of wild.rabbits){ const d = r.pos.angleTo(cat.up) * R; if (d < 3.2) out.push([d + .5, 'rabbit']); }
-    const reg = regionAt(cat.up); if (reg){ const k = { '01': 'sheep', '06': 'duck', '07': 'seal' }[reg.no]; if (k) out.push([4, k]); }
+    const reg = regionAt(cat.up); if (reg){ const k = { meadow: 'sheep', pond: 'duck', sealbay: 'seal' }[reg.id]; if (k) out.push([4, k]); }
     if (wild?.swallows?.mesh?.visible) out.push([6, 'swallow']);
     out.sort((a, b) => a[0] - b[0]); return out.map(o => o[1]).find(k => !seen.has(k)) || null;
   }

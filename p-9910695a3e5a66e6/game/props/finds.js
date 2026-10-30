@@ -5,6 +5,7 @@ import { R, note } from '../core/util.js';
 import { F, uP, vP, uM, vM, PS, lanePath, meadowU } from '../world.js';
 
 /* r5 #6: small clay finds in the seams between regions (gate, stone, bucket, signpost) — FINAL17-style miniature props */
+import { cullMesh } from '../journey/boardcull.js';
 export function createFinds(scene, heightAt, route = null){ const g = new THREE.Group(); g.name = 'finds'; scene.add(g);
   const M = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }), wood = M('#9a6b43'), woodD = M('#7a5233'), stoneM = M('#a9a294'),
     tin = M('#8f9aa0'), paint = M('#e9dfc8');
@@ -96,15 +97,18 @@ export function createFinds(scene, heightAt, route = null){ const g = new THREE.
   }
   /* r6 #5: bake every find into ONE vertex-coloured mesh (1 draw + its shadow pass) */
   g.updateMatrixWorld(true); const pos = [], nor = [], col = [], C = new THREE.Color();
+  /* QA r3 #2: per-vertex prop centre + radius (foldC) so journey/boardcull.js drops a whole find near the board's edge */
+  const fc = [], top = (o) => { while (o.parent && o.parent !== g) o = o.parent; return o; }, SPH = new Map(), bb = new THREE.Box3(), sp = new THREE.Sphere();
+  for (const t of g.children){ bb.setFromObject(t); bb.getBoundingSphere(sp); SPH.set(t, [sp.center.x, sp.center.y, sp.center.z, Math.min(sp.radius, .6)]); }
   g.traverse(o => { if (!o.isMesh) return; const ge = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(), sh = o.userData.shade, P = ge.attributes.position;
     const al = []; if (sh){ const rr = o.geometry.parameters.radius; for (let i = 0; i < P.count; i++) al.push(sh * (1 - Math.min(1, Math.hypot(P.getX(i), P.getY(i)) / rr))); }
     ge.applyMatrix4(o.matrixWorld); const Nn = ge.attributes.normal; C.copy(o.material.color);
-    for (let i = 0; i < P.count; i++){ pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(Nn.getX(i), Nn.getY(i), Nn.getZ(i)); col.push(C.r, C.g,
+    const cs = SPH.get(top(o)) || [0, 0, 0, 1]; for (let i = 0; i < P.count; i++){ fc.push(...cs); pos.push(P.getX(i), P.getY(i), P.getZ(i)); nor.push(Nn.getX(i), Nn.getY(i), Nn.getZ(i)); col.push(C.r, C.g,
       C.b, sh ? al[i] : 1); } ge.dispose(); });
   scene.remove(g); const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    mg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); mg.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+    mg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); mg.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); mg.setAttribute('foldC', new THREE.Float32BufferAttribute(fc, 4));
   /* journey: RGBA vertex colours (alpha only on the contact discs) → a transparent pass, still 1 draw (forceSinglePass); the mesh sits at the
      planet centre, so it sorts first among the transparent sprites drawn over it */
   const one = new THREE.Mesh(mg, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, shadowSide: THREE.FrontSide, transparent: true, forceSinglePass: true }));
-    one.castShadow = true; one.receiveShadow = true; one.name = 'finds'; scene.add(one);
+    one.castShadow = true; one.receiveShadow = true; one.name = 'finds'; cullMesh(one); scene.add(one);
   note(`finds: ${g.children.length} props → 1 mesh, ${pos.length / 9 | 0} tris`); return one; }

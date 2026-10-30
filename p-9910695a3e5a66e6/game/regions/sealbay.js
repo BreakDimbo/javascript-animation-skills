@@ -3,7 +3,7 @@ import { R, qs, note, safe } from '../core/util.js';
 import { REG, F } from '../world.js';
 
 export async function createSealbayRegion(scene){
-  const SBR = REG.find(r => r.no === '07');
+  const SBR = REG.find(r => r.id === 'sealbay');
   if (!SBR || qs.has('nosealbay')) return null;
   const sb = await import('../sealbay/sealbay.js').then(m => safe('sealbay', () => m.createSealBay(scene, { R, origin: SBR.dir })),
     e => (note('sealbay × ' + e.message), null));

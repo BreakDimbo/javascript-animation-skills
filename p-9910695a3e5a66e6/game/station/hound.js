@@ -19,7 +19,7 @@ export function createHound(mat, { bed, bedYaw, groundAt, clampXZ }){
   // body (forward = +z in the dog group)
   const dog = new THREE.Group(); root.add(dog); const inner = new THREE.Group(); inner.scale.setScalar(.67); dog.add(inner); // r2: −46 % (review: 1.35 Lc nose→rump, 1.1 Hc at the shoulder, measured on station/sheet.html)
   // r2.1 (review-vd-station-r2 §2): taller, not longer — shoulder 1.04 → 1.2–1.25 Hc on longer legs, length kept at 2.4 Hc, head ×HEAD, ears +10 %
-  const LEG = .05, HEAD = 1.12;
+  const LEG = .076, HEAD = 1.12;   // r3 (review-vd-station-r3 dog): standing shoulder 1.12 → 1.2–1.25 Hc (legs + body rise by the same .026)
   const body = new THREE.Group(); inner.add(body);
   body.add(part(11, (b) => {
     b.add(cap(.088, .26).rotateX(Math.PI / 2).scale(1, .92, 1), C.coat, 0, 0, 0, 0, 0, 0, .015);
@@ -27,6 +27,7 @@ export function createHound(mat, { bed, bedYaw, groundAt, clampXZ }){
     b.add(blob(.062, 1, .015), C.cream, 0, -.025, .19, 0, 0, 0, .01);                // pale chest
     b.add(blob(.082, .92, .02), C.coatD, 0, .035, -.04, 0, 0, 0, .02);               // darker saddle
     b.add(blob(.086, .97, .02), C.coat, 0, .0, -.15, 0, 0, 0, .01); }));          // haunch
+  const torso = body.children[0];   // r3: the merged torso mesh (part 11), squashed a little when lying
   // legs: pivots at shoulder / hip; leg hangs along −y
   const legs = [];
   for (const [x, z, front] of [[-.055, .14, 1], [.055, .14, 1], [-.06, -.15, 0], [.06, -.15, 0]]){
@@ -60,9 +61,10 @@ export function createHound(mat, { bed, bedYaw, groundAt, clampXZ }){
     const u = S.up, sp = S.gait;
     dog.position.set(S.x, groundAt(S.x, S.z), S.z); dog.rotation.y = S.yaw;
     const breathe = Math.sin(T * (u < .5 ? 1.5 : 2.4)) * .006;
-    body.position.y = lerp(.072, .155 + LEG, u) + Math.abs(Math.sin(S.ph * 2)) * .01 * sp;
+    body.position.y = lerp(.062, .155 + LEG, u) + Math.abs(Math.sin(S.ph * 2)) * .01 * sp;
     body.rotation.x = lerp(.04, -.03, u);
     body.scale.set(1 + breathe, 1 + breathe * 1.4, 1);
+    if (torso) torso.scale.y = lerp(.75, 1, u);   // r3: lying back 0.75 → 0.55–0.70 Hc (flatter, lower torso when lying)
     for (const [i, L] of legs.entries()){
       const sw = Math.sin(S.ph + (i === 0 || i === 3 ? 0 : Math.PI)) * .55 * sp;
       const rest = L.front ? -1.45 : -1.3;                          // lying: forelegs out in front, hind legs tucked under

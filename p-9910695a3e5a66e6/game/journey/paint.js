@@ -11,7 +11,10 @@ float lpN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3. - 2. * f);
   return mix(mix(mix(lpH(i), lpH(i + vec3(1,0,0)), f.x), mix(lpH(i + vec3(0,1,0)), lpH(i + vec3(1,1,0)), f.x), f.y),
              mix(mix(lpH(i + vec3(0,0,1)), lpH(i + vec3(1,0,1)), f.x), mix(lpH(i + vec3(0,1,1)), lpH(i + vec3(1,1,1)), f.x), f.y), f.z); }
 `;
-export function paintMaterial(){
+// hard: the loop path (QA H4 / #22). The soft wash edge (alpha .78–.98 of the half width ± .22 noise, edge tone from .5) left a solid tan
+// core of only ~0.6 of the width: ~9 px at 1440 where the path crosses the view (station, mill: 0.185 m × 69.7 px/m, foreshortened by the
+// 24.5° camera) vs ~14 px where it runs diagonally (pond, 83 px/m). Hard = solid to 0.9 half width, rim tone from .72, noise ± .09.
+export function paintMaterial({ hard = false } = {}){
   const m = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
   m.onBeforeCompile = (s) => {
     s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 aCol, aCol2; attribute vec2 aEO; varying vec3 vCol, vCol2; varying vec2 vEO; varying vec3 vLP;')
@@ -19,14 +22,14 @@ export function paintMaterial(){
     s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCol, vCol2; varying vec2 vEO; varying vec3 vLP;' + NOISE)
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', `
         float n1 = lpN(vLP * 7.), n2 = lpN(vLP * 23. + 5.), n3 = lpN(vLP * 1.7 + 11.);
-        float e = vEO.x + (n1 - .5) * .32 + (n2 - .5) * .12;
-        float a = vEO.y * (1. - smoothstep(.78, .98, e)) * (.86 + .14 * n3);
-        vec3 c = mix(vCol, vCol2, smoothstep(.5, .86, e)) * (1. + (n2 - .5) * .10 + (n3 - .5) * .08);
+        float e = vEO.x + (n1 - .5) * ${hard ? '.12' : '.32'} + (n2 - .5) * ${hard ? '.06' : '.12'};
+        float a = vEO.y * (1. - smoothstep(${hard ? '.9, 1.04' : '.78, .98'}, e)) * (.86 + .14 * n3);
+        vec3 c = mix(vCol, vCol2, smoothstep(${hard ? '.72, .98' : '.5, .86'}, e)) * (1. + (n2 - .5) * .10 + (n3 - .5) * .08);
         // stay inside the painted board: the props' clip margin would let washes run out over the paper past the ground's ragged rim
         if (uBoardF.w > 0.0) a *= 1. - smoothstep(-.42, -.08, foldBoardSD(vFoldW));
         vec4 diffuseColor = vec4(c, a * opacity);`);
   };
-  m.customProgramCacheKey = () => 'fold-loop-paint';
+  m.customProgramCacheKey = () => 'fold-loop-paint' + (hard ? '-hard' : '');
   return m;
 }
 

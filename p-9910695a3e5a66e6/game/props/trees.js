@@ -16,9 +16,11 @@ const HOME0 = F.dirOf(0, 0);
 function groundN(dir, heightAt){ const E = new THREE.Vector3(0, 1, 0).cross(dir).normalize(), N = E.clone().cross(dir).normalize(), e = .35;
   const at = (a, b) => { const d = dir.clone().addScaledVector(E, a / R).addScaledVector(N, b / R).normalize(); return d.multiplyScalar(R + heightAt(d)); };
   const n = at(e, 0).sub(at(-e, 0)).cross(at(0, e).sub(at(0, -e))).normalize(); return n.dot(dir) < 0 ? n.negate() : n; }
-function miniTrees(c, rad, heightAt, avoid){
+/* m-perf: the planter is a generator (yields once per lattice row) so a replant can be spread over several frames; miniTrees() runs it to the end */
+export function miniTrees(c, rad, heightAt, avoid){ const g = miniTreesGen(c, rad, heightAt, avoid); let r; while (!(r = g.next()).done); return r.value; }
+export function* miniTreesGen(c, rad, heightAt, avoid){
   const E = new THREE.Vector3(0, 1, 0).cross(c).normalize(), N = E.clone().cross(c), out = [], P = new THREE.Vector3(), rnd = mulberry(7);
-  for (let y = -rad; y <= rad; y += .7) for (let x = -rad; x <= rad; x += .7){
+  for (let y = -rad; y <= rad; y += .7){ yield; for (let x = -rad; x <= rad; x += .7){
     if (x * x + y * y > rad * rad) continue;
     P.copy(c).multiplyScalar(R).addScaledVector(E, x).addScaledVector(N, y).setLength(R);
     const q = mfCells([P.x, P.y, P.z]); if (Math.abs(q.d) > .3) continue;
@@ -36,7 +38,7 @@ function miniTrees(c, rad, heightAt, avoid){
     { const [tu, tv] = F.toUV(dir); if (CLEAR.some(([a, b, r]) => Math.abs(a - tu) < r && Math.abs(b - tv) < r && Math.hypot(a - tu, b - tv) < r)) continue; }
     out.push({ dir, h: heightAt(dir), n: groundN(dir, heightAt), s: TREE_S * (.75 + .6 * h[1]),
       cell: 8 + ((h[2] * 6) | 0) /* r6: no random pinks; the one pink tree is placed by hand */ });
-  }
+  } }
   /* r5: FINAL17's rim clumps: ~8 big round trees in overlapping groups at the board's corners and edges (bottom-left and bottom-right groups) */
   for (const [u, v, k, cell] of RIM){ const d = F.dirOf(u, v); if (d.angleTo(c) * R < rad) out.push({ dir: d, h: heightAt(d), n: groundN(d, heightAt), s: TREE_S * k, cell }); }
   // the one pink tree, left of the river like FINAL17's
@@ -49,7 +51,16 @@ export function createTreePlanter(scene, heightAt, avoid){
   let trees = null, plantC = null;
   const plant = (c) => { trees?.dispose?.(); const list = miniTrees(c, 24, heightAt, avoid); trees = safe('trees',
     () => createTrees(scene, list, R)); return list.length; };
-  return { plant: (c) => { plantC = c.clone(); return plant(plantC); },
-    follow(up){ if (up.angleTo(plantC) * R > 7){ plantC.copy(up); plant(plantC); } },
+  /* m-perf: replanting (every 7 m) cost one long frame (~3.7k Voronoi samples + terrain normals). It now runs as a job with a ~3 ms
+     per-frame budget and the new set replaces the old one when complete (usually 5–15 frames later). The old set covers 24 m around
+     its centre, the board only ~6 m around the cat, so nothing on screen changes meanwhile. Teleports (> 16 m), automation
+     (navigator.webdriver: QA shots stay frame-deterministic on the 9 s/frame software renderer) and ?treesync keep the old one-frame replant. */
+  const SYNC = qs.has('treesync') || navigator.webdriver === true, BUDGET = 3; let job = null, jobC = null;
+  const step = () => { const t0 = performance.now(); let r; try { while (!(r = job.next()).done) if (performance.now() - t0 > BUDGET) return; }
+      catch (e){ console.warn('trees job', e); job = null; plant(plantC); return; }
+    const list = r.value; job = null; trees?.dispose?.(); trees = safe('trees', () => createTrees(scene, list, R)); };
+  return { plant: (c) => { plantC = c.clone(); job = null; return plant(plantC); },
+    follow(up){ const d = up.angleTo(plantC) * R; if (d > 7){ plantC.copy(up); if (SYNC || d > 16){ job = null; plant(plantC); } else { jobC = plantC.clone(); job = miniTreesGen(jobC, 24, heightAt, avoid); } }
+      if (job) step(); },
     update(sd){ trees?.update?.(sd); } };
 }

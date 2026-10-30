@@ -22,7 +22,7 @@ const PAL = { stone: '#b9ad98', coping: '#d8ccb2', moss: '#8a9a5a', wood: '#8c6c
   post: '#7d5c46', iron: '#4e524c', board: '#efe6d2', churn: '#b9b4a8', churnD: '#a39e93', pot: '#a87a62', flower: '#dcb862', leaf: '#7f9658', ink: '#4a3a2e' };
 
 export function createStationRegion(scene){
-  const SR = REG.find((r) => r.no === '02'), DIR = (SR?.dir || STATION_DIR).clone().normalize();
+  const SR = REG.find((r) => r.id === 'station'), DIR = (SR?.dir || STATION_DIR).clone().normalize();
   const group = new THREE.Group(); group.name = 'station'; scene.add(group);
   // the cat's shading language (review-vd-station-r1 §1): toon bands, stroke grain, mottle, chalky top edges — one material per object family
   const mat = paintMaterial({ vertexColors: true, axis: [1, 0, 0], stroke: 24, mottle: 3, chalk: .05, seed: 1 });
@@ -48,7 +48,13 @@ export function createStationRegion(scene){
   const TS = K * .8;                                            // r2.1: loco 2.3 Hc, coach 2.0 Hc, train 8.3–9.1 Hc at the reference cat (review-vd-station-r2 §3)
   let track = createTrack(group, { loop, surf: surfK, K, TS }), trackObjs = group.children.slice();
   const train = createTrain(group, { track, loop, mat: matTrain, K, TS });
-  const STOP = Ls / 2 - .65;                                    // r2.1: 0.9 m back toward the coach from r2 — the cab stands clear of the shelter eave (≥ .3 Hc)
+  // QA H1 r4 (Deployer team-merge-1440 dock shot): at the game camera the roof's view-ray lean at the rear coach is 0.37 m (rayToCut −0.287 vs
+  // toCut +0.085 m), not ~0.10 — no stop between the left cut and the eave cap passed (ok: false, rear coach wedge-sliced, no shadow). So the
+  // halt (platform + everything on it) moves PX0 = +0.20 (0.30 m) toward the board interior — it was 0.15 left of the cut-line centre (cut
+  // along the line ≈ −1.87…+2.17) — and the stop moves into the middle of the window it opens: tail ≥ 0.3 Hc inside the cut along the view
+  // rays (s ≥ 1.69), buffer ≥ 0.3 Hc short of the moved eave (s ≤ 1.75). The rails / loop stay (the left curve would show inside the board).
+  const PX0 = .20;
+  const STOP = Ls / 2 - .38;
   train.T.stops = [{ s: STOP, wait: 11 }, { s: Ls + Math.PI * Rc + Ls / 2 + 1.2, wait: 26 }];   // the far-side rest is out of frame
   train.T.s = qs.has('tt') ? STOP : STOP - .5; train.T.last = null;
 
@@ -64,7 +70,7 @@ export function createStationRegion(scene){
     const g = new THREE.ExtrudeGeometry(sh, { depth: PZ1 - PZ0 - .04, bevelEnabled: true, bevelThickness: .02, bevelSize: .016, bevelSegments: 4, curveSegments: 4 });
     g.translate(0, -.016, PZ0 + .02); g.computeVertexNormals();
     const m = new THREE.Mesh(g, platformMaterial({ flag: .6 / K, joint: .025 / K, z0: PZ0, z1: PZ1, coping: .25 / K, xEnd: PL, ramp: RAMP, mossW: .32 }, { color: PAL.stone, coping: PAL.coping, moss: PAL.moss }));
-    m.castShadow = true; m.receiveShadow = true; stand(m, 0, 0); }
+    m.castShadow = true; m.receiveShadow = true; stand(m, PX0, 0); }
   // shelter: an open timber canopy on four posts with a bench beneath (r2: ×.79, eave 3.3 → 2.6 Hc)
   const SX = .58, SZ = .8, SW = .86, SD = .4, SHH = .44, SS = .79;
   { const b = Builder(8);
@@ -78,10 +84,10 @@ export function createStationRegion(scene){
     // bench under the canopy
     b.box(SW - .16, .03, .13, PAL.wood, SX, PH + .12, SZ + .05, 0, .01); b.box(SW - .16, .09, .028, PAL.wood, SX, PH + .2, SZ + .12, 0, .009);
     for (const dx of [-.3, .3]) b.box(.03, .12, .11, PAL.woodD, SX + dx, PH + .06, SZ + .05, 0, .008);
-    stand(parts.shelter = fitProp(b.mesh(mat), SS, SX, PH, SZ), 0, 0); }
+    stand(parts.shelter = fitProp(b.mesh(mat), SS, SX, PH, SZ), PX0, 0); }
   // name board on two posts at the east end of the platform, read from the camera side (r2: ×.75, board 1.6 → 1.2 Lc)
   const NBX = 1.4, NBZ = .98, NS = .69;
-  { const o = stand(new THREE.Group(), 0, 0), b = Builder(9); for (const dx of [-.21, .21]) b.box(.032, .4, .032, PAL.iron, NBX + dx, PH + .2, NBZ, 0, .009);
+  { const o = stand(new THREE.Group(), PX0, 0), b = Builder(9); for (const dx of [-.21, .21]) b.box(.032, .4, .032, PAL.iron, NBX + dx, PH + .2, NBZ, 0, .009);
     b.box(.54, .14, .032, PAL.iron, NBX, PH + .36, NBZ - .006, 0, .012, .01); o.add(fitProp(b.mesh(mat), NS, NBX, PH, NBZ));
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = PAL.board; g.fillRect(0, 0, 512, 128);
     g.fillStyle = PAL.ink; g.font = '50px "Noto Serif CJK SC","Source Han Serif SC","Songti SC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -95,15 +101,15 @@ export function createStationRegion(scene){
   { const b = Builder(12);
     b.box(.032, .52, .032, PAL.iron, lx, PH + .26, lz, 0, .008); b.box(.1, .024, .024, PAL.iron, lx, PH + .5, lz - .04, 0, .006);
     b.add(new THREE.CylinderGeometry(.03, .045, .07, 10), PAL.iron, lx, PH + .47, lz - .09, 0, 0, 0, .01); b.add(lump(.036, .45, 0, 12), PAL.iron, lx, PH + .508, lz - .09);
-    stand(parts.lamp = fitProp(b.mesh(mat), .87, lx, PH, lz), 0, 0); }
+    stand(parts.lamp = fitProp(b.mesh(mat), .87, lx, PH, lz), PX0, 0); }
   { const b = Builder(13);
     for (const [x, z, s] of [[1.42, .56, 1], [1.5, .7, .9]]){ b.add(lump(.055 * s, 1.15, .015, 16).scale(1, 1, 1), PAL.churn, x, PH + .062 * s, z, 0, 0, 0, .03);
       b.add(new THREE.CylinderGeometry(.03 * s, .046 * s, .05 * s, 16), PAL.churnD, x, PH + .14 * s, z, 0, 0, 0, .02); b.add(lump(.034 * s, .4, 0, 14), PAL.churnD, x, PH + .168 * s, z); }
-    stand(parts.churns = fitProp(b.mesh(mat), .7, 1.46, PH, .63), 0, 0); }
+    stand(parts.churns = fitProp(b.mesh(mat), .7, 1.46, PH, .63), PX0, 0); }
   { const b = Builder(14);
     b.add(lump(.065, .62, .02, 16), PAL.pot, -1.48, PH + .03, .97, 0, 0, 0, .03);
     for (const [dx, dz, c, r] of [[0, 0, PAL.leaf, .06], [.03, .02, PAL.flower, .025], [-.03, -.01, PAL.flower, .022], [.0, -.035, '#ece1c8', .02]]) b.add(lump(r, .8, .05, 12), c, -1.48 + dx, PH + .08 + (c === PAL.leaf ? 0 : .03), .97 + dz, 0, 0, 0, .05);
-    stand(parts.tub = fitProp(b.mesh(mat), 1, -1.48, PH, .97), 0, 0); }
+    stand(parts.tub = fitProp(b.mesh(mat), 1, -1.48, PH, .97), PX0, 0); }
 
   // ---------- the hound ----------
   const pH = (x, z) => { // platform top (with the ramps), 0 outside
@@ -111,18 +117,18 @@ export function createStationRegion(scene){
   const bed = [-.8, .72];
   const hound = createHound(matDog, { bed, bedYaw: -Math.PI / 2 + .2, groundAt: pH,
     clampXZ: (x, z) => [THREE.MathUtils.clamp(x, -PL + .15, SX - SW / 2 - .1), THREE.MathUtils.clamp(z, PZ0 + .14, PZ1 - .1)] });
-  const hr = stand(hound.root, 0, 0); stand(hound.rug, 0, 0);
+  const hr = stand(hound.root, PX0, 0); stand(hound.rug, PX0, 0);   // r4: the hound lives in platform coordinates (x − PX0)
   // ---------- cat interaction ----------
   // the platform lifts the cat visually (root offset along up, re-applied every frame after updateCat): the painted ground stays flat
   const sm = THREE.MathUtils.smoothstep;
-  const liftAt = (x, z) => { if (z < PZ0 - .06 || z > PZ1 + .06 || Math.abs(x) > PL + RAMP) return 0; const side = Math.min(sm(z, PZ0 - .06, PZ0 + .02), 1 - sm(z, PZ1 - .02, PZ1 + .06));
+  const liftAt = (x0, z) => { const x = x0 - PX0; if (z < PZ0 - .06 || z > PZ1 + .06 || Math.abs(x) > PL + RAMP) return 0; const side = Math.min(sm(z, PZ0 - .06, PZ0 + .02), 1 - sm(z, PZ1 - .02, PZ1 + .06));
     return pH(x, THREE.MathUtils.clamp(z, PZ0, PZ1)) * side; };
   // solid things: the bench, the shelter's back boards, the churns, the name-board posts — and the train cars / hound (escapable: never trap a cat already inside)
-  const boxes0 = [[SX - (SW / 2 - .06) * SS, SX + (SW / 2 - .06) * SS, SZ - .03, SZ + SD / 2 * SS, SX, SZ], [1.36, 1.56, .5, .76, 1.46, .63], [NBX - .25 * NS, NBX + .25 * NS, NBZ - .04, NBZ + .04, NBX, NBZ], [-1.56, -1.4, .9, 1.04, -1.48, .97]];
+  const boxes0 = [[SX - (SW / 2 - .06) * SS, SX + (SW / 2 - .06) * SS, SZ - .03, SZ + SD / 2 * SS, SX, SZ], [1.36, 1.56, .5, .76, 1.46, .63], [NBX - .25 * NS, NBX + .25 * NS, NBZ - .04, NBZ + .04, NBX, NBZ], [-1.56, -1.4, .9, 1.04, -1.48, .97]].map(([a, b, c, d, px, pz]) => [a + PX0, b + PX0, c, d, px + PX0, pz]);   // r4: platform coordinates → halt frame
   let boxes = boxes0, fitS = 1;
   const inBoxes = (x, z) => boxes.some(([a, b, c, d]) => x > a && x < b && z > c && z < d);
-  const inTrain = (x, z) => { for (const s of train.carS()) for (let o = -.45; o <= .451; o += .15){ const [px, pz] = loop.at(s + o * train.ks); if (Math.hypot(x - px, z - pz) < .3 * train.ks) return true; } return false; };
-  const inDog = (x, z) => { const [hx, hz] = hound.reach(); return Math.hypot(x - hx, z - hz) < .13 * fitS; };
+  const inTrain = (x, z) => { const cs = train.carS(); for (let i = 0; i < cs.length; i++){ const s = cs[i], hl = (train.halfL?.[i] ?? .5) - .05; for (let o = -hl; o <= hl + 1e-3; o += Math.min(.15, hl)){ const [px, pz] = loop.at(s + o * train.ks); if (Math.hypot(x - px, z - pz) < .3 * train.ks) return true; } } return false; };
+  const inDog = (x, z) => { const [hx, hz] = hound.reach(); return Math.hypot(x - PX0 - hx, z - hz) < .13 * fitS; };
   let catXZ = null, lift = 0;
   const near = (x, z) => Math.hypot(x, z + Rc) < Ls / 2 + 2 * Rc + 1.5;
   function blocked(d){ if (d.dot(DIR) < .9995) return false; const [x, z] = localK(d); if (!near(x, z)) return false;
@@ -131,7 +137,7 @@ export function createStationRegion(scene){
     if (inDog(x, z) && !(c && inDog(c[0], c[1]))) return true; return false; }
 
   // ---------- r2.1: size everything that stands on the platform from the cat (Hc only — review-vd-station-r2 §1) ----------
-  let catDone = false, fitInfo = { s: 1, hc: CAT_HC_FALLBACK, src: 'fallback' };
+  let dockFor = null, dock = null; let catDone = false, fitInfo = { s: 1, hc: CAT_HC_FALLBACK, src: 'fallback' };
   function fitTo(hc, src){
     const s = hc / CAT_HC_FALLBACK; if (Math.abs(s - fitS) < 1e-3 && fitInfo.src === src) return; fitS = s; fitInfo = { s, hc, src };
     for (const [m, s0, x, y, z] of fitted) shrink(m, s0 * s, x, y, z);
@@ -150,13 +156,25 @@ export function createStationRegion(scene){
   function update(dt, { T, cat }){
     if (!catDone) catDone = observeCat(cat);   // measures CAT_HC once the game's cat model is in (game/catScale.js); fitTo() follows via onCatHc
     catXZ = localK(cat.up);
-    if (warm > 0){ for (let t = 0; t < warm; t += 1 / 30) hound.update(1 / 30, T + t, catXZ, 0); warm = 0; }
+    if (warm > 0){ for (let t = 0; t < warm; t += 1 / 30) hound.update(1 / 30, T + t, [catXZ[0] - PX0, catXZ[1]], 0); warm = 0; }
     const [cx, cz] = catXZ;
     // a polite toy: it waits while the cat is on the line just ahead of the loco
     let hold = false; const s0 = train.T.s + .5 * train.ks; for (let o = 0; o <= 1.6; o += .1){ const [px, pz] = loop.at(s0 + o); if (Math.hypot(cx - px, cz - pz) < .42){ hold = true; break; } }
     train.T.hold = hold; train.update(dt);
+    // review-vd-station-r3 #1: the stop is solved on the live board (once per cat Hc) — the docked train sits ≥ 0.5 Hc inside the board at both
+    // ends, nearest to the r2.1 stop (platform and shelter stay put)
+    // §9 (QA H1): docked whole inside the train cut (−0.30 m, view-ray) with ≥ 0.3 Hc at both ends, and the loco's front buffer ≥ 0.3 Hc clear of
+    // the shelter eave in x (r2 rule; eave edge read live from the fitted shelter mesh). Re-solved once the camera is known (ray margins).
+    const dk = fitInfo.hc + (train.camOK ? '|c' : '');
+    if (dockFor !== dk && train.fade.maxSD < 1e2){ const sh = parts.shelter, eaveX = PX0 + sh.position.x + sh.scale.x * (sh.geometry.boundingBox ?? (sh.geometry.computeBoundingBox(), sh.geometry.boundingBox)).min.x;
+      const sEave = eaveX - .3 * fitInfo.hc / K + Ls / 2 - train.HEAD * train.ks;   // the dock s at which the buffer sits exactly 0.3 Hc short of the eave
+      const d = train.dockAt(STOP, .3 * fitInfo.hc, STOP - 2.5, Math.min(STOP + 2.5, sEave)), st0 = train.T.stops[0];
+      dock = { ...d, stop0: STOP, hc: fitInfo.hc, eaveX, eaveGapHc: (eaveX - (d.s - Ls / 2 + train.HEAD * train.ks)) * K / fitInfo.hc, toCutHc: d.toCut / fitInfo.hc, rayToCutHc: d.rayToCut == null ? null : d.rayToCut / fitInfo.hc };
+      if (!d.ok) note(`station: dock NOT whole inside the train cut (toCut ${d.toCut.toFixed(3)} m, ray ${d.rayToCut?.toFixed(3)})`);
+      st0.s = d.s; dockFor = dk;
+      if (train.T.state === 'dwell' && train.T.next === st0) train.T.s = d.s; else if (!train.T.arrived) train.T.s = d.s - .5; train.update(0); }
     const arrived = train.T.state === 'dwell' && train.T.next === train.T.stops[0] ? 1 : 0;
-    hound.update(dt, T, near(cx, cz) ? catXZ : null, arrived && train.T.wait > 8 ? 1 : 0);
+    hound.update(dt, T, near(cx, cz) ? [cx - PX0, cz] : null, arrived && train.T.wait > 8 ? 1 : 0);
     // platform lift
     const target = liftAt(cx, cz);
     lift += (target - lift) * Math.min(1, dt * 14); if (lift > 1e-4) cat.root.position.addScaledVector(cat.up, lift * K);
@@ -170,7 +188,7 @@ export function createStationRegion(scene){
   // ?at=station: on the grass south-west of the platform, looking north across it to the line curving away
   const spawn = qs.has('hound') ? dirK(-.6, 1.6) : dirK(.15, 1.32), [su, sv] = F.toUV(spawn);
   note(`station: dir ${U0.toFixed(1)},${V0.toFixed(1)} · loop ${loop.L.toFixed(1)} m`);
-  window.__station = { train, hound, local: localK, dirAt: dirK, K, TS, PH, parts, fit: () => fitInfo, rewarm: (sec) => { warm = sec; }, update: null };   // rewarm: debug, re-run the ?hound pre-roll (shots taken after the glb fit)
+  window.__station = { train, hound, local: localK, dirAt: dirK, K, TS, PH, parts, fit: () => fitInfo, dock: () => dock, rewarm: (sec) => { warm = sec; }, update: null };   // rewarm: debug, re-run the ?hound pre-roll (shots taken after the glb fit)
   return { id: 'station', no: SR?.no || '02', name: SR?.name || NAME, dir: DIR, cardRadius: 6, activeRadius: 40, scale: 1, group, avoid,
     heightAt: null, blocked, update,
     setActive(on){ group.visible = on; if (!on) lift = 0; },

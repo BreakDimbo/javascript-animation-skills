@@ -241,8 +241,13 @@ function loadGLBCat(cat, url, fallback) {
   if (!cat.pb0) cat.pb0 = standBox(cat); /* r12 + r8d: size/seat the glb from the primitive in its stand pose, measured with every node transform saved/restored (pose-independent; a slow load used to measure the walking primitive, +18 %) */
   const DELAY = +((location.search.match(/[?&]catdelay=(\d+)/) || [])[1] || 0); /* test hook: ?catdelay=ms delays the glb load (simulates a slow box) */
   if (DELAY && !cat._dl) { cat._dl = 1; setTimeout(() => loadGLBCat(cat, url, fallback), DELAY); return; } /* r12: size/seat the glb from the primitive in its stand pose (dt 0 = no state change) */
+  if (cat._glbURL === url) return; cat._glbURL = url;   /* d-catfix (QA 1720 #18): idempotent per cat+url, a second call for the same cat never starts a second load */
   const ld = new GLTFLoader(), dr = new DRACOLoader(); dr.setDecoderPath(new URL('../shared/vendor/draco/', import.meta.url).href); ld.setDRACOLoader(dr);
-  ld.load(url, g => {
+  const onErr = e => { if (fallback){ console.warn('cat glb failed, falling back to cat.glb', url); loadGLBCat(cat, fallback, null); } else console.warn('cat glb failed, primitive fallback', e && e.message); };
+  let done; cat.glbReady = new Promise(r => { done = r; });   /* d-catfix: resolves (cat) once the glb is on the cat, or (null) on primitive fallback; harness/regions can await it */
+  glbBytes(url).then(buf => ld.parse(buf, THREE.LoaderUtils.extractUrlBase(url), g => { onGLB(g); done(cat); }, e => { _glbBuf.delete(url); onErr(e); done(null); }),
+    e => { _glbBuf.delete(url); onErr(e); done(null); });
+  function onGLB(g) {
     const m = g.scene; gouacheTex();
     const pb = cat.pb0; /* r12: measured here it followed the primitive's current pose, so ?pose=sit|sleep sank the glb ~.18 and rescaled it */
     let d1 = false; m.traverse(o => { if (o.userData && o.userData.fit) d1 = true; }); const c2 = MATQ === 'c2' || (MATQ !== 'old' && d1); /* D1b */
@@ -265,8 +270,24 @@ function loadGLBCat(cat, url, fallback) {
     const eyes = []; m.traverse(o => { if (o.isMesh && /eye|pupil/.test(o.name)) { o.userData.sy = o.scale.y; eyes.push(o); } }); cat.glbEyes = eyes; cat.glbLid = eyes.some(o => /lid/.test(o.name));
     const hc = measureCatHc(cat); if (hc) setCatHc(hc, 'glb'); cat.hc = hc; /* d-cat r8d: one Hc per glb, idle frame 0 x root scale; TODO(Soul, 17:00 integration): main.js/regions read CAT_HC / onCatHc from game/catScale.js */
     console.log('cat glb: ' + g.animations.length + ' actions, scale ' + k.toFixed(3) + (c2 ? ', material c2' : '') + ' ' + cq_(url) + ' Hc ' + (hc ? hc.toFixed(4) : '-') + ' pb0H ' + (pb.max.y - pb.min.y).toFixed(4));
-  }, undefined, e => { if (fallback){ console.warn('cat glb failed, falling back to cat.glb', url); loadGLBCat(cat, fallback, null); } else console.warn('cat glb failed, primitive fallback', e && e.message); });
+  }
 }
+/* d-catfix (QA 1720 #18, net::ERR_ABORTED on cat_a7.glb): one network request per glb URL for the page's lifetime. The bytes promise is cached at
+   module level, so a second createCat / loadGLBCat (re-init, ?catdelay retry, another module importing the cat) reuses the in-flight fetch
+   instead of starting (and racing / cancelling) a second one; each caller parses its own copy (scenes are not shared between cats). */
+const _glbBuf = new Map();
+function glbBytes(url) {
+  if (!_glbBuf.has(url)) _glbBuf.set(url, xhrBytes(url));
+  return _glbBuf.get(url).then(b => b.slice(0)); }
+/* d-catfix2 (QA 1955 #18, ERR_ABORTED at 21.3 s while the cat still loads): there is exactly one request for the glb (nothing else in the repo fetches it),
+   but THREE.FileLoader is fetch() + a JS getReader() progress stream; on the busy software-GL box the body is drained one main-thread task per chunk and
+   Chromium then reports that fetch to CDP/Playwright as loadingFailed net::ERR_ABORTED although every byte reached JS (known Chromium fetch-body quirk,
+   playwright#32752). A plain XHR arraybuffer load (no JS stream) is one request that ends as a normal 'requestfinished'; fetch only where XHR is missing. */
+function xhrBytes(url) {
+  if (typeof XMLHttpRequest === 'undefined') return fetch(url, { credentials: 'same-origin' }).then(r => { if (!r.ok) throw new Error(`glb ${r.status} ${url}`); return r.arrayBuffer(); });
+  return new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', url, true); x.responseType = 'arraybuffer';
+    x.onload = () => (x.status === 200 || x.status === 0) && x.response ? res(x.response) : rej(new Error(`glb ${x.status} ${url}`));
+    x.onerror = () => rej(new Error('glb network error ' + url)); x.send(); }); }
 function driveGLB(cat, dt) {
   const G2 = cat.glb, s = cat.speed, ws = cat.root.scale.x * G2.k;
   const tgt = {};

@@ -52,15 +52,15 @@ export function kayakGeometry(){
   m.loft(28, 12, (t) => { const s = Math.pow(Math.sin(Math.PI * t), .78), up = Math.pow(Math.sin(Math.PI * t), .55);
     return { x: L * (.5 - t), cy: .0, rw: .062 * s + .002, rh: .03 * up + .003, col: (j) => { const e = Math.abs(j - .5) * 2; return e > .78 ? [.72, .72, .72] : e < .18 ? [1.06, 1.06, 1.06] : white; }, tint: 1 }; });
   m.ellipsoid(-.012, .03, 0, .085, .006, .036, dark, 0, 8);                                // cockpit
-  m.ellipsoid(-.016, .052, 0, .03, .035, .04, [.36, .48, .36], 0, 9);                     // torso (grey-green, seated)
-  m.ellipsoid(-.012, .062, 0, .033, .018, .044, [.86, .43, .2], 0, 8);                    // buoyancy aid
-  m.ellipsoid(-.008, .1, 0, .021, .022, .021, [.85, .62, .45], 0, 9);                     // head
-  m.ellipsoid(-.012, .108, 0, .023, .015, .023, [.3, .36, .32], 0, 8);                    // helmet
+  // QA17 faceless matte silhouette: torso #4b4f58, buoyancy aid = hull tint x .8 (same hue/sat, 20 % darker), helmet merged into one head sphere #d9b48f (diameter .75 x torso width)
+  m.ellipsoid(-.016, .052, 0, .03, .035, .04, [.294, .31, .345], 0, 9);                   // torso #4b4f58 (seated)
+  m.ellipsoid(-.012, .062, 0, .033, .018, .044, [.8, .8, .8], 1, 8);                      // buoyancy aid: hull tint x .8
+  m.ellipsoid(-.008, .105, 0, .03, .03, .03, [.851, .706, .561], 0, 10);                  // head #d9b48f, no face, no hair
   return m.geo();
 }
-// paddle along z: thin shaft + two yellow blades
+// paddle along z: thin shaft + two slightly wider blades, all #5a4632
 export function paddleGeometry(){
-  const sh = [.2, .19, .18], bl = [.95, .72, .17], len = .46, w = .0045, m2 = new Mesher();
+  const sh = [.353, .275, .196], bl = sh, len = .46, w = .0045, m2 = new Mesher();
   m2.loft(1, 6, (t) => ({ x: (t - .5) * len, cy: 0, rw: w, rh: w, col: sh }), false);
   for (const s of [-1, 1]) m2.leaf(s * (len / 2 - .03), 0, 0, 0, .042, .017, bl, 0, 8);
   const g = m2.geo(); g.rotateY(-Math.PI / 2); return g; // x → z

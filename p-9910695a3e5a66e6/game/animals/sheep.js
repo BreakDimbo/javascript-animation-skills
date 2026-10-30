@@ -68,11 +68,13 @@ export function createSheepMinds(n, rand = Math.random){
     const HC = CAT_HC;
     if (L.mode === 'follow'){ tx = cat.u - ex / d * 1.25 * HC; ty = cat.v - ey / d * 1.25 * HC; keep = .25 * HC; /* r2: trail 0.75 Lc behind */
       if (cat.vu !== undefined){ /* VD r2 (screen space): split the 0.75 Lc trail point into screen-across (lat) and depth (al) about the cat, then push it across far
-           enough that the lamb's on-screen box clears the cat's: cat half-extent across = 0.6 Lc × |facing·across| (body + tail) + 0.2 Lc, lamb half-width 0.25 Lc */
+           enough that the lamb's on-screen box clears the cat's: cat half-extent across = 1.0 Lc × |facing·across| (body + curled tail, measured) + 0.35 Lc, lamb half-width 0.25 Lc */
         const LC = 1.66 * HC, bx = tx - cat.u, by = ty - cat.v, al = bx * cat.vu + by * cat.vv, lat = bx * -cat.vv + by * cat.vu;
         const fl = Math.hypot(cat.fu || 0, cat.fv || 0) || 1, fx = Math.abs(((cat.fu || 0) * -cat.vv + (cat.fv || 0) * cat.vu) / fl);
         if (Math.abs(lat) > .3 * LC || !L.sg) L.sg = lat >= 0 ? 1 : -1;   // follow the tail side when it is clear, else keep the side it is on
-        const lw = L.sg * Math.max((LAMB_CLR + .6 * fx + .2 + .25) * LC, Math.abs(lat)); tx = cat.u + cat.vu * al - cat.vv * lw; ty = cat.v + cat.vv * al + cat.vu * lw; } } 
+        let lw = L.sg * Math.min(.98 * LC, Math.max((LAMB_CLR + (L.clr || 0) + 1.0 * fx + .35 + .25) * LC, Math.abs(lat)));   // VD r3 hard cap: across ≤ 1.0 Lc (target .98 so the eased follow never overshoots)
+        let ag = al; const DM = 1.3 * LC; if (Math.hypot(ag, lw) > DM) ag = Math.sign(ag || -1) * Math.sqrt(Math.max(0, DM * DM - lw * lw));   // VD r3 hard cap: centre distance ≤ 1.3 Lc (shorten the along part)
+        const al2 = ag; tx = cat.u + cat.vu * al2 - cat.vv * lw; ty = cat.v + cat.vv * al2 + cat.vu * lw; } } 
     else { tx = mu + .42; ty = mv + .18; keep = .06; }
     const gx = tx - L.u, gy = ty - L.v, gd = Math.hypot(gx, gy);
     const top = L.mode === 'back' ? 1.0 : L.mode === 'follow' ? 1.5 : .35, lead = L.mode === 'follow' ? Math.min(cat.speed, 1.2) : 0;  // r2: it keeps pace with a walking cat
@@ -87,4 +89,57 @@ export function createSheepMinds(n, rand = Math.random){
     return { u: L.u, v: L.v, ang: L.ang, row, hop };
   }
   return { S, lamb, step, rowOf, stepLamb };
+}
+
+/* life r5 (QA D3): keep every sheep's drawn body ≥ 0.5 Hc inside the painted board edge, and out of the strip the wayfinding label (「小站 · The Halt →」, a screen-space label on the paper margin) is read over: BAND_W inside that side edge, from the cat's row BAND_D toward the camera.
+   No culling: each sheep carries a keep-in offset that eases ahead of the edge (soft band, walking pace), and a hard clamp on top keeps the
+   outline legal every frame. Both move only as fast as the board / the sheep do, so nothing jumps. A sheep the moving board would drag more than
+   LEASH past where its keep-in walk has got it dissolves over the next FADE metres of drag (alpha is a smooth function of the drag, so it fades back in the same way) and is
+   then let go. Only while the board is on (BOARDU margin > 0): planet mode, ?close and ?noboard are untouched.
+   Board maths = artkit/bend.js foldBoardSD (rect in the camera board's tangent axes, metres). The painted edge is the rect less RIM: ground.js's
+   dry-brush fringe starts mixing paper at sd −.34 ± .15 noise and is half paper by ≈ −.27. Extents (board metres, from the sheep's base point):
+   across (board X ≈ camera right) = half the drawn quad width at its widest view incl. the side-on stretch (cell w/h ≤ 1.42 × 1.11) — constant,
+   so a view change never moves the sheep; depth (board Y) = the painted body's half depth ≈ 0.45 Hc each way. */
+export const KEEP = { M_HC: .5, RIM: .27, SOFT: .25, RATE: .3, LEASH: .6, FADE: .8, SOFT_MAX: .9, BAND_W: 1.2, BAND_D: 2.5, BAND_EASE: .6, DEPTH_HC: .45, WMAX: 1.42 * 1.11 };
+export function createKeepIn(){
+  const st = new Map();
+  const S = (id) => st.get(id) || (st.set(id, { ou: 0, ov: 0, a: 1, lu: null, lv: null, mv: 0 }), st.get(id));
+  // B: { on, cu, cv, Xu, Xv, Yu, Yv, hx, hy, band: { s ±1 (board X side), a 0..1 strength, x0, y0, y1 } | null } (board centre + axes in the caller's (u, v) metres, band in board coords; +X = screen right, +Y = far)
+  function clampB(bx, by, hw, dy, B, hc, lc){
+    const ix = Math.max(0, B.hx - KEEP.RIM - KEEP.M_HC * hc - hw), iy = Math.max(0, B.hy - KEEP.RIM - KEEP.M_HC * hc - dy);
+    bx = Math.max(-ix, Math.min(ix, bx)); by = Math.max(-iy, Math.min(iy, by));
+    if (B.band){ const { s: sd, x0, y0, y1 } = B.band; // the wayfinding label's strip (loop group D4): |bx| ≥ x0 on side sd, y0 ≤ by ≤ y1
+      const ox = sd * bx + hw - x0, oy = Math.min(by + dy - y0, y1 - (by - dy)) + KEEP.BAND_EASE; // overlap across (into the strip), and along it counted from EASE before its ends
+      if (ox > 0 && oy > 0){ const w = oy >= KEEP.BAND_EASE ? 1 : (oy / KEEP.BAND_EASE) ** 2 * (3 - 2 * oy / KEEP.BAND_EASE); bx -= sd * ox * w * (B.band.a ?? 1); } } // always out sideways, ramped in over EASE just outside the strip's ends so its sweep never snaps
+    return [bx, by]; }
+  const toB = (u, v, B) => [(u - B.cu) * B.Xu + (v - B.cv) * B.Xv, (u - B.cu) * B.Yu + (v - B.cv) * B.Yv];
+  const fromB = (bx, by, B) => [B.cu + bx * B.Xu + by * B.Yu, B.cv + bx * B.Xv + by * B.Yv];
+  // id: any key; (u, v): where the sheep would stand; H: its drawn body height (m). Returns [u, v, alpha, walking speed]
+  /* r6: fadeAt(u, v, H) → 0..1 (optional): a ground keep-out the caller already steers the sheep's spot clear of (the meadow's hedge band). When the
+     board's hard clamp drags a sheep onto it anyway, it dissolves by that amount, like the leash: the board always wins, nothing hops */
+  function apply(id, u, v, H, B, dt, hc, lc, fadeAt){ const s = S(id);
+    if (!B || !B.on){ s.ou = s.ov = 0; s.a = 1; s.lu = s.lv = null; return [u, v, 1, 0]; }
+    const hw = .5 * H * KEEP.WMAX, dy = KEEP.DEPTH_HC * hc;
+    // soft: where the sheep would like to be (constraints inflated by SOFT), offset eased toward it at walking pace
+    const [b0x, b0y] = toB(u, v, B), Bs = { ...B, hx: B.hx - KEEP.SOFT, hy: B.hy - KEEP.SOFT, band: B.band && { s: B.band.s, a: B.band.a, x0: B.band.x0 - KEEP.SOFT, y0: B.band.y0 - KEEP.SOFT, y1: B.band.y1 + KEEP.SOFT } }, [sx, sy] = clampB(b0x, b0y, hw, dy, Bs, hc, lc);
+    const [tu, tv] = fromB(sx, sy, B), wu = tu - u, wv = tv - v, gu = wu - s.ou, gv = wv - s.ov, gd = Math.hypot(gu, gv), step = Math.min(gd, KEEP.RATE * dt);
+    if (s.lu === null){ s.ou = wu; s.ov = wv; } // spawn keep-in: the first board frame places the sheep inside outright (it has never been drawn yet)
+    else if (gd > 1e-6){ s.ou += gu / gd * step; s.ov += gv / gd * step; }
+    { const m = Math.hypot(s.ou, s.ov); if (m > KEEP.SOFT_MAX){ s.ou *= KEEP.SOFT_MAX / m; s.ov *= KEEP.SOFT_MAX / m; } } // it walks ≤ SOFT_MAX off its spot; past that the leash
+    // hard: the outline is legal this frame whatever the offset is doing
+    const [b1x, b1y] = toB(u + s.ou, v + s.ov, B), [hx, hy] = clampB(b1x, b1y, hw, dy, B, hc, lc); let [pu, pv] = fromB(hx, hy, B);
+    // leash = how far the hard clamp drags it past where it is walking to (a board that outruns its walk); dissolves over FADE, then let go
+    let du = pu - u - s.ou, dv = pv - v - s.ov; const drag = Math.hypot(du, dv), cap = KEEP.LEASH + KEEP.FADE;
+    if (drag > cap){ du *= cap / drag; dv *= cap / drag; pu = u + s.ou + du; pv = v + s.ov + dv; }
+    let x = Math.min(1, Math.max(0, (drag - KEEP.LEASH) / KEEP.FADE));
+    if (fadeAt) x = Math.max(x, fadeAt(pu, pv, H));
+    const a = 1 - x * x * (3 - 2 * x); s.a = a;
+    const mv = s.lu === null || !dt ? 0 : Math.hypot((pu - u) - s.lu, (pv - v) - s.lv) / dt; s.lu = pu - u; s.lv = pv - v; s.mv = mv;
+    return [pu, pv, a, mv]; }
+  // drawn-outline clearance (m) of a sheep at (u, v) to the painted edge (rect − RIM) and to the rect itself, and its clearance to the label strip (< 0: inside by that much)
+  function clearance(u, v, H, B, hc){ const [bx, by] = toB(u, v, B), hw = .5 * H * KEEP.WMAX, dy = KEEP.DEPTH_HC * hc;
+    const rect = Math.min(B.hx - Math.abs(bx) - hw, B.hy - Math.abs(by) - dy); let sign = Infinity;
+    if (B.band){ const { s: sd, x0, y0, y1 } = B.band; const ox = sd * bx + hw - x0, oy = Math.min(by + dy - y0, y1 - (by - dy)); sign = ox > 0 && oy > 0 ? -Math.min(ox, oy) : Math.hypot(Math.max(0, ox), Math.max(0, oy)); }
+    return { painted: rect - KEEP.RIM, rect, sign }; }
+  return { apply, clearance, st, toB };
 }

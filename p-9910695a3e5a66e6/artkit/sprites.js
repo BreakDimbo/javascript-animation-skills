@@ -3,7 +3,14 @@
 import * as THREE from '../shared/vendor/three.module.js';
 import { BEND, BEND_GLSL, BOARDU, BOARD_GLSL } from './bend.js';
 const BASE = new URL('./tex/', import.meta.url).href;
-const load = (n) => { const t = new THREE.TextureLoader().load(BASE + n); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+/* m-perf: on phones (short side < 600 px, or ?mobile) the two big atlases load as half-size copies (tex/trees_half.webp 1536×768,
+   tex/sheep_half.webp 1024×512 = an exact 2×2 box average of the originals, i.e. the GPU's own mip 1). At phone size a sprite is
+   minified ≥ 2× (mip ≥ 1 is sampled), so the picture is unchanged; GPU memory 25 → 6 MB and 11 → 3 MB. ?fulltex keeps the originals.
+   Textures are cached per file: the tree planter used to re-load and re-upload trees.webp (25 MB with mips) on every 7 m replant and never freed it. */
+const SMALL = (Math.min(innerWidth, innerHeight) < 600 || /[?&]mobile/.test(location.search)) && !/[?&]fulltex/.test(location.search), TEX = new Map();
+const load = (n) => { if (TEX.has(n)) return TEX.get(n);
+  const f = SMALL && /^(trees|sheep)\.webp$/.test(n) ? n.replace('.webp', '_half.webp') : n;
+  const t = new THREE.TextureLoader().load(BASE + f); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; TEX.set(n, t); return t; };
 let META = null; const meta = async () => META ?? (META = await (await fetch(BASE + 'meta.json')).json());
 
 function billboardMaterial(tex, { cylindrical = true, alphaTest = 0.5, transparent = false, fog = true, tint = [1, 1, 1], grade = false } = {}){
@@ -33,33 +40,40 @@ function instanced(mat, items, anchorY){
 }
 const syncFog = (mat, scene) => { if (scene.fog) { mat.uniforms.uFogC.value.copy(scene.fog.color); mat.uniforms.uFog.value.set(scene.fog.near, scene.fog.far); } };
 
-export function blobShadowMat(strength = .5){
+export function blobShadowMat(strength = .5, tree = false){
+  /* review-vd-station-r3 #2 (tree = true): tree shadows were 1.2 × the cell long along the ground sun (≈ 1.4–1.8 × the crown), all feather, ~40 % darker,
+     and a row of them read as one long streak through the camera's 2.5× ground squash. Now: aSize.x = crown radius; an ellipse 1.3 × crown long
+     (≤ 1.4), 1.0 × crown wide, flat core with a 25 % edge feather, 20 % darker (sRGB, as the cat's contact shade), pushed 0.45 r away from the sun */
+  const K = tree ? { off: .45, lx: 2.6, ly: 2.0 } : { off: .85, lx: 2.4, ly: 1.4 };
+  const A = tree ? `smoothstep(1., .75, sqrt(r)) * ${strength.toFixed(3)}` : `pow(smoothstep(1., .0, r), 1.4) * 1.25 * ${strength.toFixed(3)}`;
   /* w2: FINAL17 sheep/tree shadows are large, soft, dark-green and fall away from the sun: elongated along the ground projection of the sun, centre pushed away from it,
      gaussian edge, multiplied into the turf with ~#3b6a25 (not alpha-blended black) */
   return new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.DstColorFactor, blendDst: THREE.ZeroFactor,
     uniforms: { uBend: BEND, uBoardF: BOARDU.F, uBoardX: BOARDU.X, uBoardY: BOARDU.Y, uSun: { value: new THREE.Vector3(0, 1, 0) }, uGC: BOARDU.GC, uGE1: BOARDU.GE1, uGE2: BOARDU.GE2, uGR: BOARDU.GR },
     vertexShader: BEND_GLSL + BOARD_GLSL + `attribute vec3 aPos; attribute vec3 aUp; attribute vec2 aSize; uniform vec3 uSun; varying vec2 vQ; varying float vSd; varying vec3 vW;
       void main(){ vec3 up = normalize(aUp); vec3 s = uSun - up * dot(uSun, up); vec3 ax = length(s) > 1e-3 ? normalize(s) : normalize(cross(up, vec3(0.3, 1., .2))); vec3 ay = cross(up, ax);
-        vec3 c = aPos + up * .03 - ax * aSize.x * .85; vec3 w = c + ax * position.x * aSize.x * 2.4 + ay * position.y * aSize.x * 1.4; vSd = uBoardF.w > 0.0 ? foldBoardSD(w) : -1.; vW = w;
+        vec3 c = aPos + up * .03 - ax * aSize.x * ${K.off.toFixed(2)}; vec3 w = c + ax * position.x * aSize.x * ${K.lx.toFixed(2)} + ay * position.y * aSize.x * ${K.ly.toFixed(2)}; vSd = uBoardF.w > 0.0 ? foldBoardSD(w) : -1.; vW = w;
         vQ = position.xy * 2.; gl_Position = projectionMatrix * viewMatrix * foldBend(vec4(w, 1.)); if (uBoardF.w > 0.0 && foldBoardSD(aPos) > 0.05) gl_Position = vec4(2., 2., 2., 1.); }`,
     fragmentShader: `varying vec2 vQ; varying float vSd; varying vec3 vW; uniform vec3 uGC, uGE1, uGE2; uniform float uGR;
       float fpRiv(float v){ return -1.85 + .45 * sin(v * .37) + .18 * sin(v * 1.1 + 2.0) + .05 * sin(v * 3.3); }
-      void main(){ float r = dot(vQ, vQ); float a = pow(smoothstep(1., .0, r), 1.4) * 1.25 * smoothstep(-.02, -.3, vSd) * ${strength.toFixed(3)};
+      void main(){ float r = dot(vQ, vQ); float a = ${A} * smoothstep(-.02, -.3, vSd);
         /* w2 r2: over the river the shadow fades to ~25 % (a dark band across water reads as an artefact) */
         { vec3 dr = normalize(vW); vec2 g = vec2(dot(dr, uGE1), dot(dr, uGE2)) * uGR / max(dot(dr, uGC), 1e-3); a *= 1. - .75 * smoothstep(.34, .2, abs(g.x - fpRiv(clamp(g.y, -40., 45.)))); } gl_FragColor = vec4(mix(vec3(1.), vec3(.231, .416, .145), a), 1.); }` });
 }
+const TREE_MAT = {};
 // list: [{dir, h, s, cell}] — trees use the side-view row (cells 8–13 green, 14–15 pink, used rarely like the original's one pink tree)
 export function createTrees(scene, list, R){
-  const tex = load('trees.webp'); const mat = billboardMaterial(tex, { tint: [0.97, 0.98, 0.95], grade: true }); /* r6: FINAL17's layered deep shadow greens, warm lit tops */
-  const shMat = blobShadowMat(.55);
+  /* m-perf: one tree material pair for every replant (same shader, same uniforms; only one tree set exists at a time) */
+  const tex = load('trees.webp'); const mat = TREE_MAT.mat || (TREE_MAT.mat = billboardMaterial(tex, { tint: [0.97, 0.98, 0.95], grade: true })); /* r6: FINAL17's layered deep shadow greens, warm lit tops */
+  const shMat = TREE_MAT.sh || (TREE_MAT.sh = blobShadowMat(+(new URLSearchParams(location.search).get('tsh') || .31), true));   /* vd-station-r3: tree blob shape, 20 % darker */
   const mesh = { update(sun){ syncFog(mat, scene); if (sun) shMat.uniforms.uSun.value.copy(sun); }, dispose(){ for (const m of [mesh.mesh, mesh.shadow]) if (m){ scene.remove(m); m.geometry.dispose(); } } };
   meta().then(M => { const T = M.trees, cols = T.cols, rows = Math.ceil(T.cells.length / cols);
     const items = list.map((t, i) => { const cell = t.cell >= 14 ? t.cell : 8 + (t.cell % 6), c = T.cells[cell];
       const H = 4.2 * t.s, wcell = H / c.h; const p = t.dir.clone().multiplyScalar(R + t.h - 0.035 * H);
-      return { pos: p.toArray(), up: t.dir.toArray(), size: [wcell, wcell], rect: [(cell % cols) / cols, 1 - (((cell / cols) | 0) + 1) / rows, 1 / cols, 1 / rows] }; });
+      return { cw: c.w, pos: p.toArray(), up: t.dir.toArray(), size: [wcell, wcell], rect: [(cell % cols) / cols, 1 - (((cell / cols) | 0) + 1) / rows, 1 / cols, 1 / rows] }; });
     const m = instanced(mat, items, 0.5); m.renderOrder = 1; scene.add(m); mesh.mesh = m;
     // soft contact shade under each crown (FINAL17's trees sit on a dark pool offset away from the sun)
-    const sh = instanced(shMat, items.map((it, i) => ({ ...it, pos: list[i].dir.clone().multiplyScalar(R + list[i].h).toArray(), up: (list[i].n || list[i].dir).toArray(), size: [it.size[0] * .5, it.size[0] * .5] })), 0.0);
+    const sh = instanced(shMat, items.map((it, i) => ({ ...it, pos: list[i].dir.clone().multiplyScalar(R + list[i].h).toArray(), up: (list[i].n || list[i].dir).toArray(), size: [it.size[0] * .5 * .95 * it.cw, it.size[0] * .5 * .95 * it.cw] }))   /* crown radius: 0.95 × the cell's meta w (alpha-measured crown 0.61–0.92 of the cell) */, 0.0);
     sh.renderOrder = 0; scene.add(sh); mesh.shadow = sh; });
   return mesh;
 }

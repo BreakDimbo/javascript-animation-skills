@@ -18,7 +18,7 @@ export function createSealBay(scene, { R, origin }){
   const dirAt = (x, y, out = new THREE.Vector3()) => out.copy(c).multiplyScalar(R).addScaledVector(E, x).addScaledVector(Bf, y).normalize();
   const local = (d) => { const k = d.dot(c); return [R * d.dot(E) / k, R * d.dot(Bf) / k]; };
   const group = new THREE.Group(); group.name = 'sealbay'; scene.add(group);
-  const sunL = new THREE.Vector3(-13, 15, 1.5).normalize(); // main.js SUN_LOCAL (E, up, N)
+  const sunL = new THREE.Vector3(-13, 15.6, 1.5).normalize(); // main.js SUN_LOCAL (E, up, N)
   const sunW = E.clone().multiplyScalar(sunL.x).addScaledVector(c, sunL.y).addScaledVector(N, sunL.z).normalize();
 
   // ---------- uniforms ----------
@@ -54,7 +54,8 @@ void main(){ vD = aDepth; vO = position; vM = color.r;
   vec3 q = position, nq = normal;
   // head turn (yaw about the neck, x ≈ .15) then the front body rearing up 0.36 rad (pitch about the fore flippers, x ≈ .03), both blended so the body bends, not breaks
   float hy = aLk.y * smoothstep(.1, .19, q.x); q.xz = r2(-hy) * (q.xz - vec2(.15, 0.)) + vec2(.15, 0.); nq.xz = r2(-hy) * nq.xz;
-  float pu = aLk.x * .36 * smoothstep(-.04, .1, q.x); q.xy = r2(pu) * (q.xy - vec2(.03, -.01)) + vec2(.03, -.01); nq.xy = r2(pu) * nq.xy;
+  float pu = aLk.x * .38 * smoothstep(-.04, .1, q.x); q.xy = r2(pu) * (q.xy - vec2(.03, -.01)) + vec2(.03, -.01); nq.xy = r2(pu) * nq.xy;
+  q.y += aLk.x * .014 * smoothstep(-.06, .06, q.x);   // r7 (vd r6 §4): chest lifted 3.8 cm in all (body .6 + bend 1.8 + this 1.4), showing the pale throat
   vec3 pos = (instanceMatrix * vec4(q, 1.)).xyz; vN = normalize(mat3(instanceMatrix) * nq);
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.); vV = normalize(cameraPosition - pos); gl_Position = projectionMatrix * mvPosition; }`,
     fragmentShader: `precision highp float; varying float vD, vM; varying vec3 vN, vO, vV; uniform vec3 uSun, uEye, uNose;
@@ -80,8 +81,8 @@ void main(){ ${LIT} float d = clamp(vD, 0., 1.), nv = abs(dot(n, normalize(vV)))
   const sealDepth = (s, t) => { const u = ((t + s.off) % s.cyc + s.cyc) % s.cyc, a = s.cyc - 9;
     return u < a ? 0 : u < a + 2 ? sstep(0, 1, (u - a) / 2) : u < a + 7 ? 1 : 1 - sstep(0, 1, (u - a - 7) / 2); };
 
-  // ---------- kayaks (red #e0452a, yellow #f2b632) + paddles ----------
-  const kg = kayakGeometry(), kt = new Float32Array(3 * NKAY); [[.878, .27, .165], [.949, .714, .196]].forEach((cl, i) => kt.set(cl, i * 3)); kg.setAttribute('aTint', new THREE.InstancedBufferAttribute(kt, 3));
+  // ---------- kayaks (QA17: VD hue/value of red #c4553f, yellow #d6a43e at HSV sat .61 → #c4604c, #d6ab53) + paddles ----------
+  const kg = kayakGeometry(), kt = new Float32Array(3 * NKAY); [[.769, .376, .298], [.839, .671, .325]].forEach((cl, i) => kt.set(cl, i * 3)); kg.setAttribute('aTint', new THREE.InstancedBufferAttribute(kt, 3));
   const pg = paddleGeometry(); pg.setAttribute('aTint', new THREE.InstancedBufferAttribute(new Float32Array(3 * NKAY).fill(1), 3));
   const kMat = new THREE.ShaderMaterial({ side: THREE.DoubleSide, uniforms: { uSun: { value: sunW } },
     vertexShader: `attribute vec3 color; attribute float aTintW; attribute vec3 aTint; varying vec3 vC, vN;
@@ -94,9 +95,9 @@ void main(){ ${LIT} gl_FragColor = vec4(vC * l * (1. + (fract(sin(dot(floor(gl_F
     { path: (t) => [1.35 - 1.15 * C(.1 * t + 3.6), 3.0 + .5 * S(.1 * t + 3.6) + .1 * S(.3 * t + 1)], ph: 1.9 } ];
   const kayAt = (k, t) => { const [x, y] = k.path(t), [x2, y2] = k.path(t + .1); return [x, y, Math.atan2(y2 - y, x2 - x)]; };
   const PIV = new THREE.Vector3(-.012, .07, 0), BLADE = .2; // paddle pivot (hull space), blade centre distance along the shaft
-  const paddleM = (i, t, out) => { const [x, y, psi] = kayAt(KAY[i], t), ph = TAU * t / 2.4 + KAY[i].ph;
+  const paddleM = (i, t, out) => { const [x, y, psi] = kayAt(KAY[i], t), ph = TAU * t / 1.6 + KAY[i].ph;
     placeM(x, y, psi, .002 + .003 * S(t * 1.3 + i * 2), M, .03 * S(t * .9 + i * 1.7) + .01 * S(t * 2.1 + i), .015 * S(t * .7 + i));
-    // the dipping blade (roll) sweeps bow → stern; one dip per 1.2 s, alternating sides
+    // the dipping blade (roll) sweeps bow → stern; one dip per 0.8 s, alternating sides (full L+R cycle 1.6 s)
     out.makeTranslation(PIV.x, PIV.y, PIV.z).multiply(M3.makeRotationY(.5 * C(ph))).multiply(M2.makeRotationX(.5 * S(ph))); out.premultiply(M); return [x, y, psi, ph]; };
 
   hookBend(group);
@@ -109,7 +110,7 @@ void main(){ ${LIT} gl_FragColor = vec4(vC * l * (1. + (fract(sin(dot(floor(gl_F
       const d = sealDepth(s, t - r.hold + r.ph) * (1 - r.look);
       if (prevD[i] >= 0 && ((prevD[i] > .5) !== (d > .5))){ const [x, y, psi] = sealAt(s, t - r.hold); spawnRip(x + r.ox + C(psi) * .15, y + r.oy + S(psi) * .15, t, d <= .5 ? 1 : .6); }
       prevD[i] = d; }
-    for (let i = 0; i < NKAY; i++){ const ph = TAU * t / 2.4 + KAY[i].ph, k = Math.floor(ph / Math.PI);
+    for (let i = 0; i < NKAY; i++){ const ph = TAU * t / 1.6 + KAY[i].ph, k = Math.floor(ph / Math.PI);
       if (!isNaN(lastDip[i]) && k !== lastDip[i]){ paddleM(i, t, M2); V.set(0, 0, (k % 2 ? -1 : 1) * BLADE).applyMatrix4(M2); const [x, y] = local(V.normalize()); spawnRip(x, y, t, .55); }
       lastDip[i] = k; }
   }
@@ -132,7 +133,7 @@ void main(){ ${LIT} gl_FragColor = vec4(vC * l * (1. + (fract(sin(dot(floor(gl_F
       const [x, y] = pos[i], dist = Math.hypot(x - cx, y - cy); r.k += dt;
       if (best === i){ r.st = 1; r.k = 0; r.d0 = dist; }
       if (r.st === 1){
-        r.look = Math.min(1, r.look + dt / .6); r.yaw = Math.atan2(cy - y, cx - x); r.hold += dt * r.look;
+        if (r.k > .2) r.look = Math.min(1, r.look + dt / .5); r.yaw = Math.atan2(cy - y, cx - x); r.hold += dt * Math.max(r.look, sstep(0, .2, r.k));   // r7: stops, 0.2 s pause, then the 0.5 s lift
         if (dist > LOOK_R + .5){ r.st = 0; r.k = 0; }
         else if (r.k > 7){ r.st = 5; r.k = 0; }                                       // the cat just sits there: it loses interest and swims on
         else if (r.k > 1.1 && (dist < DIVE_R || r.d0 - dist > .3)){
@@ -167,7 +168,8 @@ void main(){ ${LIT} gl_FragColor = vec4(vC * l * (1. + (fract(sin(dot(floor(gl_F
     const dtS = Math.min(Math.max(t - (tLastU ?? t), 0), .1); tLastU = t;
     if (cat || window.__sbCat){ const [cx, cy] = window.__sbCat || local(cat.up); react(t, dtS, cx, cy); }
     for (let i = 0; i < NSEAL; i++){ const s = SEALS[i], r = RE[i], [x0, y0, psi0] = sealAt(s, t - r.hold), x = x0 + r.ox, y = y0 + r.oy;
-      const d = r.st >= 2 && r.st <= 4 ? r.dep : sealDepth(s, t - r.hold + r.ph) * (1 - r.look);
+      const fz = Math.max(r.look, r.st === 1 ? sstep(0, .2, r.k) : 0);                               // r7: bobbing/sway stop while it looks
+      const d = r.st >= 2 && r.st <= 4 ? r.dep : sealDepth(s, t - r.hold + r.ph) * (1 - fz);
       // r5b (vd r5 §6): looking, the body swings fully toward the cat (capped at ±60° off its route heading); the head (vertex bend) takes any rest, ≤ ±35°
       const lw = sstep(0, 1, r.look), dy = angD(psi0, r.yaw), bodyY = Math.max(-1.047, Math.min(1.047, dy));
       let psi = psi0 + bodyY * lw;
@@ -175,9 +177,8 @@ void main(){ ${LIT} gl_FragColor = vec4(vC * l * (1. + (fract(sin(dot(floor(gl_F
       else if (r.st >= 3 && r.dv) psi = psi0 + dy * r.ry;                                       // escape heading, eased back onto the route once up
       r.psi = psi;
       lk[2 * i] = lw; lk[2 * i + 1] = r.st === 1 ? Math.max(-.6, Math.min(.6, dy - bodyY)) * lw : 0;
-      // looking: the head comes up (nose-up pitch, chest lifted ~1.4 cm) and the body swings toward the cat
-      // looking: the front body rears up 0.36 rad (vertex bend at the fore flippers) and the head turns to the cat; the body itself stays level
-      sD[i] = d; placeM(x, y, psi, -.004 - d * .03 + .006 * r.look, M, S(t * .8 + i) * .05 * (1 - d) * (1 - r.look), -.06 * sstep(0, .5, d) * (1 - sstep(.5, 1, d)));
+            // looking: the front body rears up 0.38 rad (vertex bend at the fore flippers) and the head turns to the cat; the body itself stays level
+      sD[i] = d; placeM(x, y, psi, -.004 - d * .03 + .006 * r.look, M, S(t * .8 + i) * .05 * (1 - d) * (1 - fz), -.06 * sstep(0, .5, d) * (1 - sstep(.5, 1, d)));
       sealsM.setMatrixAt(i, M); sl[i].set(x, y, psi, d); }
     sealsM.instanceMatrix.needsUpdate = true; sg.attributes.aDepth.needsUpdate = true; sg.attributes.aLk.needsUpdate = true;
     for (let i = 0; i < NKAY; i++){ const [x, y, psi] = paddleM(i, t, M2); kayM.setMatrixAt(i, M); padM.setMatrixAt(i, M2); ky[i].set(x, y, psi, KAY_L); }

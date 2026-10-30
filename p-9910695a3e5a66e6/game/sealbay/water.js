@@ -24,45 +24,57 @@ vec2 rot(vec2 v, float a){ float c = cos(a), s = sin(a); return vec2(c * v.x + s
 float line(float d, float w){ return 1. - smoothstep(w * .5, w * 1.25, abs(d)); }
 const vec3 PEDGE = vec3(.290, .373, .710), PCORE = vec3(.149, .208, .498), MIDC = vec3(.427, .525, .839);
 #define MIDA .645
-#define MIDK .85
+#define MIDK .89
 /* r6 (vd r5 §1): deep pools as wet-in-wet pooled pigment. F = sum of 3–5 overlapping anisotropic sub-blobs (diameters ≥ 3:1),
    body #4a5fb5 → #3e52a8 with ±10 % low-frequency tone, a small #26357f core leaning to the shadow side, a soft outward bloom
    (#4a5fb5 → #6d86d6 → wash, ≈ 35 % of the radius), and on the shadow side only (≈ 20 % of the rim) a smooth back-run edge:
    a 1–2 px #22306f pigment line with a 2–4 px paler #5a6fc0 halo outside it. No jaggies. */
-const vec3 PB0 = vec3(.243, .322, .659), PB1 = vec3(.290, .373, .710), PLINE = vec3(.133, .188, .435), PHALO = vec3(.353, .435, .753), MID2 = vec3(.357, .455, .812);
+const vec3 PB0 = vec3(.243, .322, .659), PB1 = vec3(.290, .373, .710), PLINE = vec3(.133, .188, .435), PBAND = vec3(.200, .275, .561), MID2 = vec3(.357, .455, .812);
 const vec2 SHD = vec2(.993, .118);                                                     // shadow side: the sun comes from −x
 vec2 pw(vec2 s, float sd, float a){ return s + (vec2(fbm3(s * 1.3 + sd), fbm3(s * 1.3 + sd + 9.)) - .5) * a + (vec2(fbm3(s * 3.1 + sd), fbm3(s * 3.1 + sd + 4.)) - .5) * a * .3; }
 float sbl(vec2 s, vec2 c, vec2 r, float a){ vec2 d = rot(s - c, a) / r; return exp(-dot(d, d)); }
-vec3 poolF(vec3 col, vec2 s, float F, vec2 c, float R, float sd, float hk, out float hardOut){
+vec3 poolF(vec3 col, vec2 s, float F, vec2 c, float R, float sd, float hk, float ck, out float hardOut){
   hardOut = 0.;
   F += (fbm3(s * 2.1 + sd) - .5) * .16 + (fbm3(s * 5.3 + sd * 2.) - .5) * .03;         // breaks the outline, low frequency only
   if (F < .08) return col;
   float fw = max(fwidth(F), 1e-4);
   vec2 dir = normalize(s - c + 1e-4);
   float hs = smoothstep(.70, .86, dot(dir, SHD) + (fbm3(s * .9 + sd * 3.) - .5) * .22) * hk;
-  float body = mix(smoothstep(.34, .78, F), smoothstep(.5 - fw * .7, .5 + fw * .7, F), hs);
+  float body = mix(smoothstep(.34, .78, F), smoothstep(.5 - fw, .5 + fw, F), hs);
   float tn = fbm3(s * 1.25 + sd * 5.), lf = 1. + (tn - .5) * .5 + (fbm3(s * 3.4 + sd) - .5) * .08;   // ≈ ±10 % tone inside
   vec3 bc = mix(PB1, PB0, clamp(smoothstep(.55, 1., F) * .7 + (tn - .5) * 1.2, 0., 1.)) * lf;
   float coreF = F + dot(s - c, SHD) / R * .3 + (fbm3(s * 2.7 + sd) - .5) * .22;
-  bc = mix(bc, PCORE * (1. + (lf - 1.) * .5), smoothstep(1.02, 1.4, coreF) * .85);
+  /* r7.1 (vd r7): ck < 1 pulls the core colour toward the body (C1: 30 %) and feathers its edge over >= 9 px so it never reads as a lens/pupil */
+  float cfw = mix(.38, max(.38, 9. * fwidth(coreF)), step(ck, .99));
+  bc = mix(bc, mix(bc, PCORE * (1. + (lf - 1.) * .5), ck), smoothstep(1.02, 1.02 + cfw, coreF) * .85);
   float bloom = smoothstep(.1, .45, F) * (1. - hs);
   vec3 o = mix(col, mix(MIDC, PB1, smoothstep(.3, .55, F)), bloom * .8);
   o = mix(o, bc, body);
+  /* r7 (vd r6 §1): no drawn rim. On the shadow side the pigment piles up just inside the edge: a 4–6 px #33468f band fading over
+     8–10 px into the body, the outside simply stops within ~2 px; the band's strength is mottled along the rim so it never reads as a line */
   float dpx = (F - .5) / fw;                                                              // pixels from the hard rim (+ inside)
-  float ln = (1. - smoothstep(.6, 1.2, abs(dpx - .5))) * hs, halo = smoothstep(-4.2, -3., dpx) * (1. - smoothstep(-1.1, -.3, dpx)) * hs;
-  o = mix(o, PHALO, halo * .75); o = mix(o, PLINE, ln * .9);
-  hardOut = ln;
+  float mot = .55 + .45 * smoothstep(.3, .7, fbm3(s * 7.3 + sd * 4.)) , band = smoothstep(.5, 3.5, dpx) * (1. - smoothstep(mix(1.5, 5.5, ck * ck), 15., dpx)) * hs;
+  o = mix(o, mix(bc, PBAND, ck) * (1. + (fbm3(s * 11. + sd) - .5) * .1), band * mot * .8);   // ck < 1: band also 30 % toward the body, inner fade ~13 px
+  hardOut = band;
   return o; }
+/* r7: a lobed blob — radius with 3–5 low-frequency lobes (±18–25 %) and a ±4 % fine wobble; aspect ≤ 1.7 */
+float lobe(vec2 s, vec2 c, vec2 r, float a, float k, float ph, float sd){
+  vec2 d = rot(s - c, a) / r; float th = atan(d.y, d.x);
+  float R = 1. + .15 * sin(k * th + ph) + .07 * sin((k + 2.) * th + ph * 1.7 + 1.) + (fbm3(s * 9. + sd) - .5) * .08;
+  float q = length(d) / R; return exp(-q * q); }
 vec3 speck(vec3 col, vec2 s, vec2 c, float r, float sd){
   vec2 q = pw(s, sd, r * 1.2); float F = exp(-dot(q - c, q - c) / (r * r)) + (fbm3(s * 3.1 + sd) - .5) * .2;
   return mix(col, mix(MIDC, PB1, smoothstep(.4, .75, F)) * (1. + (fbm3(s * 2. + sd) - .5) * .12), smoothstep(.15, .6, F) * .85); }
 `;
 export function makeWaterMaterial(uni){
-  return new THREE.ShaderMaterial({ uniforms: uni, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  /* vd mvp-gate §3: the gap-patch feather is set in CSS px, so the shader needs the renderer's pixel ratio (1 in the 1440 @1x QA shots,
+     1.5 desktop cap, 2 phone); read from the renderer every draw, no main.js / render.js change */
+  uni.uPxR = uni.uPxR || { value: 1 };
+  const mat = new THREE.ShaderMaterial({ uniforms: uni, transparent: true, depthWrite: false, side: THREE.DoubleSide,
     vertexShader: `attribute vec2 aLoc; varying vec2 vP;
 void main(){ vP = aLoc; vec3 pos = position; vec4 mvPosition = modelViewMatrix * vec4(pos, 1.); gl_Position = projectionMatrix * mvPosition; }`,
     fragmentShader: `precision highp float; varying vec2 vP;
-uniform float uTime; uniform vec4 uRip[${NRIP}], uKy[${NKAY}], uSl[${NSEAL}], uCat; uniform sampler2D uInk, uBank;
+uniform float uTime, uPxR; uniform vec4 uRip[${NRIP}], uKy[${NKAY}], uSl[${NSEAL}], uCat; uniform sampler2D uInk, uBank;
 ${MF_GLSL}
 float mfV3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(mix(mfHash(i).x, mfHash(i + vec3(1,0,0)).x, f.x), mix(mfHash(i + vec3(0,1,0)).x, mfHash(i + vec3(1,1,0)).x, f.x), f.y),
@@ -70,6 +82,7 @@ float mfV3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
 ${GL}
 // washes sampled from seals_f.jpg (pale #c9d6f5 → #8aa6ea → #4d6fd6 → #2a3fa8, navy pools), paper = the game's paper
 const vec3 PAPER = ${hex(PAL.paper)}, GAP = vec3(.86, .91, .985), W0 = vec3(.745, .835, .99), W1 = vec3(.56, .675, .965), W2 = vec3(.42, .53, .86), W3 = vec3(.33, .44, .78), W4 = vec3(.29, .39, .70);   /* d13: deep ultramarine lifted to a soft cobalt (user: too heavy) */
+const vec3 GCORE = vec3(.627, .715, .894);   // vd mvp-gate §3: gap-patch core hue (luma .709)
 const vec3 INK = vec3(.094, .133, .2), M0 = vec3(.45, .62, .27), M1 = vec3(.54, .70, .31), M2 = vec3(.64, .77, .40), OCH = vec3(.80, .74, .52), SAND = vec3(.89, .85, .70);
 /* d13: bank greens moved to the meadow's warm yellow-greens (PAL.bright/light family) so the bay sits on the same board */
 void main(){
@@ -101,23 +114,41 @@ void main(){
     col = mix(col, MIDC * (1. + (vn(p * 31.) - .5) * .06), m5 * MIDK);
     /* r6 (vd r5 §3): a deeper ultramarine layer #5b74cf (mix .6, ≈ 8 %) */
     float mq = fbm(s * .8 + (w1 - .5) * 1.1 + vec2(77., 29.) - tw * .25) + (fbm3(s * 2.3 + 63.) - .5) * .12;
-    col = mix(col, MID2 * (1. + (vn(p * 29.) - .5) * .05), smoothstep(.665, .75, mq) * (1. - m3 * .7) * .6);
-    col = clamp(mix(vec3(dot(col, vec3(.299, .587, .114))), col, 1.13), 0., 1.); }   /* r6: saturation lift toward 0.36–0.40 */
+    col = mix(col, MID2 * (1. + (vn(p * 29.) - .5) * .05), smoothstep(.665, .75, mq) * (1. - m3 * .7) * .64);
+    col = clamp(mix(vec3(dot(col, vec3(.299, .587, .114))), col, 1.27), 0., 1.); }   /* r6/r7: saturation lift toward 0.38 */
+  /* r7.2 (QA 15 / A4): the paper-white gaps never go brighter than the paper (luma ≤ .84) and are broken into smaller strokes.
+     QA15-r2: inside the gap patches the cap drops to luma .72 (≈ 85 % of the on-screen paper), scaling the colour so the patch stays a
+     pale water blue rather than near-white; the cap uses a narrower gap mask (G .50–.53 instead of .47–.56) for a slightly harder edge */
+  { float gk = smoothstep(.35, .65, fbm3(s * 3.1 + 17.)), lu = dot(col, vec3(.299, .587, .114));
+    col = mix(col, mix(col, W0, .55), gap * (1. - gk) * .8); lu = dot(col, vec3(.299, .587, .114));
+    /* vd mvp-gate §3 (#15): the patch core read as a grey-violet smudge (screen RGB 160,179,214, B−R 54). Same brightness (cap .72 → .71,
+       screen Y 177 → 174.7 after the #grain multiply ×.965), hue pulled back to the water: inside the patch the colour keeps its own luma but
+       takes GCORE's chroma (screen 154,176,220, B−R 66 = the vd target 166,188,232 shifted down 11.7 in every channel to hold Y).
+       The patch edge is feathered in screen space: signed CSS-px distance to the G = .515 contour (old band .50–.53 centre), smoothstep over
+       ±9 px = 18 px full ramp (10–90 % = 11 px on a locally linear G) at any zoom. Offline at 1440 (157 px/m across, 66 px/m in depth):
+       measured 10–90 % median 11.5 px (p10–p90 7.5–27, the fbm is not linear over 18 px), old G .50–.53 band median 9.8 (3.5–31). */
+    float gd = (G - .515) / max(length(vec2(dFdx(G), dFdy(G))), 7.5e-4 / uPxR) / uPxR;
+    float gh = smoothstep(-9., 9., gd) * (1. - m2) * (1. - m3);
+    col *= min(1., mix(.84, .71, gh) / max(lu, 1e-3)); lu = dot(col, vec3(.299, .587, .114));
+    col = mix(col, clamp(GCORE + (lu - dot(GCORE, vec3(.299, .587, .114))), 0., 1.), gh); }
   /* r5 (vd): deep-indigo pools — noise-broken outline (±~20 % of the diameter) with a fading tail, edge #4a5fb5 → centre #26357f,
      ±4 % grain; half the rim a hard, jagged watercolour back-run (dark line + paler bloom inside), the other half soft and fading */
   { vec2 sw = s + (w1 - .5) * .45; float hd;
     float hk = smoothstep(.3, .45, length(p - uKy[1].xy));                                   // no hard rim within 0.3 m of the yellow kayak
     // A: by the yellow kayak's loop (4 sub-blobs)
     vec2 sa = pw(sw, 2., .4); float F = sbl(sa, vec2(2.45, 3.55), vec2(0.671, 0.488), .3) + .9 * sbl(sa, vec2(2.98, 3.8), vec2(0.366, 0.293), 0.) + .85 * sbl(sa, vec2(1.98, 3.3), vec2(0.305, 0.232), 1.) + .8 * sbl(sa, vec2(2.72, 3.1), vec2(0.195, 0.171), 0.);
-    col = poolF(col, sa, F, vec2(2.5, 3.5), .6, 1., hk, hd);
+    col = poolF(col, sa, F, vec2(2.5, 3.5), .6, 1., hk, 1., hd);
     // B: left, well inside the board (4 sub-blobs)
     sa = pw(sw, 6., .38); F = sbl(sa, vec2(-1.75, 1.55), vec2(0.592, 0.414), -.4) + .9 * sbl(sa, vec2(-1.28, 1.78), vec2(0.32, 0.248), 0.) + .85 * sbl(sa, vec2(-2.18, 1.28), vec2(0.261, 0.202), .6) + .8 * sbl(sa, vec2(-1.5, 1.14), vec2(0.178, 0.153), 0.);
-    col = poolF(col, sa, F, vec2(-1.7, 1.5), .55, 7., 1., hd);
-    // C1 + C2: r5's right pool, split in two smaller ones (3 sub-blobs each)
-    sa = pw(sw, 12., .3); F = sbl(sa, vec2(2.62, .22), vec2(0.439, 0.33), .5) + .9 * sbl(sa, vec2(2.93, .4), vec2(0.244, 0.195), 0.) + .85 * sbl(sa, vec2(2.36, .03), vec2(0.147, 0.122), 0.);
-    col = poolF(col, sa, F, vec2(2.64, .22), .38, 13., 1., hd);
-    sa = pw(sw, 18., .28); F = sbl(sa, vec2(2.12, -.8), vec2(0.366, 0.28), -.3) + .9 * sbl(sa, vec2(2.38, -.98), vec2(0.208, 0.171), 0.) + .85 * sbl(sa, vec2(1.92, -.6), vec2(0.122, 0.11), 0.);
-    col = poolF(col, sa, F, vec2(2.14, -.8), .32, 19., 1., hd);
+    col = poolF(col, sa, F, vec2(-1.7, 1.5), .55, 7., 1., 1., hd);
+    // C1 + C2 (r7, vd r6 §1): two lobed stains with clearly different long axes (≈ 62° apart) and sizes (area ≈ 1.9 : 1);
+    // the upper one trails two short fading tails (0.3–0.5 R)
+    // (world radii/angles solved so that ON SCREEN at the default camera C1 is ≈ 44×29 px at −25°, C2 ≈ 62×40 px at +20°: aspect ≈ 1.5, axes 45° apart)
+    sa = pw(sw, 12., .22); F = 1.42 * lobe(sa, vec2(2.66, .26), vec2(.49, .25), 1.083, 4., .6, 13.)
+      + .24 * sbl(sa, vec2(2.92, .74), vec2(.14, .075), 1.083) + .2 * sbl(sa, vec2(2.3, .42), vec2(.12, .07), 2.6);
+    col = poolF(col, sa, F, vec2(2.66, .26), .4, 13., 0., .7, hd);
+    sa = pw(sw, 18., .22); F = 1.5 * lobe(sa, vec2(2.08, -.86), vec2(.56, .42), 1.613, 3., 2.2, 19.) + .5 * sbl(sa, vec2(1.86, -.68), vec2(.18, .15), 0.);
+    col = poolF(col, sa, F, vec2(2.08, -.86), .5, 19., 1., 1., hd);
     // 5 scattered small deep specks (Ø 0.3–0.6 m), body colour only
     col = speck(col, sw, vec2(-3.6, 3.0), .3, 3.); col = speck(col, sw, vec2(1.0, 2.2), .19, 5.); col = speck(col, sw, vec2(4.2, 1.4), .24, 8.);
     col = speck(col, sw, vec2(-4.3, .2), .17, 11.); col = speck(col, sw, vec2(3.7, 5.3), .27, 14.); }
@@ -180,15 +211,20 @@ void main(){
   /* r6 (vd r5 §2): fewer, larger ink clumps (≥ 0.3 m) in broken shore segments (≈ 60–75 % of the shore, gaps ≥ 0.8 m); under them a
      darker (moss × .66), wider (1.9× the band) yellow-green #4f6a2a wash with a soft inner edge */
   float bw = mix(.2, .6, smoothstep(.32, .68, fbm3(p * .75 + 61.)));
-  float onB = smoothstep(.40, .46, fbm3(p * .36 + 73.) + (vn(p * 1.3 + 3.) - .5) * .08);           // long segments with a few long gaps
+  float onB = smoothstep(.37, .43, fbm3(p * .36 + 73.) + (vn(p * 1.3 + 3.) - .5) * .08);           // long segments with a few long gaps
   float rag = (fbm3(p * 2.2 + 5.) - .5) * .45, dB = dR + rag * bw;
-  float clump = smoothstep(.46, .56, fbm3(p * 1.5 + 11.));                                         // clumps 0.3–1 m inside each segment
+  float clump = smoothstep(.39, .53, fbm3(p * 1.5 + 11.));                                         // r7: existing clumps grown (≥ 0.4 m), no new strokes                                         // clumps 0.3–1 m inside each segment
   float ic = length((p - vec2(.3, -1.7)) * vec2(.8, 1.25)) + (fbm3(p * 2.4 + 2.) - .5) * .22;       // the one inland clump
   float tang = max(onB * clump * smoothstep(.02, .07, dR) * (1. - smoothstep(bw * .7, bw, dB)), 1. - smoothstep(.1, .17, ic));
   float under = max(onB * smoothstep(-.01, .05, dR) * (1. - smoothstep(bw * 1.1, bw * 1.9, dB)), (1. - smoothstep(.12, .3, ic)) * .5);
   bcol = mix(bcol, mix(moss * .66, vec3(.310, .416, .165), .4), under * .9);
-  float inkA = mix(.75, .92, vn(p * 2.7 + 7.));
-  bcol = mix(bcol, vec3(.122, .165, .102), clamp(max(1. - texture2D(uBank, p / ${(BANK_M * .55).toFixed(2)}).r, 1. - texture2D(uBank, rot(p, 1.1) / ${(BANK_M * .55).toFixed(2)} + .37).r) * 2.1, 0., 1.) * smoothstep(.25, .6, tang) * inkA);
+  float inkA = mix(.6, mix(.85, .95, vn(p * 2.7 + 7.)), smoothstep(.45, .9, tang));             // r7 (vd r6 §2): centre 85–95 %, rim 60 %
+  bcol = mix(bcol, vec3(.122, .165, .102), clamp(max(1. - texture2D(uBank, p / ${(BANK_M * .55).toFixed(2)}).r, 1. - texture2D(uBank, rot(p, 1.1) / ${(BANK_M * .55).toFixed(2)} + .37).r) * 2.8, 0., 1.) * smoothstep(.2, .55, tang) * inkA);
+  /* r7.2 (QA 14 / D4): one continuous brushstroke hugging the shore on the land side, 0.9–2.1 cm wide (r7.3), opacity 55–90 % varying along
+     the shore; it lives only inside the onB segments, so the long gaps keep it from ever closing into a contour */
+  { float swk = mix(.009, .021, vn(p * 1.9 + 23.)), wob = (vn(p * 5.3 + 4.) - .5) * .008;      // r7.3: narrower (0.9–2.1 cm)
+    float sk = smoothstep(.0, .006, dR + wob) * (1. - smoothstep(swk * .55, swk, dR + wob)) * smoothstep(.7, .98, onB);   // r7.3: only the segment cores, so the gaps stay open
+    bcol = mix(bcol, vec3(.122, .165, .102), sk * mix(.55, .9, smoothstep(.3, .7, vn(p * 3.1 + 9.)))); }
   bcol *= 1. + (vn(p * 60.) - .5) * .03;
   { vec2 cq = (p - uCat.xy - vec2(.1, .02)) / vec2(.32, .2); bcol *= 1. - (1. - smoothstep(.3, 1.2, length(cq))) * .3 * uCat.w; } // cat contact shade
   // ---- compose: water over bank; the bank fades out (noisy, 1–2 m) into the gouache fields beyond
@@ -211,4 +247,6 @@ void main(){
     o = mix(o, mix(o, PAPER, .6), clamp(smoothstep(-.34, .1, e0) * .8 - mfV3(vec3(bq * 9., 3.)) * .25, 0., 1.)); }
   gl_FragColor = vec4(o, alpha);
 }` });
+  mat.onBeforeRender = (r) => { uni.uPxR.value = r.getPixelRatio(); };
+  return mat;
 }

@@ -14,9 +14,9 @@ export const F = makeFrame(C01, new THREE.Vector3(1, 0, 0), R);
 // read REG[0..3]); the station (built on m-station) is REG[4] and the loop tolerates it missing.
 export const REG = [
   { id: 'meadow', no: '01', name: '羊之草甸 · Sheep Meadow', dir: F.dirOf(0, 0), rad: 16 },
-  { id: 'pond', no: '06', name: '池 · The Pond', dir: F.dirOf(66, -72), rad: 9 },
-  { id: 'mill', no: '03', name: '磨坊 · The Mill', dir: F.dirOf(-72, -40), rad: 10 },
-  { id: 'sealbay', no: '07', name: '海豹湾 · Seal Bay', dir: F.dirOf(0, -78), rad: 12 }, // 07: north of the meadow, beyond its relief (game/sealbay/; dir = the shore spawn)
+  { id: 'pond', no: '03', name: '池塘 · The Pond', dir: F.dirOf(66, -72), rad: 9 },
+  { id: 'mill', no: '05', name: '磨坊 · The Mill', dir: F.dirOf(-72, -40), rad: 10 },
+  { id: 'sealbay', no: '04', name: '海豹湾 · Seal Bay', dir: F.dirOf(0, -78), rad: 12 }, // QA r3: numbered in loop order 01 meadow · 02 halt · 03 pond · 04 seal bay · 05 mill; north of the meadow, beyond its relief (game/sealbay/; dir = the shore spawn)
   { id: 'station', no: '02', name: '小站 · The Halt', dir: F.dirOf(119.75, -4.58), rad: 9 }, // m-station r2 spot; main.js calls placeStation() with station.js's STATION_DIR at boot
 ];
 export const LOOP = ['meadow', 'station', 'pond', 'sealbay', 'mill'];
@@ -25,6 +25,22 @@ export const [uP, vP] = F.toUV(REG[1].dir), [uM, vM] = F.toUV(REG[2].dir);
 export const localFrame = (c) => { const E = new THREE.Vector3(0, 1, 0).cross(c).normalize(), N = E.clone().cross(c).normalize();
   return (d) => { const k = d.dot(c); return [R * d.dot(E) / k, R * d.dot(N) / k]; }; };
 export const pondLocal = localFrame(REG[1].dir), millLocal = localFrame(REG[2].dir);
+// QA #20: the windmill's pose in b4-local metres (b4 had it at 0, 0, yaw .4, scale 1). At the ?at=mill arrival frame (24.5° camera) a 1.75 m
+// mill 2.4 m ahead of the cat swept its blades ~4 m (ground-equivalent) past the board's far edge; beside the cat, door to the camera, 0.85 ×,
+// every blade tip stays ≥ 1.4 m inside the board (/tmp/millfit.mjs replica). apron = the spot in front of its door where the path ends.
+export const MILL_AT = { x: -15, z: -10, yaw: -1.75, s: .85 };
+export const millAt = (x, z, out = new THREE.Vector3()) => { const c = REG[2].dir, E = new THREE.Vector3(0, 1, 0).cross(c).normalize(), N = E.clone().cross(c).normalize();
+  return out.copy(c).multiplyScalar(R).addScaledVector(E, x * MS).addScaledVector(N, z * MS).normalize(); };
+// mill-local (the windmill group's own x, z, before its 0.85 scale) ↔ b4-local metres
+export const millPose = (px, pz) => { const c = Math.cos(MILL_AT.yaw), s = Math.sin(MILL_AT.yaw); return [MILL_AT.x + MILL_AT.s * (px * c + pz * s), MILL_AT.z + MILL_AT.s * (-px * s + pz * c)]; };
+export const millUnpose = (x, z) => { const c = Math.cos(MILL_AT.yaw), s = Math.sin(MILL_AT.yaw), dx = (x - MILL_AT.x) / MILL_AT.s, dz = (z - MILL_AT.z) / MILL_AT.s; return [dx * c - dz * s, dx * s + dz * c]; };
+// life r1: at 0.85 × the lowest sail tips pass 0.156 board m over the ground (0.45 Hc) — the hub can't rise ~2.9 m over the cap and −15 % sails
+// only buys 0.1 m, so the cat is kept out of the sweep instead: every blade point lower than 1.3 Hc has its foot in mill-local |x| ≤ 5.39,
+// z 2.6…2.8 (the sail plane); MILL_SWEEP is that strip grown by 1.7 (0.17 board m = CAT_R .13 + .04). Outside it the lowest blade within the
+// cat's radius clears 0.570 m = 1.63 Hc (/tmp/millsweep.mjs). The path's apron sits beside the sweep, door side, not under it.
+export const MILL_SWEEP = { hx: 5.4, z0: 2.6, z1: 2.8, r: 1.7 };
+export const millSweepSD = (x, z) => { const [px, pz] = millUnpose(x, z), dx = Math.max(Math.abs(px) - MILL_SWEEP.hx, 0), dz = Math.max(MILL_SWEEP.z0 - pz, pz - MILL_SWEEP.z1, 0); return Math.hypot(dx, dz) - MILL_SWEEP.r; };
+export const MILL_APRON = millPose(-7.5, 1.6);
 
 
 export const BOARD = { U0: -300, U1: 240, V0: -95, V1: 95 };
@@ -61,7 +77,7 @@ const WD = new THREE.Vector3();
 return { U0, U1, V0, V1, W, seed: 5, cell: 30,
   keep: [{ u: 0, v: 0, r: 36 }, { u: uP, v: vP, r: 26 }, { u: uM, v: vM, r: 50 }], paths: [], extraHedges: paddock, // r2: lane drawn by the shader (lanePath)
   wheat: (u, v) => false && Math.abs(u) > 70 && Math.abs(u - uP) > 45 && ((Math.sin(u * .031 + 1) + Math.cos(v * .043)) > 1.45),
-  stampBoxes: [[uP - 6, vP - 6, uP + 6, vP + 6], [uM - 2, vM - 2, uM + 2, vM + 2]],
+  stampBoxes: [[uP - 6, vP - 6, uP + 6, vP + 6], [uM - 3, vM - 3, uM + 3, vM + 3]],
   stamp(u, v){
     if (Math.abs(u - uP) < 6){ u = uP + (u - uP) / PS; v = vP + (v - vP) / PS; } else { u = uM + (u - uM) / MS; v = vM + (v - vM) / MS; }
     F.dirOf(u, v, WD);
@@ -73,7 +89,8 @@ return { U0, U1, V0, V1, W, seed: 5, cell: 30,
     // loop path
     const t = an, pr = 40 + 4 * Math.sin(3 * t) + 2 * Math.sin(5 * t + 1);
     if (false && Math.abs(r - pr) < 1.3) { const a = 1 - THREE.MathUtils.smoothstep(Math.abs(r - pr), .55, 1.3); return { rgb: pathC, a, grass: 1 - a, flower: 0 }; }
-    if (r < 5.2) { const a = 1 - THREE.MathUtils.smoothstep(r, 2.6, 5.2); return { rgb: yard, a: a * .7, grass: 1 - a * .7, flower: 0 }; } /* r6: trimmed mill yard */
+    const ry = Math.hypot(x - MILL_AT.x, z - MILL_AT.z); /* QA #20: the trimmed yard moves with the windmill */
+    if (ry < 5.2) { const a = 1 - THREE.MathUtils.smoothstep(ry, 2.6, 5.2); return { rgb: yard, a: a * .7, grass: 1 - a * .7, flower: 0 }; } /* r6: trimmed mill yard */
     if (false && r > 12 && r < 35 && an > -0.95 && an < 1.05){ const e = Math.min(r - 12, 35 - r, (an + .95) * r, (1.05 - an) * r); const a = THREE.MathUtils.smoothstep(e, 0, 2); return { rgb: wheatC, a, grass: 1 - a, wheat: a, flower: 0 }; }
     return null;
   } };
@@ -99,13 +116,13 @@ export function loopWaypoints(){
   else for (let i = 0; i <= nA; i++){ const t = i / nA; plain.push([lerp(A[0], B[0], t), lerp(A[1], B[1], t) + (i && i < nA ? 1.6 * Math.sin(i * 1.7) : 0)]); }
   const pass = onLane ? [[Su - 2, null], [Su + 6, null, 'wet']] : [[Su - 2, Sv + 4.6], [Su + 6, Sv + 4.2, 'wet']];
   // Station → Pond north-west bank (63.5, −63): east past the platform, round the east end of the track (2 m tighter than r1), then a near-straight curve north-west (bow 1.5 m, was 4)
-  const C = [Su + 8.5, Sv - 3], D = [63.5, -63], nC = Math.max(2, Math.round(Math.hypot(D[0] - C[0], D[1] - C[1]) / 12));
+  const C = [Su + 8.5, Sv - 3], D = [64.0, -68.8], /* QA r3 #3: the pond stretch now runs along the pond's south-west bank (~0.7 m off the waterline), past the cat's arrival spot, instead of 4 m away */ nC = Math.max(2, Math.round(Math.hypot(D[0] - C[0], D[1] - C[1]) / 12));
   const wet = []; for (let i = 1; i < nC; i++){ const t = i / nC, bow = Math.sin(Math.PI * t) * 1.5; wet.push([lerp(C[0], D[0], t) + bow, lerp(C[1], D[1], t) + bow * .4]); }
   return [
     [LANE_HOME, null, 'home'], [17, null, 'plain'], ...plain, ...pass, // → station: along the platform's camera side
     [Su + 8.5, Sv + 1], C, ...wet, D, // → pond, its west bank
-    [59, -71, 'dune'], [54, -77], [45, -80], [37.5, -83.6], [29.5, -81.4], [21, -84.2], [10.5, -80.8], [3.2, -77.6], // → seal bay shore (0, −78)
-    [-3, -75.5, 'wheat'], [-14, -71], [-27, -64], [-40, -57], [-52, -50], [-61, -44.5], [-68.5, -41.8], // → mill yard (−72, −40)
+    [62.4, -71.8], [59.5, -74.4, 'dune'], [54, -77], [45, -80], [37.5, -83.6], [29.5, -81.4], [21, -84.2], [10.5, -80.8], [5.5, -82.9], [0, -83.4], // → seal bay: round the south of the bay on its bank (QA #16: the old line ran through the water), the spur up the lobe is in belts.js
+    [-5.5, -82.9, 'wheat'], [-11, -79], [-16, -71], [-27, -64], [-40, -57], [-52, -50], [-61, -44.5], [-68.5, -41.8], // → mill yard (−72, −40)
     [-70, -36.6, 'wall'], [-63, -30], [-52, -24.5], [-40, -20.5], [-28, -17], [-19, null], [-LANE_HOME, null, 'home'], // → home lane west end
   ];
 }

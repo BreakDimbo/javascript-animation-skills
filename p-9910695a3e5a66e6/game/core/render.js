@@ -4,8 +4,12 @@ import { PAL } from '../../artkit/palette.js';
 import { qs, MOBILE } from './util.js';
 
 export function createRender(){
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, stencil: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, MOBILE ? 2 : 1.5)); renderer.setSize(innerWidth, innerHeight);
+  /* m-perf: preserveDrawingBuffer forces a full-frame copy each frame (costly on phone tilers). It is kept for automation
+     (navigator.webdriver: QA shots / toDataURL) and on ?pdb; a real browser gets the normal swap. Same pixels either way.
+     DPR cap unchanged (1.5 desktop, 2 phone); ?dpr=<k> overrides it for testing on real hardware. */
+  const PDB = navigator.webdriver === true || qs.has('pdb') || qs.has('shot');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: PDB, stencil: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(qs.has('dpr') ? +qs.get('dpr') : Math.min(devicePixelRatio, MOBILE ? 2 : 1.5)); renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; /* r9 #3: PCF with radius blur (VSM streaked) = softer sheep-shadow edges */
   { /* r11 eyes-fix (master 05a3e0a, ported): stock r170 PCF = 17 hard depth compares spread over +-radius -> the cat's shadow edge breaks into stair steps.
        Same footprint (+-radius) but an NxN grid of bilinearly interpolated compares, so the penumbra is a smooth ramp. d-cat: N 5 desktop (to_designer_09: radius 6-8 / N=5), 3 mobile; ?pcfn= */

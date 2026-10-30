@@ -179,8 +179,32 @@ export function paintDetail(size = 1024, m = 3, seed = 3){
   return c;
 }
 
+// ---------- hedge r1 (review-vd-scale-1700 #2) ----------
+// w: band width in Hc · k: linear multiplier on the grass under it (ΔL* ≈ 7–9) · keep: share of hedge edges kept ·
+// gap / fade: along-edge metres from a field corner (half of the 0.8 m gap, then the fade-in) · pathIn/Out: no hedge within pathIn m of the loop path, full at pathOut
+export const HEDGE = { w: 1.0, k: .80, keep: .85, segLo: .12, segHi: .35, pathIn: .25, pathOut: .45, brk: 4.5, wF: .5, wT: .38 };   // wF/wT: wheat-rim break noise (1/m, threshold)
+// keep-out texture in board metres: R = distance to the nearest keep path (/4 m), G = 0 inside a keep disc ({u, v, r, f}: clear to r, back by r + f)
+export function hedgeKeepTex({ paths = [], discs = [], res = .25, pad = 6 } = {}){
+  const pts = paths.flat(); if (!pts.length && !discs.length) return null;
+  let u0 = 1e9, v0 = 1e9, u1 = -1e9, v1 = -1e9; for (const [u, v] of pts){ u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+  for (const d of discs){ u0 = Math.min(u0, d.u - d.r - d.f); u1 = Math.max(u1, d.u + d.r + d.f); v0 = Math.min(v0, d.v - d.r - d.f); v1 = Math.max(v1, d.v + d.r + d.f); }
+  u0 -= pad; v0 -= pad; u1 += pad; v1 += pad; const W = Math.ceil((u1 - u0) / res) + 1, H = Math.ceil((v1 - v0) / res) + 1, D = new Uint8Array(W * H * 4);
+  const C = 4, grid = new Map(), key = (i, j) => i * 100003 + j;   // segments binned in 4 m cells
+  for (const P of paths) for (let k = 0; k < P.length - 1; k++){ const a = P[k], b = P[k + 1];
+    for (let i = Math.floor((Math.min(a[0], b[0]) - 4) / C); i <= Math.floor((Math.max(a[0], b[0]) + 4) / C); i++) for (let j = Math.floor((Math.min(a[1], b[1]) - 4) / C); j <= Math.floor((Math.max(a[1], b[1]) + 4) / C); j++){
+      const kk = key(i, j); (grid.get(kk) || grid.set(kk, []).get(kk)).push(a, b); } }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ const u = u0 + x * res, v = v0 + y * res, L = grid.get(key(Math.floor(u / C), Math.floor(v / C))); let best = 4;
+    if (L) for (let k = 0; k < L.length; k += 2){ const a = L[k], b = L[k + 1], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((u - a[0]) * dx + (v - a[1]) * dy) / l2));
+      best = Math.min(best, Math.hypot(u - a[0] - dx * t, v - a[1] - dy * t)); }
+    let g = 1; for (const d of discs){ const r = Math.hypot(u - d.u, v - d.v), t = Math.max(0, Math.min(1, (r - d.r) / d.f)); g = Math.min(g, t * t * (3 - 2 * t)); }
+    const o = (y * W + x) * 4; D[o] = Math.round(best / 4 * 255); D[o + 1] = Math.round(g * 255); D[o + 2] = 0; D[o + 3] = 255; }
+  const tex = new THREE.DataTexture(D, W, H, THREE.RGBAFormat); tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false; tex.colorSpace = THREE.NoColorSpace; tex.needsUpdate = true;
+  return { tex, box: new THREE.Vector4(u0, v0, u0 + (W - 1) * res, v0 + (H - 1) * res) };
+}
+
 // ---------- material ----------
-export function groundMaterial(board, frame, { detailM = 3, paperTex, lane = null, stampBoxes = [] } = {}){
+// hedgeKeep: { paths: [[[u, v], …]], discs: [{u, v, r, f}], shrubs: [[u, v, r (Hc)], …] (≤ 3) } — hedge r1
+export function groundMaterial(board, frame, { detailM = 3, paperTex, lane = null, stampBoxes = [], hedgeKeep = null } = {}){
   const tex = new THREE.CanvasTexture(board.canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter;
   const mask = new THREE.CanvasTexture(board.mask); mask.colorSpace = THREE.NoColorSpace;
   const det = new THREE.CanvasTexture(paintDetail(1024, detailM)); det.colorSpace = THREE.NoColorSpace; det.wrapS = det.wrapT = THREE.RepeatWrapping; det.anisotropy = 8;
@@ -192,16 +216,21 @@ export function groundMaterial(board, frame, { detailM = 3, paperTex, lane = nul
     uMin: { value: new THREE.Vector2(board.U0, board.V0) }, uMax: { value: new THREE.Vector2(board.U1, board.V1) },
     uMask: { value: mask }, uSB: { value: [0, 1].map(i => new THREE.Vector4(...(stampBoxes[i] || [1e5, 1e5, 1e5, 1e5]))) }, uDet: { value: det }, uDetM: { value: detailM }, uPap: { value: pap }, uPaper: { value: new THREE.Color(228 / 255, 221 / 255, 208 / 255).convertSRGBToLinear() },
     uFY: { value: lin(PAL.flowerY) }, uFO: { value: lin(PAL.flowerO) }, uFW: { value: lin(PAL.flowerW) },
-    uSun: { value: new THREE.Vector3(0, 1, 0) }, uMini: { value: 1 }, uLane: { value: lane && lane.isTexture ? lane : null }, uHasLane: { value: lane ? 1 : 0 }, uLaneU: { value: new THREE.Vector2(...(lane && lane.laneU || [-1e4, 1e4])) }, uFade: { value: new THREE.Vector3(26, 38, 9) }, uTime: { value: 0 }, uWheatId: { value: new THREE.Vector3(1e5, 0, 0) }, uGraze: { value: Array.from({ length: 14 }, () => new THREE.Vector4(0, 0, 0, 0)) }, uCS: { value: [new THREE.Vector4(), new THREE.Vector4()] }, uCalm: { value: new THREE.Vector4(1e5, 1e5, 1e5, 1) }, uBank: { value: lin('#d8c48e') }, uWat: { value: ['#2f63b8', '#3f7fd0', '#6fa6e0', '#cfe2f4'].map(lin) }, uPaperS: { value: new THREE.Vector3(...[1, 3, 5].map(i => parseInt(PAL.paper.slice(i, i + 2), 16) / 255)) },
+    uSun: { value: new THREE.Vector3(0, 1, 0) }, uMini: { value: 1 }, uNoWheat: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 0, 2)) }, uLane: { value: lane && lane.isTexture ? lane : null }, uHasLane: { value: lane ? 1 : 0 }, uLaneU: { value: new THREE.Vector2(...(lane && lane.laneU || [-1e4, 1e4])) }, uFade: { value: new THREE.Vector3(26, 38, 9) }, uTime: { value: 0 }, uWheatId: { value: new THREE.Vector3(1e5, 0, 0) }, uGraze: { value: Array.from({ length: 14 }, () => new THREE.Vector4(0, 0, 0, 0)) }, uCS: { value: [new THREE.Vector4(), new THREE.Vector4()] }, uCalm: { value: new THREE.Vector4(1e5, 1e5, 1e5, 1) }, uCalm2: { value: new THREE.Vector4(1e5, 1e5, 1e5, 1) }, uBank: { value: lin('#d8c48e') }, uWat: { value: ['#2f63b8', '#3f7fd0', '#6fa6e0', '#cfe2f4'].map(lin) }, uPaperS: { value: new THREE.Vector3(...[1, 3, 5].map(i => parseInt(PAL.paper.slice(i, i + 2), 16) / 255)) },
     uF: { value: [lin(PAL.light), lin(PAL.bright), lin(PAL.dark), lin(PAL.lime), lin(PAL.wheat)] },
     uHed: { value: [lin(PAL.hedgeShade), lin(PAL.hedge), lin(PAL.hedgeLit)] }, uPath: { value: lin(PAL.path) }, uPathE: { value: lin(PAL.pathEdge) } };
+  { const hk = hedgeKeep ? hedgeKeepTex(hedgeKeep) : null, sh = (hedgeKeep && hedgeKeep.shrubs) || [];   /* hedge r1 */
+    Object.assign(u, { uHc: { value: .281 }, uHedK: { value: hk ? hk.tex : null }, uHasHedK: { value: hk ? 1 : 0 }, uHedKB: { value: hk ? hk.box : new THREE.Vector4(0, 0, 1, 1) },
+      uShrub: { value: [0, 1, 2].map(i => new THREE.Vector4(...(sh[i] || [0, 0, 0]), 0)) }, uHedDbg: { value: 0 },
+      uHedP: { value: new THREE.Vector4(HEDGE.segLo, HEDGE.segHi, HEDGE.w, HEDGE.k) }, uHedQ: { value: new THREE.Vector4(HEDGE.pathIn, HEDGE.pathOut, HEDGE.keep, HEDGE.brk) }, uHedW: { value: new THREE.Vector2(HEDGE.wF, HEDGE.wT) } }); }
   m.userData.ground = u;
   m.onBeforeCompile = (s) => {
     Object.assign(s.uniforms, u);
     s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
       .replace('#include <project_vertex>', '#include <project_vertex>\nvGW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     s.fragmentShader = s.fragmentShader.replace('#include <common>', `#include <common>
-varying vec3 vGW; uniform vec3 uC, uE1, uE2, uPaper, uFY, uFO, uFW, uSun, uF[5], uHed[3], uPath, uPathE; uniform float uMini, uHasLane, uTime; uniform vec3 uWheatId; uniform vec4 uGraze[14]; uniform vec4 uCS[2]; uniform vec4 uCalm; uniform vec3 uBank, uWat[4]; uniform vec3 uFade, uPaperS; uniform sampler2D uLane; uniform vec2 uLaneU;
+varying vec3 vGW; uniform vec3 uC, uE1, uE2, uPaper, uFY, uFO, uFW, uSun, uF[5], uHed[3], uPath, uPathE; uniform float uMini, uHasLane, uTime; uniform vec3 uWheatId; uniform vec4 uNoWheat[4]; uniform vec4 uGraze[14]; uniform vec4 uCS[2]; uniform vec4 uCalm, uCalm2; uniform vec3 uBank, uWat[4]; uniform vec3 uFade, uPaperS; uniform sampler2D uLane; uniform vec2 uLaneU;
+uniform float uHc, uHasHedK, uHedDbg; uniform vec4 uHedP, uHedQ; uniform vec2 uHedW; vec3 gDb = vec3(0.); uniform sampler2D uHedK; uniform vec4 uHedKB; uniform vec4 uShrub[3]; float gHA = 0.; vec2 gG = vec2(0.); /* hedge r1 */
 // analytic path/river distances (crisp at any zoom; mirrors world.js lanePath / meadowPath / riverPath)
 float fpLane(float u){ return 1.8 * sin(u * .045) + .7 * sin(u * .13 + 1.0) + (-15.0 - 1.8 * sin(u * .045)) * (1.0 - smoothstep(14.0, 40.0, abs(u))) + .25 * sin(u * .5); }
 float fpMead(float v){ return 1.25 - .22 * clamp(v + 3.5, -12.0, 6.0) + .3 * sin(v * .42 + 1.0) + .1 * sin(v * 1.3); } /* r5: one diagonal main path like FINAL17 */
@@ -216,13 +245,91 @@ vec2 foldPaths(vec2 g){
   float b = length(vec2((u - fr) / sqrt(1.0 + dr * dr), v - vr));
   return vec2(a, b);
 }
-${MF_GLSL}float mfV3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+${MF_GLSL}float mfV3(vec3 p);
+/* hedge r1: segment mask from d3 (≈ 0.87 × the along-edge distance to the nearest field corner): gap, then fade in */
+float hedgeSeg(float d3){ return smoothstep(uHedP.x, uHedP.y, d3); }
+/* hedge r1: 0 near the loop path and on the keep discs (station lawn) */
+float hedgeKeep(vec2 g){ if (uHasHedK < .5) return 1.; vec2 q = (g - uHedKB.xy) / (uHedKB.zw - uHedKB.xy); if (q.x < 0. || q.y < 0. || q.x > 1. || q.y > 1.) return 1.;
+  vec4 t = texture2D(uHedK, q); return smoothstep(uHedQ.x, uHedQ.y, t.r * 4.) * t.g; }
+/* QA r4 (meadow b3 orphan 2, the ~80x15 px strip beside the river stone): the river is painted by this shader (foldPaths .y, half-width
+   <= .223 m + .032 m sand lip) but nothing gated hedges on it, so a 1.8 m hedge ran on UNDER the water and its east-bank 0.55 m end survived the
+   r3 < 1.2 m run rule (the walker measured the whole piece through the river). Binary river gap: no hedge / wheat rim within .30 m of the river
+   centre (>= .045 m clear of the sand lip); hedGap uses the same test, so each bank's remnant is measured on its own. */
+float hedRiv(vec2 g){ return uHasLane > .5 ? step(.30, foldPaths(g).y) : 1.; }
+/* hedge r1: the band paint: the grass under it × k, crown undulating 0.15–0.25 Hc every ~0.4 m with its sun-away flank (side > r0) 7 % darker, ±4 % shrub grain */
+vec3 hedgeBand(vec3 col, float a, float side, float W, float ae, vec3 P, vec4 d){
+  if (a <= 0.) return col;
+  float cr = .15 + .10 * mfV3(vec3(ae * 2.4, 1., 3.)), r0 = W * (.05 - (cr - .2) * .9);
+  float shd = 1. - .07 * smoothstep(r0 - .15 * W, r0 + .15 * W, side), gr = 1. + (mfV3(P * 9. + vec3(3., 1., 2.)) - .5) * .08;
+  return mix(col, col * uHedP.w * shd * gr * vec3(.95, 1.02, .93), a); }   /* D2: slight shift toward deeper green (+1.3° Lab hue) at the same luminance (Rec.709 weights: .9986) */
+/* QA r3 (hedge orphans, deployer meadow 1440 @ 3ff7d7b): every gap (corner, break, field gate, bank, path keep-out, rim noise) is a binary cut,
+   so between two of them a piece of any length could survive: a 0.3 m wedge where two oblique d3 corner cuts meet, a 0.6 m piece left between a gate and the bank cut,
+   a 0.9 m wheat-rim piece between two noise breaks. hedRun measures the piece through this pixel ALONG its edge, and a piece shorter than 1.2 m is dropped whole.
+   The edge tangent t lies in the cells' bisector (taken on it, so both sides of a hedge get the same answer); its corners are the third-cell bisectors (hedD3);
+   then the edge is WALKED (0.15 m steps, each Newton-projected back onto the curved edge, tangent re-taken) up to 1.35 m each way, every gap test replayed there
+   (d3 exact through the warp on the 8 nearest corner planes) and the first hit refined by bisection (±1.9 cm). A straight chord cut curved edges short (38 / 220 pieces half-dropped). Masks are sampled at LOD 0 (non-uniform branch). */
+float hedGM(vec2 g);
+void hedJ(vec3 P, out vec3 J0, out vec3 J1, out vec3 J2){ /* the warp Jacobian, as in mfEdge */
+  float w_ = ${MF.warp.toFixed(3)}; float ay = cos(P.y * 1.13 + sin(P.z * .67)), az = cos(P.z * 1.07 + sin(P.x * .71)), ax = cos(P.x * 1.17 + sin(P.y * .63));
+  J0 = vec3(1., w_ * ay * 1.13 + .246 * cos(P.y * 4.1 + P.z * 1.3), w_ * ay * cos(P.z * .67) * .67 + .078 * cos(P.y * 4.1 + P.z * 1.3));
+  J1 = vec3(w_ * az * cos(P.x * .71) * .71 + .066 * cos(P.z * 3.9 + P.x * 1.1), 1., w_ * az * 1.07 + .234 * cos(P.z * 3.9 + P.x * 1.1));
+  J2 = vec3(w_ * ax * 1.17 + .258 * cos(P.x * 4.3 + P.y * 1.2), w_ * ax * cos(P.y * .63) * .63 + .072 * cos(P.x * 4.3 + P.y * 1.2), 1.); }
+/* ground distance from P to the nearest of the corner planes sk (third cells): q on the 1|2 bisector; |G| / the larger of the 1|k and 2|k plane gradients,
+   i.e. min(distance to plane 1|k, to plane 2|k), the same planes and the same min mfEdge's d3 takes, and the same number seen from either side */
+float hedD3(vec3 P, vec3 s1, vec3 s2, vec3 sk[8]){
+  vec3 sxv = vec3(${MF.sx.toFixed(3)}, 1., 1.), dir = normalize(P), J0, J1, J2; hedJ(P, J0, J1, J2); float C = ${MF.cell.toFixed(3)}, d3 = 1e3;
+  vec3 q = (P + mfWarp(P)) / C * sxv, e12 = s2 - s1; q -= e12 * (dot(q - .5 * (s1 + s2), e12) / max(dot(e12, e12), 1e-6));
+  for (int n = 0; n < 8; n++){ vec3 v1 = (sk[n] - s1) * sxv, v2 = (sk[n] - s2) * sxv, ga = (v1.x * J0 + v1.y * J1 + v1.z * J2) / C, gb = (v2.x * J0 + v2.y * J1 + v2.z * J2) / C;
+    float gn = max(max(length(ga - dir * dot(ga, dir)), length(gb - dir * dot(gb, dir))), 1e-4);
+    d3 = min(d3, max(0., -dot(q - .5 * (s1 + sk[n]), sk[n] - s1)) / gn); }
+  return d3; }
+vec3 hedNewton(vec3 P, vec3 s1, vec3 s2){ /* one Newton step back onto the 1|2 bisector (ground plane): the walk follows the curved edge, not its chord */
+  vec3 sxv = vec3(${MF.sx.toFixed(3)}, 1., 1.), dir = normalize(P), J0, J1, J2; hedJ(P, J0, J1, J2); float C = ${MF.cell.toFixed(3)};
+  vec3 v = (s2 - s1) * sxv, g = (v.x * J0 + v.y * J1 + v.z * J2) / C, gt = g - dir * dot(g, dir);
+  float G = dot((P + mfWarp(P)) / C * sxv - .5 * (s1 + s2), s2 - s1); return normalize(P - gt * (G / max(dot(gt, gt), 1e-9))) * length(P); }
+vec3 hedTan(vec3 P, vec3 s1, vec3 s2){ vec3 sxv = vec3(${MF.sx.toFixed(3)}, 1., 1.), J0, J1, J2; hedJ(P, J0, J1, J2);
+  vec3 v = (s2 - s1) * sxv, c = cross(normalize(P), v.x * J0 + v.y * J1 + v.z * J2); return c / max(length(c), 1e-9); }
+float hedGap(vec3 Pu, vec3 s1, vec3 s2, vec3 sk[8], vec2 tBn, float brH, float gE, float tn, float rim){
+  float d3 = hedD3(Pu, s1, s2, sk), cG = d3 / .87 - .27; vec3 du = normalize(Pu); vec2 g = vec2(dot(du, uE1), dot(du, uE2)) * 600. / max(dot(du, uC), 1e-3);
+  float vw = smoothstep(.12, .35, tn) * smoothstep(.35, .9, hedGM(g));
+  if (cG < 0. || vw < .9 || hedgeKeep(g) < .5 || hedRiv(g) < .5) return 1.;
+  if (rim > .5) return mfV3(Pu * uHedW.x + vec3(3., 9., 2.)) < uHedW.y ? 1. : 0.;
+  float bT = fract(dot(g, tBn) / max(uHedQ.w, .5) + brH), bG = uHedQ.w > 0. ? min(bT, 1. - bT) * uHedQ.w - .235 : 1e3;
+  float hg = 1. - (1. - smoothstep(.0, .35, abs(d3 - 2.3) - .45)) * gE;
+  return (bG < 0. || cG + bG < .6 || hg < .5) ? 1. : 0.; }
+float hedRun(vec3 P, vec3 dir, vec3 id1, vec3 id2, vec2 tBn, float gE, float tn, float rim){
+  vec3 sxv = vec3(${MF.sx.toFixed(3)}, 1., 1.), J0, J1, J2; hedJ(P, J0, J1, J2); float C = ${MF.cell.toFixed(3)}, rP = length(P);
+  vec3 q = (P + mfWarp(P)) / C * sxv, s1 = id1 + mfHash(id1 + 17.), s2 = id2 + mfHash(id2 + 17.), e12 = s2 - s1;
+  q -= e12 * (dot(q - .5 * (s1 + s2), e12) / max(dot(e12, e12), 1e-6));
+  vec3 t0 = hedTan(P, s1, s2); if (dot(t0, t0) < .5) return 9.;
+  /* the 8 third cells whose planes are nearest now (of the 3×3×3 round each cell; 8 keeps 95 % agreement with walking the true edge, 4 only 89 %) */
+  vec3 sk[8]; float sd[8]; for (int n = 0; n < 8; n++){ sk[n] = s1 + vec3(1e3); sd[n] = 1e9; }
+  for (int m = 0; m < 2; m++){ vec3 b = m == 0 ? id1 : id2;
+    for (int k = -1; k <= 1; k++) for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++){
+      vec3 c = b + vec3(i, j, k); if (c == id1 || c == id2) continue; vec3 s = c + mfHash(c + 17.), ek = s - s1, v1 = ek * sxv, v2 = (s - s2) * sxv;
+      vec3 ga = (v1.x * J0 + v1.y * J1 + v1.z * J2) / C, gb = (v2.x * J0 + v2.y * J1 + v2.z * J2) / C;
+      float D = max(0., -dot(q - .5 * (s1 + s), ek)) / max(max(length(ga - dir * dot(ga, dir)), length(gb - dir * dot(gb, dir))), 1e-4);
+      bool dup = false; for (int n = 0; n < 8; n++) if (sk[n] == s) dup = true;
+      if (!dup && D < sd[7]){ sd[7] = D; sk[7] = s;
+        for (int n = 7; n > 0; n--) if (sd[n] < sd[n - 1]){ float tD = sd[n]; sd[n] = sd[n - 1]; sd[n - 1] = tD; vec3 tS = sk[n]; sk[n] = sk[n - 1]; sk[n - 1] = tS; } } } }
+  float brH = mfHash(min(id1, id2) * 1.31 + max(id1, id2) * .57 + 5.).x, L = 0.;
+  for (int sd2 = 0; sd2 < 2; sd2++){ vec3 Pc = P, tc = sd2 == 0 ? t0 : -t0; float lo = 0., hi = -1.;
+    for (int i = 1; i <= 9; i++){ vec3 Pn = hedNewton(normalize(Pc + tc * .15) * rP, s1, s2);
+      if (hedGap(Pn, s1, s2, sk, tBn, brH, gE, tn, rim) > .5){ hi = float(i) * .15; break; }
+      lo = float(i) * .15; vec3 tN = hedTan(Pn, s1, s2); tc = dot(tN, tc) < 0. ? -tN : tN; Pc = Pn; }
+    if (hi < 0.){ L += 1.35; continue; }
+    float a = lo, bb = hi;
+    for (int k = 0; k < 3; k++){ float md = .5 * (a + bb); if (hedGap(hedNewton(normalize(Pc + tc * (md - lo)) * rP, s1, s2), s1, s2, sk, tBn, brH, gE, tn, rim) > .5) bb = md; else a = md; }
+    L += .5 * (a + bb); }
+  return L; }
+float mfV3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(mix(mfHash(i).x, mfHash(i + vec3(1,0,0)).x, f.x), mix(mfHash(i + vec3(0,1,0)).x, mfHash(i + vec3(1,1,0)).x, f.x), f.y),
              mix(mix(mfHash(i + vec3(0,0,1)).x, mfHash(i + vec3(1,0,1)).x, f.x), mix(mfHash(i + vec3(0,1,1)).x, mfHash(i + vec3(1,1,1)).x, f.x), f.y), f.z); }
 /* w2 r2: one field's flat wash (FINAL17 greens; wheat = light warm straw ≈ #cdb750 → #e2c68d); wh = 1 for wheat */
 vec3 mfFieldCol(vec3 id, out float wh){ vec3 ch = mfHash(id + 3.1);
   vec3 fc = ch.x < .34 ? uF[0] : ch.x < .74 ? uF[1] : mix(uF[2], uF[1], .35);
-  wh = ((ch.y < .13 && mfThick(id) > .5) || length(id - uWheatId) < .01) ? 1. : 0.; /* ground-r4: no sliver wheat cells (only their dark rim showed, as a dash) */ /* r5: plus the wheat corner field of the home frame */
+  wh = ((ch.y < .13 && mfThick(id) > .5) || length(id - uWheatId) < .01) ? 1. : 0.;
+  { vec3 cw = normalize((id + .5) / vec3(${MF.sx.toFixed(3)}, 1., 1.)); for (int i = 0; i < 4; i++) if (dot(cw, uNoWheat[i].xyz) > uNoWheat[i].w) wh = 0.; } /* QA r3 #4: no random wheat cell next to a non-meadow region board (it showed as a straw band along the pond board's top edge) */ /* ground-r4: no sliver wheat cells (only their dark rim showed, as a dash) */ /* r5: plus the wheat corner field of the home frame */
   fc = mix(fc, uF[4] * vec3(1.63, 1.545, 1.60), wh);
   return fc * vec3(.985, 1.025, .99) * (1.012 + .08 * ch.z); } /* d13: +6 %, a touch greener, so the darker r4 hedge outlines + blob shadows keep the FINAL17 mean (bdE) */
 vec3 miniPaint(vec3 P, vec3 dir, vec4 d, float gm){
@@ -238,7 +345,9 @@ vec3 miniPaint(vec3 P, vec3 dir, vec4 d, float gm){
     fc = acc / wa; wh = wha / wa; whS = wh0a / wa0; }
   /* d15 (vd r4.1 #2): round a region's own lawn (the pond) the green fields share one mean wash: no hedge is drawn there, so a field-to-field
      value step read as a vertical light band beside the cat. Fades back to the patchwork over the outer 40 % of uCalm.w */
-  { float cm = 1. - smoothstep(uCalm.w * .6, uCalm.w, length(P - uCalm.xyz)); vec3 FM = (uF[0] * .34 + uF[1] * .40 + mix(uF[2], uF[1], .35) * .26) * vec3(.985, 1.025, .99) * 1.052;
+  float cmL = 1. - smoothstep(uCalm.w * .6, uCalm.w, length(P - uCalm.xyz));
+  cmL = max(cmL, 1. - smoothstep(uCalm2.w * .6, uCalm2.w, length(P - uCalm2.xyz))); /* m-loop T1: a second calm lawn (the halt, groundgrid.js): its board has no hedges (uNoWheat disc), so a PAL.light | PAL.bright field step crossing its lower right read as a dark patch; the #10 wash + shade fade below now cover it too */
+  { float cm = cmL; vec3 FM = (uF[0] * .34 + uF[1] * .40 + mix(uF[2], uF[1], .35) * .26) * vec3(.985, 1.025, .99) * 1.052;
     fc = mix(fc, mix(FM, fc, wh), cm * .9); } /* d15 (vd r4.1 #1): the rim line and the field colours share ONE weight field (wh); its border noise is low-frequency (≈ 0.8 m) so the line meanders instead of zig-zagging */
   vec2 gq = vec2(dot(dir, uE1), dot(dir, uE2)) * 600. / max(dot(dir, uC), 1e-3); /* board metres: ticks are screen-vertical, streaks have a per-field diagonal */
   float th = -.62 + (ch.z - .5) * 1.5; vec3 ax = normalize(uE1 * cos(th) + uE2 * sin(th)); ax = normalize(ax - dir * dot(ax, dir)); vec3 ay = cross(dir, ax);
@@ -295,22 +404,55 @@ vec3 miniPaint(vec3 P, vec3 dir, vec4 d, float gm){
   float wob = (mfV3(P * .8 + vec3(4., 0., 2.)) - .5) * .14 + (mfV3(P * 5. + vec3(1., 3., 7.)) - .5) * .02; /* ground-r4: world-position noise, not edge-tangent: continuous where the nearest edge switches (no kinked steps) */
   float dh = dS - wob, adh = abs(dh);
   float away = dot(-sunT, nC) * sign(dS); float shc = dh * sign(away + 1e-4);
-  float sh = exp(-pow((shc - .07) / .1, 2.)) * hed * mix(1., tap, isH3 * .0 + 1.) * vw * vw; /* r2: shade bands always taper toward the medial axis (they sit on one side only, so a join would cut them) */
-  col *= 1. - .30 * sh;
-  col *= 1. - .13 * exp(-pow((shc - .045) / .055, 2.)) * smoothstep(0., .25, abs(away) + .12) * tonal * tap * (.7 + .6 * mfV3(vec3(ae * .5, 3., 8.)));
-  float hw = (.03 + .05 * mfV3(P * .35 + vec3(9., 2., 1.)) + .014 * mfV3(P * 2.2 + vec3(1., 6., 5.))) * mix(.15, 1., hed / max(isH, 1e-3)) * mix(.3, 1., vw);
-  float core = smoothstep(hw, hw * .3, adh) * smoothstep(.0, .7, hed);
-  float lit = clamp(.28 - dot(nC, sunT) * sign(dh) * .3 + (mfV3(vec3(ae * 10., dh * 24., 1.)) - .5) * .25 + .35 * smoothstep(hw * .35, hw, -dh * sign(away + 1e-4)), 0., 1.);
-  vec3 hc = mix(vec3(.04, .15, .015), vec3(.10, .29, .04), lit); // linear: dark core ≈ #3f7a2a (FINAL17) → sunlit edge
-  col = mix(col, hc, core);
+  col *= 1. - .13 * exp(-pow((shc - .045) / .055, 2.)) * smoothstep(0., .25, abs(away) + .12) * tonal * tap * (.7 + .6 * mfV3(vec3(ae * .5, 3., 8.))) * (1. - .9 * cmL); /* m-loop QA #10: the calm lawn erases the tonal step (fc → mean wash), so its shade band must go with it — it read as a dark curved "shadow" with no caster at the pond (left-middle grass) */
+  /* hedge r1 (review-vd-scale-1700 #2): no dark outline. A hedge is a low gouache band 22 % darker in linear (ΔL* ≈ 7–9) than the grass it sits on,
+     0.40 Hc wide (±15 %), 35 % feathered on both sides, a crown that undulates 0.15–0.25 Hc with its sun-away side 7 % darker; no cast shade, no highlight.
+     Every hedge breaks at every field corner (d3 ≈ 0.87 × the along-edge distance to it): 0.8 m gap + 0.6 m fades, so no outline closes; none within
+     1.1–1.9 m of the cat's loop path, none on the station lawn (uHedK). */
+  vec2 tB = vec2(dot(tE, uE1), dot(tE, uE2)); float aeB = dot(gq, tB / max(length(tB), 1e-4)); /* along-edge metres in the board plane (dot(P, tE) is ~constant along an edge: P ∥ dir) */
+  float brT = fract(aeB / max(uHedQ.w, .5) + mfHash(min(id1, id2) * 1.31 + max(id1, id2) * .57 + 5.).x), brD = min(brT, 1. - brT) * uHedQ.w;
+  float segA = hedgeSeg(d3) * (uHedQ.w > 0. ? hedgeSeg(brD) : 1.), keepH = hedgeKeep(gq), eK = step(mfHash(min(id1, id2) * .73 + max(id1, id2) * 1.19 + 11.).y, uHedQ.z);
+  /* QA P1/M2 (hedge-20261030-1910): on non-meadow boards (pond, mill, seal bay, station = m-loop's uNoWheat discs, region radius + 14 m) the field
+     cells along banks are slivers (hedge pixels 0.2–0.4 m from a third edge), so the r1 corner fade and the bank narrowing left 0.5-alpha,
+     edgeless blurry bands that read as shadow or mud. Decision: hedges OFF there, per whole edge (off if EITHER cell of the edge is inside a
+     disc, so no half band survives at a disc boundary). Meadow hedges unchanged. */
+  { vec3 cA = normalize((id1 + .5) / vec3(${MF.sx.toFixed(3)}, 1., 1.)), cB = normalize((id2 + .5) / vec3(${MF.sx.toFixed(3)}, 1., 1.));
+    for (int i = 0; i < 4; i++) if (dot(cA, uNoWheat[i].xyz) > uNoWheat[i].w || dot(cB, uNoWheat[i].xyz) > uNoWheat[i].w) eK = 0.; }
+  /* QA D2 (hedge-20261030-1910): crisp painted body instead of a feathered band. The body is a signed distance in metres, min(across, along),
+     antialiased to a ~1 px step (fwidth); its edge has brushy lumps (two octaves along the edge, ±~8 % of the half width, each side its own).
+     Every gate is binary (corner gap, break gap, field gate, bank, path keep-out, keep), so a piece is full strength or absent: no half-strength stubs.
+     Width 2 H = 0.70 × uHedP.z × uHc (≈ 0.40 Hc measured scale). Corner gap: along-edge 0.27 m each side of every corner (d3 = 0.87 × along-edge),
+     so no field grid closes; break gaps 0.47 m every uHedQ.w; a piece between a corner gap and a break gap shorter than 0.6 m is dropped. */
+  float Wd = uHedP.z * uHc, sdh = dh >= 0. ? 1. : -1.;
+  float lmp = (mfV3(vec3(aeB * 4.2, sdh * 3. + 1., 5.)) - .5) * .16 + (mfV3(vec3(aeB * 11., sdh * 3. + 7., 2.)) - .5) * .10;
+  float Hh = .35 * Wd * (1. + lmp), cG = d3 / .87 - .27, bG = uHedQ.w > 0. ? brD - .235 : 1e3;
+  float sdf = min(Hh - adh, min(cG, bG)), bR = clamp(.5 + sdf / max(fwidth(sdf), 1e-5), 0., 1.);
+  float gate = step(.5, hed) * step(.9, vw) * step(.5, keepH) * eK * (cG + bG < .6 ? 0. : 1.) * hedRiv(gq);   /* QA r4: river gap */
+  vec2 tBn = tB / max(length(tB), 1e-4); float gE = step(.55, mfEdgeHash(id1, id2)) * smoothstep(6., 9., length(P - vec3(.3, -3., 600.)));
+  if (bR > 0. && gate > 0.) gate *= step(1.2, hedRun(P, dir, id1, id2, tBn, gE, tn, 0.)); /* QA r3: pieces < 1.2 m along the edge dropped whole */
+  float bA = bR * gate; gDb = max(gDb, vec3(bR, bR > .05 ? gate : 0., bR > .05 ? keepH : 0.));
+  col = hedgeBand(col, bA, shc, Wd, aeB, P, d);
+  float core = bA;
   /* d13: the wheat rim follows the 0.5 iso-line of the soft Voronoi wheat weight (continuous at every vertex, sliver cells included) instead of the nearest edge,
      which jumped where a thin sliver cell sits between the wheat and its neighbour (stepped hedge at ?at=90,-1) */
   { float pxm = .5 * (length(dFdx(P)) + length(dFdy(P))), wg = length(vec2(dFdx(wh), dFdy(wh))) / max(pxm, 1e-6);
-    float dW = (wh - .5) / max(wg, 1e-3) - wob * .6, hwW = (.03 + .05 * mfV3(P * .35 + vec3(9., 2., 1.)) + .014 * mfV3(P * 2.2 + vec3(1., 6., 5.))) * mix(.3, 1., vw);
-    float on = step(.25, wg) * vis, coreW = smoothstep(hwW, hwW * .3, abs(dW)) * on;
-    col *= 1. - .26 * exp(-pow((dW + .07) / .09, 2.)) * on * vw * vw; /* soft shade on the grass side */
-    float litW = clamp(.28 + .35 * smoothstep(hwW * .35, hwW, dW), 0., 1.);
-    col = mix(col, mix(vec3(.04, .15, .015), vec3(.10, .29, .04), litW), coreW); core = max(core, coreW); }
+    float dW = (wh - .5) / max(wg, 1e-3) - wob * .6;
+    float on = step(.25, wg) * step(.5, vis) * step(.9, vw), Ww = uHedP.z * uHc;
+    /* hedge r1 / D2: the wheat rim is a crisp low body on the grass side of the wheat edge (same SDF body, lumps and binary gates as the hedges):
+       across = lumpy half width − |offset|, along = corner gap and noise breaks (noise units → metres at ~1.2 / m per unit of uHedW.x) */
+    float wX = dW + .55 * Ww, swx = wX >= 0. ? 1. : -1.;
+    float lw = (mfV3(vec3(P.x * 4.2 + P.z * 3.1, swx * 3. + 2., 9.)) - .5) * .16 + (mfV3(vec3(P.x * 11. - P.z * 7.3, swx * 3. + 5., 4.)) - .5) * .10;
+    float nb = (mfV3(P * uHedW.x + vec3(3., 9., 2.)) - uHedW.y) / (uHedW.x * 1.2), sW = min(.35 * Ww * (1. + lw) - abs(wX), min(d3 / .87 - .27, nb));
+    float wA = clamp(.5 + sW / max(fwidth(sW), 1e-5), 0., 1.) * on * step(.5, hedgeKeep(gq));
+    /* QA r3: a rim piece is kept only on a real wheat | grass field edge (the nearest edge, within 0.6 m) and only if its run is ≥ 1.2 m */
+    wA *= step(.5, abs(wh1 - wh2)) * step(ad, .6) * hedRiv(gq); if (wA > 0.) wA *= step(1.2, hedRun(P, dir, id1, id2, tBn, 0., tn, 1.));
+    col = hedgeBand(col, wA, -(dW + .55 * Ww), Ww, aeB, P, d); core = max(core, wA); gHA = max(gHA, max(bA, wA)); }
+  gHA = max(gHA, bA);
+  { /* hedge r1: low shrub clumps (station lawn edge instead of its hedge line): same paint as the band, soft round dabs ~0.9 Hc */
+    for (int i = 0; i < 3; i++){ vec4 sb = uShrub[i]; if (sb.z <= 0.) continue; vec2 o = gq - sb.xy; float r = sb.z * uHc;
+      float dd = length(o * vec2(1., 1.25)) + (mfV3(vec3(gq * 3.1, float(i) * 5.)) - .5) * .35 * r;
+      float sA = smoothstep(r, r * .55, dd); col = hedgeBand(col, sA, dot(o, vec2(.6, -.8)) * 1.2, 2. * r, ae, P, d); core = max(core, sA); gHA = max(gHA, sA); } }
+
 
   { /* w2 r2: FINAL17 flowers: full-strength orange / yellow / white specks (≈ 2 cm) packed in ~1 m drifts, almost none between; board metres so they never crawl */
     float drift = smoothstep(.55, .66, mfV3(vec3(gq * .6, 31.)) * .65 + mfV3(vec3(gq * 2.2, 37.)) * .35);
@@ -321,6 +463,14 @@ vec3 miniPaint(vec3 P, vec3 dir, vec4 d, float gm){
   return col;
 }
  uniform float uR, uDetM; uniform vec2 uMin, uMax; uniform vec4 uSB[2]; uniform sampler2D uMask, uDet, uPap;
+float hedGM(vec2 g){ /* QA r3: the bank mask miniPaint gets as gm (grass mask and its 1.1 m min), at any board point; LOD 0 (called in a branch) */
+  vec2 muv = (g - uMin) / (uMax - uMin); float ins = step(0., muv.x) * step(muv.x, 1.) * step(0., muv.y) * step(muv.y, 1.);
+  vec2 eDm = min(muv, 1. - muv) * (uMax - uMin); float ef = smoothstep(18., 32., min(eDm.x, eDm.y)), sbf = 0.;
+  for (int i = 0; i < 2; i++){ vec4 bx = uSB[i]; vec2 e2 = min(g - bx.xy, bx.zw - g); sbf = max(sbf, smoothstep(0., 1.5, min(e2.x, e2.y) + 1.5)); }
+  float grass = mix(1., textureLod(uMask, clamp(muv, 0., 1.), 0.).r * ins, sbf); vec2 gO = vec2(1.1) / (uMax - uMin);
+  float gmN = mix(1., min(min(textureLod(uMask, clamp(muv + vec2(gO.x, 0.), 0., 1.), 0.).r, textureLod(uMask, clamp(muv - vec2(gO.x, 0.), 0., 1.), 0.).r),
+                          min(textureLod(uMask, clamp(muv + vec2(0., gO.y), 0., 1.), 0.).r, textureLod(uMask, clamp(muv - vec2(0., gO.y), 0., 1.), 0.).r)), ef);
+  return mix(1., min(grass, gmN), ins); }
 vec4 triDet(sampler2D t, vec3 p, vec3 w){ return texture2D(t, p.yz) * w.x + texture2D(t, p.zx) * w.y + texture2D(t, p.xy) * w.z; }`)
       .replace('#include <fog_fragment>', `#include <fog_fragment>
   if (uBoardF.w > 0.0){ // dry-brush fringe of the board edge, mixed into the paper after lighting
@@ -343,7 +493,8 @@ vec4 triDet(sampler2D t, vec3 p, vec3 w){ return texture2D(t, p.yz) * w.x + text
     float rim = smoothstep(.3, .5, t) * (1. - step(.5, t));
     gl_FragColor.rgb *= 1. - .14 * rim;
     gl_FragColor.rgb = mix(gl_FragColor.rgb, uPaperS, step(.5, t) * (.92 + .08 * smoothstep(.5, .9, t)));
-  }`)
+  }
+  if (uHedDbg > 1.5) gl_FragColor = vec4(1. - gDb.x, gDb.yz, 1.); else if (uHedDbg > 0.5) gl_FragColor = vec4(1. - gHA, fract(gG / 8.), 1.); /* hedge r1 debug: R = 1 − hedge alpha, GB = board (u, v) mod 8 m (measure_hedges.py) */`)
       .replace('#include <map_fragment>', `{
   vec3 dir = normalize(vGW); float k = dot(dir, uC);
   vec2 g = vec2(dot(dir, uE1), dot(dir, uE2)) * uR / max(k, 1e-3);
@@ -366,10 +517,11 @@ vec4 triDet(sampler2D t, vec3 p, vec3 w){ return texture2D(t, p.yz) * w.x + text
   float bw = inside * (1.0 - isPaper) * clamp((1.0 - grass) * 1.4 + wheat, 0.0, 1.0);
   bw = smoothstep(0.25, 0.75, bw + (mfV3(vGW * 3.1) - 0.5) * 0.35 + (mfV3(vGW * .7 + 2.) - 0.5) * 0.3) * uMini * ef; /* r5: ragged, natural seam */
   vec3 col = uMini > 0.5 ? mix(miniPaint(vGW, dir, d, mix(1., min(grass, gmN), inside)), bcol, bw) : mix(uPaper, bcol, inside);
+  gG = g; gHA *= (1.0 - bw) * uMini; gDb *= (1.0 - bw) * uMini; /* hedge r1: ?hedgedbg view */
   /* r10 #1: cloud shadows are applied after lighting (see fog_fragment) so the tonal grade can't cancel them */
   grass = max(grass, (1.0 - bw) * uMini);
   if (uHasLane > 0.5 && inside > 0.5){
-    vec2 LD = foldPaths(g); float ld = LD.x, lw = 0.055 + 0.015 * mfV3(vGW * 0.6) + 0.006 * mfV3(vGW * 4.0);
+    vec2 LD = foldPaths(g); float ld = LD.x, lw = 0.067 + 0.015 * mfV3(vGW * 0.6) + 0.006 * mfV3(vGW * 4.0); /* QA r3 #3: +.012 → visible ≈ 0.185 m, the loop ribbon's width (game/journey/belts.js HW) */
     float le = smoothstep(lw + 0.03, lw + 0.006, ld), lc = smoothstep(lw, lw - 0.014, ld);
     col = mix(col, uPathE, le * 0.85); col = mix(col, uPath * (1.0 + (d.r - 0.5) * 0.3), lc);
     col = mix(col, uPath * 1.07, lc * smoothstep(lw * 0.45, lw * 0.15, ld) * 0.5 * mfV3(vGW * 2.3));

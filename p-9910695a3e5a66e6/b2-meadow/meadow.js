@@ -22,7 +22,7 @@ const CORE = 30;         // half-size of the sheep paddock
 const TEXN = 2048;
 
 // ---------- painted ground (port of designer's paintGround, simplified) ----------
-function paintGround(rand){
+export function paintGround(rand){
   const cv = document.createElement('canvas'); cv.width = cv.height = TEXN; const g = cv.getContext('2d');
   const s = TEXN / PATCH;                                  // px per metre
   const P = (u, v) => [(u / PATCH + 0.5) * TEXN, (v / PATCH + 0.5) * TEXN];
@@ -94,6 +94,14 @@ function paintGround(rand){
   g.putImageData(id, 0, 0);
   return { canvas: cv, hedges, fields };
 }
+
+// m-loop bake (17:10, json-only 18:12): what paintGround feeds the rest of createMeadow is pre-baked by game/bake_meadow.html into
+// game/baked/meadow_ground_2048.json (hedges + rand count). Only for callers that hide the ground mesh (game/regions/meadow.js does).
+// MEADOW_PAINT_V hashes every input of the paint (its code, the noise tables, colours, sizes), so editing any of them makes an old
+// bake stale and the live paint runs again. The bake stores how many rand() calls the paint used, so the stream stays identical.
+const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193); return (h >>> 0).toString(16).padStart(8, '0'); };
+export const MEADOW_PAINT_V = fnv([paintGround, vnoise, fbm, mulberry].map(String).join('\n') + perm.join() + JSON.stringify(MEADOW_COL) + `|${TEXN}|${PATCH}`);
+export function bakeMeadowGround(seed = 2401){ const r = mulberry(seed); let n = 0; const g = paintGround(() => (n++, r())); return { ...g, randCalls: n, seed, v: MEADOW_PAINT_V, TEXN, PATCH }; }
 
 // ---------- sheep (clay meshes, designer's graze/idle/walk state machine) ----------
 function blob(r, detail, jitter, seed){ const g = new THREE.IcosahedronGeometry(r, detail); const p = g.attributes.position, v = new THREE.Vector3(), rr = mulberry(seed);
@@ -192,7 +200,11 @@ export function createMeadow(scene, planet = { radius: 600 }, centerDir = new TH
   const heightAt = (p) => { const [u, v] = project(p); return Rp + (Math.abs(u) < PATCH / 2 && Math.abs(v) < PATCH / 2 ? relief(u, v) : 0); };   // radius of the ground under p
 
   // ground mesh
-  const { canvas, hedges } = paintGround(rand);
+  const bk = opts.baked?.json, groundBaked = !!(bk && bk.v === MEADOW_PAINT_V && bk.seed === (opts.seed ?? 2401) && bk.TEXN === TEXN);
+  let canvas, hedges; if (groundBaked){ hedges = bk.hedges; for (let i = 0; i < bk.randCalls; i++) rand();   // fresh bake: same hedges, same rand stream
+    // json-only bake: the game hides this ground mesh (the board paints the meadow), so a flat 1-px swatch stands in for the painted texture
+    canvas = document.createElement('canvas'); canvas.width = canvas.height = 1; const g1 = canvas.getContext('2d'); g1.fillStyle = MEADOW_COL.light; g1.fillRect(0, 0, 1, 1); }
+  else ({ canvas, hedges } = paintGround(rand));
   const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const NSEG = 160, pos = [], uv = [], idx = [], tmp = new THREE.Vector3();
   for (let j = 0; j <= NSEG; j++) for (let i = 0; i <= NSEG; i++){ const u = (i / NSEG - 0.5) * PATCH, v = (j / NSEG - 0.5) * PATCH;
@@ -240,5 +252,5 @@ export function createMeadow(scene, planet = { radius: 600 }, centerDir = new TH
     const cat = catPos ? project(catPos) : null;
     for (const s of sheep) s.update(dt, time, sheep, cat);
   }
-  return { group, ground, sheep, update, heightAt, project, toWorld, dirOf, frame: { c, e1, e2 }, baseColor: MEADOW_COL.base, paperColor: MEADOW_COL.paper };
+  return { group, ground, groundBaked, sheep, update, heightAt, project, toWorld, dirOf, frame: { c, e1, e2 }, baseColor: MEADOW_COL.base, paperColor: MEADOW_COL.paper };
 }

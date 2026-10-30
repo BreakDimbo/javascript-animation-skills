@@ -7,7 +7,7 @@ import { qs } from './util.js';
 const BEND_R = +(qs.get('bend') ?? 42); // radius the ground appears to curve with around the focus (m)
 
 export function createCamRig(camera, canvas, scene, FADE, ground){
-  const fcam = createDioramaCam(camera, canvas), close = qs.has('close'), tmp = new THREE.Vector3();
+  const fcam = createDioramaCam(camera, canvas), close = qs.has('close'), tmp = new THREE.Vector3(), _fd = new THREE.Vector3(), _la = new THREE.Vector3(), _eL = new THREE.Vector3(), _eR = new THREE.Vector3(), _tg = new THREE.Vector3(), _n1 = new THREE.Vector3(), _f0 = new THREE.Vector3();   // perf: per-frame scratch (no clone()/new in update/closeUp)
   // lookAt: direction of a landmark to face (teleports look toward their landmark) or null → board 'north' (−v),
   // like the reference board seen from its long side
   function init(cat, lookAt){
@@ -20,7 +20,7 @@ export function createCamRig(camera, canvas, scene, FADE, ground){
   function update(dt, cat){
     fcam.update(dt, cat);
     const b = fcam.board;
-    setBend(fcam.target.clone().normalize(), close ? 0 : (qs.has('bend') ? BEND_R : b.bendR));
+    setBend(_fd.copy(fcam.target).normalize(), close ? 0 : (qs.has('bend') ? BEND_R : b.bendR));
     setBoard(b.F, b.X, b.Y, b.hx, b.hy, close || qs.has('noboard') ? 0 : b.margin);
     // planet mode: the watercolour fade is measured from the cat, not the camera (r3 bug: at 3× zoom the camera sat beyond the fade and saw only paper)
     const pl = b.planet, dz = fcam.D - fcam.HOME_D; ground.uFade.value.set(pl > .97 ? FADE[0] + dz : 1e4, pl > .97 ? FADE[1] + dz : 2e4, 9);
@@ -31,14 +31,14 @@ export function createCamRig(camera, canvas, scene, FADE, ground){
     if (!close) return;
     camera.fov = 40; camera.updateProjectionMatrix(); const up = cat.up, side = tmp.crossVectors(cat.fwd, up).normalize();
     camera.position.copy(cat.pos).addScaledVector(cat.fwd, .55).addScaledVector(side, .38).addScaledVector(up, .22); camera.up.copy(up);
-      camera.lookAt(cat.pos.clone().addScaledVector(up, .13));
+      camera.lookAt(_la.copy(cat.pos).addScaledVector(up, .13));
     if (qs.has('eyecam')) { /* r11 eyes check (master 05a3e0a, ported): ?close&eyecam=<yaw deg, 0 = straight on, + = from the cat's right>&eyed=<m> frames the face; &eyeroll0 keeps world up */
-      const eL = cat.root.getObjectByName('eyerimL'), eR = cat.root.getObjectByName('eyerimR'), hb = cat.root.getObjectByName('head'), tg = new THREE.Vector3(), N1 = new THREE.Vector3();
-      if (eL && eR) tg.addVectors(eL.getWorldPosition(new THREE.Vector3()), eR.getWorldPosition(N1)).multiplyScalar(.5); else if (hb) hb.getWorldPosition(tg); else tg.copy(cat.pos).addScaledVector(cat.up, .2); if (qs.has('eyedrop')) tg.addScaledVector(cat.up, -qs.get('eyedrop')); /* d-cat: lower the target to frame the whole cat */
-      const d = +(qs.get('eyed') || .5), f0 = eL && eR ? new THREE.Vector3().subVectors(eL.getWorldPosition(new THREE.Vector3()), N1).cross(cat.up).normalize() : cat.fwd.clone(); if (f0.dot(cat.fwd) < 0) f0.negate(); /* straight on = square to the eye line */
+      const eL = cat.root.getObjectByName('eyerimL'), eR = cat.root.getObjectByName('eyerimR'), hb = cat.root.getObjectByName('head'), tg = _tg.set(0, 0, 0), N1 = _n1;
+      if (eL && eR) tg.addVectors(eL.getWorldPosition(_eL), eR.getWorldPosition(N1)).multiplyScalar(.5); else if (hb) hb.getWorldPosition(tg); else tg.copy(cat.pos).addScaledVector(cat.up, .2); if (qs.has('eyedrop')) tg.addScaledVector(cat.up, -qs.get('eyedrop')); /* d-cat: lower the target to frame the whole cat */
+      const d = +(qs.get('eyed') || .5), f0 = eL && eR ? _f0.subVectors(eL.getWorldPosition(_eL), N1).cross(cat.up).normalize() : _f0.copy(cat.fwd); if (f0.dot(cat.fwd) < 0) f0.negate(); /* straight on = square to the eye line */
       const dir = f0.applyAxisAngle(cat.up, -(+qs.get('eyecam') || 0) * Math.PI / 180);
       camera.fov = 16; camera.updateProjectionMatrix(); camera.position.copy(tg).addScaledVector(dir, d).addScaledVector(cat.up, d * .1); camera.up.copy(cat.up);
-      if (eL && eR && !qs.has('eyeroll0')) { const ln = new THREE.Vector3().subVectors(eL.getWorldPosition(new THREE.Vector3()), eR.getWorldPosition(new THREE.Vector3())).normalize(); camera.up.addScaledVector(ln, -camera.up.dot(ln)).normalize(); }
+      if (eL && eR && !qs.has('eyeroll0')) { const ln = _la.subVectors(eL.getWorldPosition(_eL), eR.getWorldPosition(_eR)).normalize(); camera.up.addScaledVector(ln, -camera.up.dot(ln)).normalize(); }
       camera.lookAt(tg); }
   }
   return { fcam, init, update, closeUp };

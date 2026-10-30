@@ -1,5 +1,6 @@
 // 03 风车磨坊丘 — windmill hill region for 褶星 Fold. Matte clay + gouache, no glow.
 import * as THREE from '../shared/vendor/three.module.js';
+import { clayMaterial } from '../artkit/clay.js';
 
 const HILL_H = 4.5, HILL_S = 48, PATCH = 220;          // metres
 const PATH_R = (t) => 40 + 4 * Math.sin(3 * t) + 2 * Math.sin(5 * t + 1);
@@ -117,12 +118,40 @@ export function createMill(scene, planet, centerDir){
   const win = new THREE.Mesh(new THREE.BoxGeometry(.8, .7, .2), lam('#4b4038')); win.position.set(-1.2, 1.8, 2.02); house.add(win);
   const chim = new THREE.Mesh(new THREE.BoxGeometry(.6, 1.4, .6), clay(C.clayDk)); chim.position.set(-1.6, 4.1, -.6); house.add(chim);
 
-  // ---------- flour sacks with a dormouse gap ----------
-  const sackG = new THREE.SphereGeometry(.38, 14, 10); sackG.scale(1, 1.15, .8);
+  // ---------- burlap sacks with a dormouse gap ----------
+  /* VD mvp-gate §6 (was 8 upright cream ellipsoids that read as a clutch of eggs): 5 flat burlap sacks lying down, stacked 3-2, #cbb489 with the
+     tie #a88e62. clayMaterial is used directly so reskin() keeps the exact hexes (its palette remap would turn them into #ddc48f / #976d4d).
+     1 Hc = .3491 board m = 2.909 b4 m (MS .12): length 1.65 = .567 Hc, cross-section 1.0 wide x .6 high (h:w .60), tie tuft .265 above the sack = .091 Hc.
+     Same anchor, frame and centre (x .05) as before; sacks-local box old x -1.98..1.98, z -.98..+.48, top 1.50 -> now x -1.44..1.54, z -1.23..+.59,
+     top 1.31 (narrower, .35 deeper because one sack is 1.65 long). millyard.js reads the meshes for the hens' screen hull; its SACKS circles and
+     mouse SIDES are hard-coded to the old pile (see the gate-fix report). Side vs top: geometry normals tipped up by .11 so the camera-side flank sits
+     ~13.4 % under the top in the arrival light (raw normals ~16.7 %; the thin +z end ~31 %, 4 % of the visible area); Lambert only, no highlight, no outline. */
+  const SL = 1.65, SW = 1.0, SH = .8, TIP = .11;   // SH = sphere half-axes x2; the flat underside (x.55) + sag leave a real height of .60
+  const sg = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  const pillow = (z) => 1 - .45 * Math.pow(Math.abs(z), 6);              // ends pinch thin like a sewn / gathered sack
+  const sackG = new THREE.SphereGeometry(1, 28, 18).rotateX(Math.PI / 2).rotateZ(Math.PI / 2);   // poles on the long axis, uv seam underneath
+  { const p = sackG.attributes.position;
+    for (let i = 0; i < p.count; i++){ const X = sg(p.getX(i), .55), Z = sg(p.getZ(i), .4); let Y = sg(p.getY(i), .75) * pillow(Z);
+      if (Y < 0) Y *= .55; else Y *= 1 - .05 * (1 - Z * Z);                 // flat underside, the filling sags a touch mid-length
+      p.setXYZ(i, X * SW * .5 * (1 - .12 * Math.pow(Math.abs(Z), 6)), Y * SH * .5, Z * SL * .5); }
+    sackG.computeVertexNormals(); const n = sackG.attributes.normal;
+    for (let i = 0; i < n.count; i++){ const v = new THREE.Vector3(n.getX(i), n.getY(i) + TIP, n.getZ(i)).normalize(); n.setXYZ(i, v.x, v.y, v.z); } }
+  const SBOT = SH * .5 * .55;                                              // centre height of a sack resting on the ground
+  const topAt = (zl) => { const Z = Math.min(.999, Math.abs(zl) / (SL * .5)); const sn = Math.pow(Z, 2.5);   // top surface height above the sack centre
+    return Math.pow(Math.sqrt(1 - sn * sn), .75) * pillow(Z) * (1 - .05 * (1 - Z * Z)) * SH * .5; };
+  const sackM = clayMaterial({ color: '#cbb489', grain: 8, grainAmt: .18 }), tieM = clayMaterial({ color: '#a88e62', grain: 8, grainAmt: .14 });
+  const tieG = new THREE.CylinderGeometry(.085, .045, .3, 7).translate(0, .15, 0);   // gathered neck flaring into a little tuft
   const sacks = new THREE.Group(); const SX = -2.2, SZ = 9.6; frame(sacks, SX, SZ, -0.5); group.add(sacks);
-  const sackPos = [[-1.1, 0, 0], [-.45, 0, .1], [-.8, .62, .05], [.55, 0, 0], [1.2, 0, -.05], [.85, .62, 0], [-1.6, 0, -.6], [1.6, 0, -.5]];
-  for (const [x, y, z] of sackPos){ const s = new THREE.Mesh(sackG, clay(rand() < .5 ? C.sack : C.sackDk)); s.position.set(x, y + .36, z); s.rotation.set((rand()-.5)*.3, rand() * 3, (rand()-.5)*.3); sacks.add(s);
-    const tie = new THREE.Mesh(new THREE.CylinderGeometry(.07, .12, .16, 8), clay(C.sackDk)); tie.position.set(x, y + .8, z); sacks.add(tie); }
+  const PX = .05, PZ = -.27;
+  // [x, y, z, tuft at +1/-1 end]; bottom row of 3 side by side, 2 on top nested in the grooves (top pair set back .1 so the bottom necks show)
+  const sackLay = [[PX - .98, SBOT, PZ, 1], [PX, SBOT, PZ, 1], [PX + .98, SBOT, PZ, 1], [PX - .49, SBOT + .5, PZ - .1, 1], [PX + .49, SBOT + .5, PZ - .1, -1]];
+  const rr = Array.from({ length: 32 }, rand);                            // old pile drew 32 rand(); keep the stream so the wheat etc. stay put
+  sackLay.forEach(([x, y, z, e], i) => { const yaw = (rr[i * 4] - .5) * .1, roll = (rr[i * 4 + 1] - .5) * .06, dz = (rr[i * 4 + 2] - .5) * .06;
+    const s = new THREE.Mesh(sackG, sackM); s.position.set(x, y, z + dz); s.rotation.set(0, yaw, roll); sacks.add(s);
+    const zl = e * (SL * .5 - .2), t = new THREE.Mesh(tieG, tieM);
+    t.position.copy(new THREE.Vector3(0, topAt(zl) - .04, zl).applyEuler(s.rotation).add(s.position)); t.rotation.set(e * .45, yaw, roll); sacks.add(t); });
+  // sample points for the b4 obstacle list: two per bottom sack (front / back half)
+  const sackPos = sackLay.slice(0, 3).flatMap(([x, , z]) => [[x, 0, z + .4], [x, 0, z - .4]]);
   // dormouse lives in the gap at x≈0.05
   const mouse = new THREE.Group(); sacks.add(mouse);
   const mbody = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 8).scale(1, .9, 1.3), lam(C.mouse)); mbody.position.y = .07; mouse.add(mbody);
@@ -130,7 +159,7 @@ export function createMill(scene, planet, centerDir){
   for (const s of [-1, 1]){ const ear = new THREE.Mesh(new THREE.SphereGeometry(.022, 8, 6).scale(1, 1, .4), lam('#d7a98a')); ear.position.set(s * .035, .15, .08); mouse.add(ear);
     const eye = new THREE.Mesh(new THREE.SphereGeometry(.011, 6, 6), lam('#1e1a18')); eye.position.set(s * .024, .115, .133); mouse.add(eye); }
   const mtail = new THREE.Mesh(new THREE.SphereGeometry(.035, 8, 6).scale(.8, .8, 2.4), lam('#a07650')); mtail.position.set(0, .07, -.13); mouse.add(mtail);
-  const mouseHide = new THREE.Vector3(.05, .02, -.35), mousePeek = new THREE.Vector3(.05, .02, .22);
+  const mouseHide = new THREE.Vector3(.05, .02, -.35), mousePeek = new THREE.Vector3(.05, .02, .72);   // b4 standalone: just past the middle sack's front end (z .59)
   mouse.position.copy(mouseHide);
 
   // ---------- wheat (instanced, swaying) ----------
@@ -168,7 +197,7 @@ export function createMill(scene, planet, centerDir){
   let dT = 0.3, dRide = false;
 
   const obstacles = [{ x: 0, z: 0, r: 3.0 }, { x: HX, z: HZ, r: 3.3 }];
-  for (const [x, , z] of sackPos){ const a = -0.5; obstacles.push({ x: SX + x * Math.cos(a) + z * Math.sin(a), z: SZ - x * Math.sin(a) + z * Math.cos(a), r: .32 }); }
+  for (const [x, , z] of sackPos){ const a = -0.5; obstacles.push({ x: SX + x * Math.cos(a) + z * Math.sin(a), z: SZ - x * Math.sin(a) + z * Math.cos(a), r: .5 }); }
   void obstacles;
 
   // ---------- api ----------

@@ -6,15 +6,17 @@
 import * as THREE from '../../shared/vendor/three.module.js';
 import { BEND } from '../../artkit/bend.js';
 
-const KEY = 'fold.visited.v1', NS = 'http://www.w3.org/2000/svg';
-const INK = '#4a4236', FONT = '"Cormorant Garamond","Noto Serif SC","Songti SC",Georgia,serif';
+const KEY = 'fold.visited.v2', OLD = { '01': 'meadow', '02': 'station', '06': 'pond', '03': 'mill', '07': 'sealbay' }, // v2: region ids (v1 stored the old region numbers)
+   NS = 'http://www.w3.org/2000/svg';
+const INK = '#4a4236', INK_OP = .86, WT = '500', FONT = '"Cormorant Garamond","Noto Serif SC","Songti SC",Georgia,serif';
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const el = (tag, at = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (parent) parent.appendChild(e); return e; };
 
 export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLSearchParams(location.search), next = null, hidden = () => false }) {
   // ---------- visited set ----------
   let visited = new Set();
-  try { if (qs.has('wfreset')) localStorage.removeItem(KEY); visited = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (e) { /* private mode: session only */ }
+  try { if (qs.has('wfreset')) localStorage.removeItem(KEY); visited = new Set(JSON.parse(localStorage.getItem(KEY) || '[]'));
+    if (!localStorage.getItem(KEY)) { for (const n of JSON.parse(localStorage.getItem('fold.visited.v1') || '[]')) if (OLD[n]) visited.add(OLD[n]); } } catch (e) { /* private mode: session only */ }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...visited])); } catch (e) {} };
   const off = qs.has('close') || qs.has('nowayfind');   // the close / eye cameras are not the diorama view
 
@@ -27,12 +29,12 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
   const shaft = el('path', { fill: 'none', stroke: INK, 'stroke-width': .9, 'stroke-linecap': 'round' }, hint);
   const shaft2 = el('path', { fill: 'none', stroke: INK, 'stroke-width': .6, 'stroke-linecap': 'round', opacity: .45 }, hint);
   const head = el('path', { fill: 'none', stroke: INK, 'stroke-width': .9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, hint);
-  const plate = el('text', { fill: INK, 'font-size': 13, 'letter-spacing': '.16em', 'dominant-baseline': 'middle' }, hint); plate.style.fontFamily = FONT;
+  const plate = el('text', { fill: INK, 'font-size': 13, 'font-weight': WT, 'letter-spacing': '.16em', 'dominant-baseline': 'middle' }, hint); plate.style.fontFamily = FONT;
   const map = el('g', { opacity: 0 }, svg);
   const labels = REG.map(r => { const g = el('g', {}, map);
     const lead = el('path', { fill: 'none', stroke: INK, 'stroke-width': .75, 'stroke-linecap': 'round', opacity: .30 }, g);   // pencil leader, 30 % ink
     const dot = el('circle', { r: 1.1, fill: INK, opacity: .30 }, g);                                                               // the spot it annotates
-    const t = el('text', { fill: INK, 'font-size': 13, 'letter-spacing': '.16em', 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, g); t.style.fontFamily = FONT; t.textContent = r.name;
+    const t = el('text', { fill: INK, 'font-size': 13, 'font-weight': WT, 'letter-spacing': '.16em', 'text-anchor': 'middle', 'dominant-baseline': 'middle' }, g); t.style.fontFamily = FONT; t.textContent = r.name;
     return { r, g, t, lead, dot, w: 0 }; });
   // ---------- geometry helpers (same bend as artkit/bend.js foldBend, so labels sit on the drawn planet) ----------
   const F_ = new THREE.Vector3(), v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
@@ -51,21 +53,59 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
   // ---------- hint placement: on the paper just outside the ragged board edge, on the side facing the target ----------
   const EDGE = .08, GAP = 14, PAD = 12, LR = 24;   // EDGE: where the ragged rim (ground.js) still reads as solid edge; its sparse spray beyond ends ~10 px later. GAP: inside the 8-24 px band
   const P = [];   // board outline on screen (bent), 4 edges x 8 segments
-  const boardOutline = (gR) => { const B = cam.board, hx = B.hx + EDGE, hy = B.hy + EDGE, cs = [[1, 1], [1, -1], [-1, -1], [-1, 1]]; P.length = 0;
+  const PH = [], HT = 1.15;   // QA D4: the same outline raised HT m (the big trees' crowns, sheep well under): what stands on the board's front corner rises over the margin beside the edge further back
+  const PI = [], HH = 7, CLR = 13 + HH;   // QA wf390: PI = the outline 0.45 m INSIDE the edge (where the frayed rim is solid grass again); HH = half a 13 px glyph; CLR = centre offset for a 13 px gap
+  const boardOutline = (gR, P, ex = EDGE) => { const B = cam.board, hx = B.hx + ex, hy = B.hy + ex, cs = [[1, 1], [1, -1], [-1, -1], [-1, 1]]; P.length = 0;
     for (let i = 0; i < 4; i++) for (let j = 0; j < 8; j++) { const a = cs[i], b = cs[(i + 1) % 4], f = j / 8, u = a[0] + (b[0] - a[0]) * f, v = a[1] + (b[1] - a[1]) * f;
       const w = new THREE.Vector3().copy(B.F).multiplyScalar(R).addScaledVector(B.X, u * hx).addScaledVector(B.Y, v * hy).setLength(gR); const o = { x: 0, y: 0, z: 0 }; toScreen(bend(w), o); P.push(o); } };
+  // QA wf390: the outline's screen y over a label's x span (lo: the upper crossing, else the lower one); ±Infinity when the span misses it
+  const edgeAt = (Q, x, lo) => { let r = lo ? Infinity : -Infinity; for (let i = 0; i < Q.length; i++) { const a = Q[i], b = Q[(i + 1) % Q.length]; if (a.x === b.x || (a.x - x) * (b.x - x) > 0) continue;
+    const y = a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x); r = lo ? Math.min(r, y) : Math.max(r, y); } return r; };
+  const spanEdge = (Q, x0, x1, lo) => { let r = lo ? Infinity : -Infinity; for (let k = 0; k <= 10; k++) { const y = edgeAt(Q, x0 + (x1 - x0) * k / 10, lo); r = lo ? Math.min(r, y) : Math.max(r, y); } return r; };
+  const titleBox = () => { const c = document.getElementById('card'); if (!c || !(+getComputedStyle(c).opacity > .01)) return null; const r = c.getBoundingClientRect(); return r.height ? r : null; };
+  /* QA wf390 (station @390 dock: the name pinned to the screen bottom while the follow camera eased the board's lower rim down onto it, 1.1 px gap):
+     the label centre y for a name spanning x0…x1, re-solved every frame from the projected outline, first fit wins:
+     (1) paper below the board, glyph top ≥ 13 px past the solid rim; (2) paper above it, glyph bottom ≥ 13 px clear of the raised (HT) outline,
+     then of the plain rim, never over the region title; (3) the board fills the screen there: on solid grass, ≥ 13 px inside the frayed band
+     (PI) and on screen; (4) last resort: the top paper, on screen */
+  let fitMode = 0;
+  const fitY = (x0, x1) => { const H = innerHeight, tb = titleBox();
+    const clearT = (y) => !tb || x1 < tb.left - 6 || x0 > tb.right + 6 || y - HH > tb.bottom + 6 || y + HH < tb.top - 6;
+    let yB = spanEdge(P, x0, x1, false); if (!isFinite(yB)) for (const p of P) yB = Math.max(yB, p.y);
+    if (yB + CLR + HH + PAD + (fitMode ? 4 : 0) <= H) { fitMode = 0; return yB + CLR; }   // 4 px hysteresis: no flip-flop while the follow camera settles
+    for (const Q of [PH, P]) { const yT = spanEdge(Q, x0, x1, true), y = (isFinite(yT) ? yT : Math.min(...P.map(p => p.y))) - CLR; if (y - HH >= PAD && clearT(y)) { fitMode = 1; return y; } }
+    fitMode = 1;
+    const iB = spanEdge(PI, x0, x1, false), iT = spanEdge(PI, x0, x1, true), y = Math.min(H - PAD - HH, iB - CLR); if (isFinite(iT) && y - HH >= Math.max(PAD, iT + 13) && clearT(y)) return y;
+    return PAD + HH; };
+  /* VD MVP gate D4 (390): the 坐 / 睡 / 本 rail always on paper — glyphs 16 px from the screen's right edge (span padding 8 + right 8), its
+     box ≥ 4 px (glyphs ≥ 10 px) clear of the torn rim (P = the outline at EDGE, the outermost green), re-solved every frame from the projected
+     board: its default spot (bottom 44 px) if that is paper, else the paper under the board, else the paper above it; only if the board fills
+     the whole column does it stay at the default over the grass (86 % ink, index.html) */
+  const PR = [], RIM_R = 4;
+  const placeRail = () => { const tk = document.getElementById('touchk'); if (!tk || !tk.offsetWidth) return;
+    const H = innerHeight, rw = tk.offsetWidth, rh = tk.offsetHeight, x1 = innerWidth - 8, x0 = x1 - rw, def = H - 44 - rh;
+    boardOutline(groundR(), PR); const yB = spanEdge(PR, x0 - 10, x1 + 10, false), yT = spanEdge(PR, x0 - 10, x1 + 10, true);
+    let top = def;
+    if (isFinite(yB) && !(def >= yB + RIM_R || def + rh <= yT - RIM_R)) {
+      if (H - 8 - (yB + RIM_R) >= rh) top = Math.max(yB + RIM_R, Math.min(def, H - 8 - rh));
+      else if (yT - RIM_R - 8 >= rh) top = yT - RIM_R - rh; }
+    tk.style.right = '8px'; tk.style.bottom = 'auto'; tk.style.top = top.toFixed(1) + 'px'; };
   const placeHint = () => {
     // screen direction toward the region: the cat's ground point and a point 3 m along the great circle toward it
     const up = cat.up, gR = groundR(); const t = v3.copy(shown.dir).addScaledVector(up, -shown.dir.dot(up)).normalize();
     toScreen(bend(new THREE.Vector3().copy(up).multiplyScalar(gR)), S0); toScreen(bend(new THREE.Vector3().copy(up).multiplyScalar(gR).addScaledVector(t, 3)), S1);
     let dx = S1.x - S0.x, dy = S1.y - S0.y; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-    boardOutline(gR); let cx = 0, cy = 0; for (const p of P) { cx += p.x / P.length; cy += p.y / P.length; }
+    boardOutline(gR, P); boardOutline(gR + HT, PH); boardOutline(gR, PI, -.45); let cx = 0, cy = 0; for (const p of P) { cx += p.x / P.length; cy += p.y / P.length; }
     // where the ray from the cat toward the target leaves the board, and that edge segment's outward normal
     let tE = Infinity, nx = dx, ny = dy, tx = 0, ty = 1;
     for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], ex = b.x - a.x, ey = b.y - a.y, den = dx * ey - dy * ex; if (Math.abs(den) < 1e-6) continue;
       const tt = ((a.x - S0.x) * ey - (a.y - S0.y) * ex) / den, u = ((a.x - S0.x) * dy - (a.y - S0.y) * dx) / den;
       if (tt > 0 && u >= 0 && u <= 1 && tt < tE) { tE = tt; const el_ = Math.hypot(ex, ey) || 1; tx = ex / el_; ty = ey / el_; nx = ty; ny = -tx; if (((a.x + b.x) / 2 - cx) * nx + ((a.y + b.y) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny; } } }
     if (!isFinite(tE)) tE = Math.min(innerWidth, innerHeight) * .4;
+    /* QA D4 (meadow @1440: 「小站 · The Halt →」 half under a sheep and the big tree): on a left/right edge the name starts beyond the raised outline too,
+       i.e. clear of anything up to HT tall standing on the board's rim, not only of the grass edge. QA wf: the TOP edge too (the back row of trees' crowns rise over it) */
+    if (Math.abs(nx) >= .6 || ny <= -.6) for (let i = 0; i < PH.length; i++) { const a = PH[i], b = PH[(i + 1) % PH.length], ex = b.x - a.x, ey = b.y - a.y, den = dx * ey - dy * ex; if (Math.abs(den) < 1e-6) continue;
+      const tt = ((a.x - S0.x) * ey - (a.y - S0.y) * ex) / den, u = ((a.x - S0.x) * dy - (a.y - S0.y) * dx) / den; if (tt > tE && u >= 0 && u <= 1 && tt < tE * 1.6) tE = tt; }
     const Ex = S0.x + dx * tE, Ey = S0.y + dy * tE;
     // the arrow points off the board, toward the target: its screen direction, kept within ~60 deg of the edge normal
     let ax = dx, ay = dy; if (ax * nx + ay * ny < .5) { ax = ax * .5 + nx; ay = ay * .5 + ny; const l = Math.hypot(ax, ay); ax /= l; ay /= l; }
@@ -78,8 +118,8 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
       t0x = Ex + nx * (GAP + w + 9); t0y = Ey + ny * GAP;
     } else if (sideEdge && (nx > 0 ? innerWidth - Ex : Ex) < GAP + 18 + PAD) {   // phone with the board ~90% wide: too thin a side margin for even a rotated name
       // -> the name sits in the paper under the board on that side ("The Pond ->" / "<- The Pond"), arrow outward; clamped to the safe area
-      let by = -Infinity; for (const p of P) if (p.y > by) by = p.y; const y = Math.min(innerHeight - PAD - 8, by + GAP + 10), r = nx > 0;
-      const ex = r ? innerWidth - PAD - LR - 2 : PAD + LR + 2;   // arrow tail sits next to the screen edge, the name runs inward
+      const r = nx > 0, rail = (document.getElementById('touchk')?.offsetWidth ? 40 : 0), ex = r ? innerWidth - PAD - LR - 2 - rail : PAD + LR + 2;
+      const y = fitY(r ? ex - 6 - w : ex - LR, r ? ex + LR : ex + 6 + w);   // QA wf390: was min(screen bottom, under the board) — pinned onto the rim when the board reached the bottom   // arrow tail next to the screen edge (left of the touch rail on the right), the name runs inward
       plate.setAttribute('text-anchor', r ? 'end' : 'start'); plate.setAttribute('x', (r ? ex - 6 : ex + 6).toFixed(1)); plate.setAttribute('y', y.toFixed(1));
       drawArrow(ex, y, r ? 1 : -1, 0, LR - 2); clampHint(); return;
     } else if (sideEdge) {   // phone: no room beside the board -> the name runs along the edge (like a map margin note), the arrow at its head
@@ -88,8 +128,12 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
       plate.setAttribute('text-anchor', 'start'); plate.setAttribute('x', sx.toFixed(1)); plate.setAttribute('y', sy.toFixed(1)); plate.setAttribute('transform', `rotate(${ang.toFixed(1)} ${sx.toFixed(1)} ${sy.toFixed(1)})`);
       ax = nx; ay = ny; drawArrow(t0x, t0y, ax, ay, len); clampHint(); return;
     } else {   // top / bottom edge: the name centred beyond the edge, the arrow beyond the name
-      plate.setAttribute('text-anchor', 'middle'); plate.setAttribute('x', (Ex + nx * (GAP + 2)).toFixed(1)); plate.setAttribute('y', (Ey + ny * (GAP + 2)).toFixed(1));
-      t0x = Ex + nx * (GAP + 16); t0y = Ey + ny * (GAP + 16);
+      plate.setAttribute('text-anchor', 'middle'); plate.setAttribute('x', (Ex + nx * (GAP + 6)).toFixed(1)); plate.setAttribute('y', (Ey + ny * (GAP + 6)).toFixed(1));   // QA wf: centre 20 px out, so the 13 px glyphs start ≥ 13 px past the solid rim (its spray ends ~10 px out)
+      t0x = Ex + nx * (GAP + 20); t0y = Ey + ny * (GAP + 20);
+      const cy = Ey + ny * (GAP + 6), H = innerHeight, ae = Ey + ny * (GAP + 20 + LR);
+      if (cy + HH > H - PAD || cy - HH < PAD || ae > H - PAD || ae < PAD) {   // QA wf390: no room for name + arrow beyond that edge on screen -> the name on the best fitting row, a short arrow at its end
+        const x = Math.min(innerWidth - PAD - w / 2 - 20, Math.max(PAD + w / 2, Ex)), y = fitY(x - w / 2, x + w / 2 + 20); plate.setAttribute('x', x.toFixed(1)); plate.setAttribute('y', y.toFixed(1));
+        drawArrow(x + w / 2 + 6, y, ax, ay, 14); clampHint(); return; }
     }
     drawArrow(t0x, t0y, ax, ay, LR); clampHint();
   };
@@ -104,6 +148,8 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
     hint.setAttribute('transform', ''); const bb = hint.getBBox?.();
     if (bb && bb.width) { let ox = 0, oy = 0; if (bb.x < PAD) ox = PAD - bb.x; else if (bb.x + bb.width > innerWidth - PAD) ox = innerWidth - PAD - bb.x - bb.width;
       if (bb.y < PAD) oy = PAD - bb.y; else if (bb.y + bb.height > innerHeight - PAD) oy = innerHeight - PAD - bb.y - bb.height;
+      const tk = document.getElementById('touchk'), rr = tk?.offsetWidth ? tk.getBoundingClientRect() : null;   // phone: never run under the 坐睡本 rail
+      if (rr && bb.y + oy < rr.bottom && bb.y + oy + bb.height > rr.top && bb.x + ox + bb.width > rr.left - 6) ox = rr.left - 6 - bb.x - bb.width;
       if (ox || oy) hint.setAttribute('transform', `translate(${ox.toFixed(1)},${oy.toFixed(1)})`); }
   };
 
@@ -130,17 +176,18 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
       let nx = -(b.y - a.y), ny = b.x - a.x; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l; if (nx * (p.x - S0.x) + ny * (p.y - S0.y) < 0) { nx = -nx; ny = -ny; } p.nx = nx; p.ny = ny; } };
   api.update = (dt) => {
     // visiting
-    for (const r of REG) if (!visited.has(r.no) && dist(r) < r.rad) { visited.add(r.no); save(); }
+    for (const r of REG) if (!visited.has(r.id) && dist(r) < r.rad) { visited.add(r.id); save(); }
     const zoom = cam.D / cam.HOME_D;
     // ---------- hint: nearest unvisited region (by distance to its edge) ----------
-    let best = null, bd = Infinity; for (const r of REG) if (!visited.has(r.no)) { const d = dist(r) - r.rad; if (d < bd) { bd = d; best = r; } }
+    let best = null, bd = Infinity; for (const r of REG) if (!visited.has(r.id)) { const d = dist(r) - r.rad; if (d < bd) { bd = d; best = r; } }
     if (next) { best = next(); bd = best ? dist(best) - best.rad : Infinity; if (best && bd < 0) best = null; } // m-loop: the next region along the walk, not the nearest
     if (hidden()) best = null;
-    const want = off || !best ? 0 : (.35 + .20 * (1 - sstep(0, 120, bd))) * (1 - sstep(1.25, 1.55, zoom));   // 35 % at >=120 m from the edge, 55 % at it; gone in map zoom
+    const want = off || !best ? 0 : INK_OP * (1 - sstep(1.25, 1.55, zoom));   // QA wf (pond @1440: 「海豹湾 · Seal Bay ↓」 read at ~30 % — mid fade-in after the arrival unlock, 62 % far ramp, hairline 400 weight): ONE ink for every label on every board, 86 % #4a4236, Cormorant 500; gone in map zoom
     if (first) { first = false; shown = best; if (shown) plate.textContent = shown.name; op = want; mapK = sstep(1.7, 1.9, zoom); }   // no fade-in on load
     else if (best !== shown) { op = Math.max(0, op - dt * 1.2); if (op === 0) { shown = best; if (shown) plate.textContent = shown.name; } }   // one hint at a time: fade out, then swap
-    else op += (want - op) * (1 - Math.exp(-dt * 1.5));
+    else op += (want - op) * (1 - Math.exp(-dt * 5));   // QA wf: a 0.6 s dissolve (95 %), was ~2 s, so arrival shots no longer catch it half in
     hint.setAttribute('opacity', op.toFixed(3));
+    placeRail();
     if (shown && op > .002) placeHint();
     // ---------- planet map (zoom >= 1.8): each name on the paper just outside the planet's outline, nearest its spot, with a pencil leader ----------
     const mk = sstep(1.7, 1.9, zoom); mapK += (mk - mapK) * (1 - Math.exp(-dt * 4)); map.setAttribute('opacity', mapK.toFixed(3));
@@ -159,9 +206,9 @@ export function createWayfinding({ cam, camera, cat, REG, R = 600, qs = new URLS
           if (box.x0 < XM || box.x1 > innerWidth - XM || box.y0 < 16 || box.y1 > innerHeight - 16) continue;
           if (placed.some(q => box.x0 < q.x1 && box.x1 > q.x0 && box.y0 < q.y1 && box.y1 > q.y0)) continue;
           const dd = Math.hypot(p.x - spot.x, p.y - spot.y) + row * 40; if (dd < bd) { bd = dd; best = { p, lx, ly, box }; } }
-        const k = (visited.has(L.r.no) ? .95 : .55) * (spot.full ? 1 : .85);   // unvisited fainter; over-the-horizon a little more; floor .30 (.55 x .85 = .47)
+        const k = (visited.has(L.r.id) ? .95 : .55) * (spot.full ? 1 : .85);   // unvisited fainter; over-the-horizon a little more; floor .30 (.55 x .85 = .47)
         if (!best) { L.g.setAttribute('opacity', 0); continue; }
-        placed.push(best.box); L.g.setAttribute('opacity', 1); L.t.setAttribute('opacity', Math.max(.30, k).toFixed(3));
+        placed.push(best.box); L.g.setAttribute('opacity', 1); L.t.setAttribute('opacity', (INK_OP * Math.max(.7, k)).toFixed(3));   // QA wf: the map names share the hint's ink (60–86 %, was 30–100 %)
         L.t.setAttribute('x', best.lx.toFixed(1)); L.t.setAttribute('y', best.ly.toFixed(1));
         // leader: from the label's planet side to the spot, a hand line with a slight bow; stops 2 px short of the dot
         const sx = best.lx - best.p.nx * (L.w / 2 * Math.abs(best.p.nx) + 4), sy = best.ly - best.p.ny * (H / 2 * Math.abs(best.p.ny) + 2);

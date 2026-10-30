@@ -1,6 +1,6 @@
 # headless before/after driver for the 'life' reactions.
 # usage: python3 shot_life.py <at> <outprefix> <script.json>   script = [{"wait":ms}|{"shot":"name"}|{"js":"..."}|{"run":[du,dv,secs,speed]}]
-import sys, json, asyncio
+import sys, json, asyncio, base64
 from playwright.async_api import async_playwright
 at, pre, steps = sys.argv[1], sys.argv[2], json.loads(open(sys.argv[3]).read())
 PORT = 8871
@@ -33,7 +33,7 @@ DRIVE = '''(() => { const f = __fold, c = f.cat, F = f.F, R = c.R; const st = wi
         const X = (p.x + 1) / 2 * W, Y = (1 - p.y) / 2 * H; x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y); } });
     const wp = new V3().setFromMatrixPosition(o.matrixWorld); return [x0, y0, x1, y1].map(v => Math.round(v)).concat([+wp.distanceTo(f.camera.position).toFixed(3)]); };
   window.sppx = (L) => { const W = innerWidth, H = innerHeight, R = f.cat.R, rt = new V3().setFromMatrixColumn(f.camera.matrixWorld, 0).normalize(); let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-    for (const [sx, sy] of [[-1, 0], [1, 0], [-1, 1], [1, 1]]){ const p = L.dir.clone().multiplyScalar(R + L.h).addScaledVector(rt, sx * .42 * L.scale).addScaledVector(L.dir, sy * .78 * L.scale).project(f.camera);
+    for (const [sx, sy] of [[-1, 0], [1, 0], [-1, 1], [1, 1]]){ const p = L.dir.clone().multiplyScalar(R + L.h).addScaledVector(rt, sx * .7 * L.scale).addScaledVector(L.dir, sy * L.scale).project(f.camera);
       const X = (p.x + 1) / 2 * W, Y = (1 - p.y) / 2 * H; x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y); }
     return [x0, y0, x1, y1].map(v => Math.round(v)).concat([+L.dir.clone().multiplyScalar(R + L.h).distanceTo(f.camera.position).toFixed(3)]); };
   return 'drive ok'; })()'''
@@ -55,7 +55,11 @@ async def main():
             if 'viewport' in s: await pg.set_viewport_size({'width': s['viewport'][0], 'height': s['viewport'][1]})
             if 'wait' in s: await pg.wait_for_timeout(s['wait'])
             if 'js' in s: print('js>', await pg.evaluate(s['js']))
-            if 'shot' in s: await pg.screenshot(path=f'{pre}_{s["shot"]}.png', timeout=240000); print('shot', s['shot'])
+            if 'shot' in s:
+                try: await pg.screenshot(path=f'{pre}_{s["shot"]}.png', timeout=90000); print('shot', s['shot'])
+                except Exception:  # box overloaded: the compositor frame never arrives; render the WebGL canvas once and read it back
+                    u = await pg.evaluate("(()=>{const f=__fold; f.renderer.render(f.scene,f.camera); return f.renderer.domElement.toDataURL('image/png')})()")
+                    open(f'{pre}_{s["shot"]}.png', 'wb').write(base64.b64decode(u.split(',', 1)[1])); print('shot(canvas)', s['shot'])
         errs = [l for l in logs if l.startswith('error') or l.startswith('ERR')]
         print('ERRORS', len(errs)); print('\n'.join(errs[:10])); print('WARN', [l for l in logs if l.startswith('warn')][:8])
         await b.close()

@@ -9,8 +9,11 @@ import * as THREE from '../../shared/vendor/three.module.js';
 import { mulberry } from '../../artkit/ground.js';
 import { clayMaterial } from '../../artkit/clay.js';
 import { R, note, qs, MOBILE } from '../core/util.js';
-import { F, REG, loopPath } from '../world.js';
+import { F, REG, loopPath, STATION_UV, millAt, MILL_APRON, millPose } from '../world.js';
+export const HW = .105; // QA r3 #3: the loop path's half width (m), everywhere
 import { paintMaterial, paintBuilder, lin, poseAt } from './paint.js';
+import { boardCull, cullDepth } from './boardcull.js';
+import { sdBay } from '../sealbay/shape.js';   // read-only: the bay's waterline (QA #16 spur stops on the bank)
 
 const C = THREE.MathUtils.clamp, SS = THREE.MathUtils.smoothstep;
 const COL = { path: lin('#dcc08a'), pathE: lin('#bea66e'), damp: lin('#b9a57a'), dampE: lin('#9c9467'), sand: lin('#ecdcb0'), sandE: lin('#d8c48e'),
@@ -75,7 +78,7 @@ export function createBeltTerrain(info){
 // ---------- visuals ----------
 export function createBelts(scene, heightAt, info, terrain){
   const t0 = performance.now(), rnd = mulberry(4242), grp = new THREE.Group(); grp.name = 'loop-belts'; scene.add(grp);
-  const pm = paintMaterial(), near = nearIndex(info.P, info.S);
+  const pm = paintMaterial(), pmPath = paintMaterial({ hard: true }), near = nearIndex(info.P, info.S);
   // (1) washes under everything: wet grass, ditches, sand, straw — built per ~40 m piece (culls), then the path on top
   const PIECE = 40, pieces = new Map(); const pb = (s) => { const k = Math.floor(s / PIECE); return pieces.get(k) || pieces.set(k, paintBuilder(heightAt, .006)).get(k); };
   const { w, at } = info;
@@ -94,20 +97,63 @@ export function createBelts(scene, heightAt, info, terrain){
   const ditches = [], crossings = [];
   const Lw = info.legs.wet;
   if (Lw){ for (const side of [-1, 1]){ let s = Lw.s0 + 8 + rnd() * 3; while (s < Lw.s1 - 8){ const len = 3 + rnd() * 4, off = 1.1 + rnd() * .7, pts = [];
-      for (let t = s; t < s + len; t += .35){ const a = at(t), k = w('wet', t); if (k < .4) break; pts.push([a.u + a.nu * side * (off + .25 * Math.sin(t * .7)), a.v + a.nv * side * (off + .25 * Math.sin(t * .7))]); }
+      for (let t = s; t < s + len; t += .35){ const a = at(t), k = w('wet', t); if (k < .4) break; const du = a.u + a.nu * side * (off + .25 * Math.sin(t * .7)), dv = a.v + a.nv * side * (off + .25 * Math.sin(t * .7)); if (beltMask(du, dv) < .5) break; pts.push([du, dv]); } /* m-loop QA P2: ditches obey the region keep zones like the washes (one ran across the pond board to its left edge); the ribbon's own end taper (o → 0 over 2 pts) is the soft end */
       if (pts.length > 4){ ditches.push(pts); pb(s).ribbon(pts, (i) => ({ hw: .07 + .015 * Math.sin(i * .9), c: COL.ditch, c2: COL.ditchE, o: .9 * Math.min(1, i / 2, (pts.length - 1 - i) / 2) })); }
       s += len + 2 + rnd() * 3; } }
     for (const f of [.28, .55, .8]){ const s = Lw.s0 + (Lw.s1 - Lw.s0) * f, a = at(s), pts = [];
       for (let x = -2.6; x <= 2.6; x += .3) pts.push([a.u + a.nu * x + a.tu * x * .25, a.v + a.nv * x + a.tv * x * .25]);
+      if (pts.some(([u, v]) => beltMask(u, v) < .5)) continue; /* QA P2: no crossing ditch inside a region keep zone */
       ditches.push(pts); crossings.push(s); pb(s).ribbon(pts, (i) => ({ hw: .065, c: COL.ditch, c2: COL.ditchE, o: .9 * Math.min(1, i / 2, (pts.length - 1 - i) / 2) })); } }
   // the path itself: worn earth, sandier on the dunes, damp + faint on the wet stretch, narrow between the walls
   { const pts = info.P.map(p => [p[0], p[1]]); const N = pts.length, pp = paintBuilder(heightAt, .009);
     const look = (i) => { const s = info.S[i], kw = w('wet', s), kd = w('dune', s), kl = w('wall', s), e = 1; // full strength to the very ends: the shader lane draws the same colour up to them, so the join is seamless
       const mix = (a, b, t) => a.map((x, j) => x + (b[j] - x) * t);
       let c = mix(COL.path, COL.damp, kw), c2 = mix(COL.pathE, COL.dampE, kw); c = mix(c, COL.sand, kd); c2 = mix(c2, COL.sandE, kd);
-      const tw = Math.min(1, s / 8, (info.L - s) / 8), wide = .068 + .037 * tw * tw * (3 - 2 * tw); // lane width at the joins, widening away from them
-      return { hw: (wide + .016 * Math.sin(s * .37) + .008 * Math.sin(s * 2.1)) * (1 + .3 * kd) * (1 - .3 * kl), c, c2, o: (.97 - .3 * kw) * e }; }; // r1 review: wider + firmer so the loop reads at the game camera
-    pp.ribbon(pts, (i) => look(i)); const m = pp.build(pm, 'loop-path'); if (m) { m.renderOrder = -1; grp.add(m); } }
+      // QA r3 #3: ONE width for the whole loop — half width HW (visible ≈ 2 × .88 HW ≈ 0.185 m, the same as the shader home lane after its lw +.012),
+      // no dune widening / wall narrowing / join taper any more; only a ±8 % hand wobble
+      return { hw: HW * (1 + .05 * Math.sin(s * .37) + .03 * Math.sin(s * 2.1)), c, c2, o: (.97 - .3 * kw) * e }; };
+    pp.ribbon(pts, (i) => look(i));
+    // QA C3: a short worn spur from the loop up to the halt's platform front (where the cat arrives), so the path leads onto the platform
+    { const [Su, Sv] = STATION_UV; let bi = 0, bd = 1e9; info.P.forEach((p, i) => { const d = Math.hypot(p[0] - Su, p[1] - (Sv + 1.62)); if (d < bd){ bd = d; bi = i; } });
+      const a = info.P[bi], b = [Su, Sv + 1.5], n = Math.max(4, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / .1)), sp = [];
+      for (let k = 0; k <= n; k++){ const t = k / n; sp.push([a[0] + (b[0] - a[0]) * t + .06 * Math.sin(Math.PI * t), a[1] + (b[1] - a[1]) * t]); }
+      if (bd < 4) pp.ribbon(sp, (k) => ({ hw: HW * (1 - .12 * k / n), c: COL.path, c2: COL.pathE, o: .97 })); }
+    // QA #22: a spur from the loop to the windmill's door (world.js MILL_APRON; life r1: not under the sweep), shared width, drawn like the halt spur.
+    // r1.9 (QA mill @1440): it used to END at MILL_APRON = mill-local (−7.5, 1.6), beside the sail sweep 0.77 m to the left of the door, so it
+    // read as a path that stops short of the mill. Now: loop → MILL_APRON (unchanged leg) → round the sweep keep-out's door-side corner
+    // (centre (−5.4, 2.8), radius 2.42 → 1.95) → along its front (z 4.75) → the door threshold on the door axis, mill-local (0, 4.65).
+    // The door (b4 mill.js: x 0, face z 2.6) sits under the sail plane (z 2.6…2.8), inside MILL_SWEEP (r 1.7), so the centreline stops at
+    // the keep-out edge (sd ≥ .1 mill-local all along) — 0.21 board m in front of the door face. Same HW, same pmPath hard edge.
+    { const [Au, Av] = F.toUV(millAt(...MILL_APRON)); let bi = 0, bd = 1e9; info.P.forEach((p, i) => { const d = Math.hypot(p[0] - Au, p[1] - Av); if (d < bd){ bd = d; bi = i; } });
+      if (bd < 8){ const a = info.P[bi], ml = [], uv = (px, pz) => F.toUV(millAt(...millPose(px, pz)));
+        { const n = Math.max(4, Math.ceil(bd / .1)); for (let k = 0; k < n; k++){ const t = k / n; ml.push([a[0] + (Au - a[0]) * t + .08 * Math.sin(Math.PI * t), a[1] + (Av - a[1]) * t]); } }
+        const C = [-5.4, 2.8], A0 = Math.atan2(1.6 - C[1], -7.5 - C[0]) + 2 * Math.PI, R0 = Math.hypot(-7.5 - C[0], 1.6 - C[1]), mp = [];
+        for (let k = 0; k <= 24; k++){ const q = k / 24, th = A0 + (Math.PI / 2 - A0) * q, r = R0 + (1.95 - R0) * THREE.MathUtils.smoothstep(q, 0, .6); mp.push([C[0] + r * Math.cos(th), C[1] + r * Math.sin(th)]); }
+        for (let x = -5.0; x <= -.6; x += .4) mp.push([x, 4.75]); mp.push([-.25, 4.7], [0, 4.65]);
+        for (const [px, pz] of mp) ml.push(uv(px, pz));
+        // resample to ~0.1 m so the ribbon's joins stay smooth
+        const sp = [ml[0]]; for (let k = 1; k < ml.length; k++){ const p = ml[k - 1], q = ml[k], L = Math.hypot(q[0] - p[0], q[1] - p[1]), m = Math.max(1, Math.ceil(L / .1)); for (let j = 1; j <= m; j++) sp.push([p[0] + (q[0] - p[0]) * j / m, p[1] + (q[1] - p[1]) * j / m]); }
+        const n = sp.length - 1, end = sp[n];
+        pp.ribbon(sp, (k) => ({ hw: HW * (1 - .05 * k / n), c: COL.path, c2: COL.pathE, o: .97 }));
+        info.millSpur = { len: +bd.toFixed(2), from: [+a[0].toFixed(2), +a[1].toFixed(2)], apron: [+Au.toFixed(2), +Av.toFixed(2)], to: [+end[0].toFixed(2), +end[1].toFixed(2)], toMill: [0, 4.65] }; } }
+    const m = pp.build(pmPath, 'loop-path'); if (m) { m.renderOrder = -1; grp.add(m); }
+    // QA #16 seal bay: the bay's water + bank patch (game/sealbay, renderOrder 1, transparent) paints over the ground ribbon, so inside the
+    // patch the same path is drawn again ON the patch (renderOrder 2, lifted 12 mm > the patch's 8 mm): the loop's south-bank stretch plus a
+    // spur up the cat's lobe that stops on the bank, ~0.15 m short of the waterline (sdBay ≥ .26 at its centre). Read-only use of shape.js.
+    { const SB = REG.find(r => r.id === 'sealbay');
+      if (SB){ const c = SB.dir.clone().normalize(), E = new THREE.Vector3(0, 1, 0).cross(c).normalize(), Bf = E.clone().cross(c).normalize().negate(), t = new THREE.Vector3();
+        const local = (u, v) => { F.dirOf(u, v, t); const k = t.dot(c); return [R * t.dot(E) / k, R * t.dot(Bf) / k]; };
+        const uvAt = (x, y) => F.toUV(t.copy(c).multiplyScalar(R).addScaledVector(E, x).addScaledVector(Bf, y).normalize());
+        const inBay = (p) => { const [x, y] = local(p[0], p[1]); return x > -11.5 && x < 11.8 && y > -8 && y < 12; };
+        const bp = paintBuilder(heightAt, .012); let i = 0, nb = 0;
+        while (i < N){ if (!inBay(pts[i])){ i++; continue; } let j = i; while (j < N && inBay(pts[j])) j++;
+          const i0 = Math.max(0, i - 2), i1 = Math.min(N, j + 2); bp.ribbon(pts.slice(i0, i1), (k) => look(i0 + k)); nb += i1 - i0; i = j; }
+        let bi = -1, bd = 1e9; pts.forEach((p, k) => { const [x, y] = local(p[0], p[1]), d = Math.hypot(x, y + 5); if (d < bd){ bd = d; bi = k; } });
+        if (bi >= 0 && bd < 2){ const [ax, ay] = local(pts[bi][0], pts[bi][1]); let ye = ay; for (let y = ay; y < 1; y += .05){ if (sdBay(0, y) < .26) break; ye = y; }
+          const n = Math.max(4, Math.ceil(Math.hypot(ax, ye - ay) / .1)), sp = [];
+          for (let k = 0; k <= n; k++){ const q = k / n, y = ay + (ye - ay) * q, x = ax * (1 - THREE.MathUtils.smoothstep(q, 0, .3)) + .05 * Math.sin(Math.PI * q); sp.push(uvAt(x, y)); }
+          bp.ribbon(sp, (k) => ({ hw: HW * (1 - .12 * k / n), c: COL.path, c2: COL.pathE, o: .97 })); info.sealbaySpur = { from: [ax, ay], to: [0, ye], n }; }
+        const mb = nb || info.sealbaySpur ? bp.build(pmPath, 'loop-path-sealbay') : null; if (mb){ mb.renderOrder = 2; grp.add(mb); } } } }
   for (const [, b] of pieces){ const m = b.build(pm, 'loop-wash'); if (m){ m.renderOrder = -2; grp.add(m); } }
 
   // (2) props, chunked
@@ -142,10 +188,11 @@ export function createBelts(scene, heightAt, info, terrain){
     reed: tuft(5, .007, .17, .32, 3), grass: tuft(6, .005, .1, .55, 3), wheat: wheatTuft() };
   const MAT = { step: clayMaterial({ color: '#ffffff', grain: 30 }), stone: clayMaterial({ color: '#ffffff', grain: 24 }), reed: clayMaterial({ color: '#ffffff', grain: 40, round: .1 }),
     grass: clayMaterial({ color: '#ffffff', grain: 40, round: .1 }), wheat: swayMaterial() };
+  const CR = { step: 1, stone: 1, reed: .32, grass: .1, wheat: .3 }; for (const k in MAT) boardCull(MAT[k], CR[k]); // QA r3 #2: whole props stay on the board (journey/boardcull.js)
   const mtx = new THREE.Matrix4(), cc = new THREE.Color(); let nInst = 0, nMesh = 0;
   for (const [, c] of chunks){ const im = new THREE.InstancedMesh(GEO[c.kind], MAT[c.kind], c.list.length);
     c.list.forEach((p, i) => { poseAt(p.u, p.v, p.yaw, heightAt, p.y0, mtx, p.sc); im.setMatrixAt(i, mtx); im.setColorAt(i, cc.set(p.col || '#ffffff')); });
-    im.castShadow = c.kind === 'stone' || c.kind === 'step' || c.kind === 'reed'; im.receiveShadow = true; im.computeBoundingSphere(); im.name = 'belt-' + c.kind;
+    im.castShadow = c.kind === 'stone' || c.kind === 'step' || c.kind === 'reed'; im.receiveShadow = true; if (im.castShadow) im.customDepthMaterial = cullDepth(CR[c.kind]); im.computeBoundingSphere(); im.name = 'belt-' + c.kind;
     grp.add(im); nInst += c.list.length; nMesh++; }
   note(`loop belts: ${nMesh} chunks, ${nInst} props, ${terrain.dunes.length} dunes, ${terrain.walls.length} wall runs, ${ditches.length} ditches (${(performance.now() - t0).toFixed(0)} ms)`);
   // only the stretch near the cat is drawn (plus frustum culling); in the planet view the whole loop shows
