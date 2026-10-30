@@ -1,0 +1,3 @@
+Use your built-in image generation tool to create ONE square image, then copy the resulting PNG to /workspace/fold/artkit/gen/paper.png. Do not post-process it.
+
+Subject: a flat, evenly lit, top-down scan of cold-press watercolour paper, warm off-white (#ece5d8). Fine natural paper tooth and fibre, very subtle low-contrast mottling, no stains, no marks, no paint, no vignette, no shadow, no folds, no text. It must be uniform in brightness across the whole image so it can be tiled as a texture.

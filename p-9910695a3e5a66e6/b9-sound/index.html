@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh"><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8"><link rel="icon" href="data:,"><title>褶星 Fold — 声音</title>
+<style>
+  html,body{margin:0;height:100%;background:#e9e1d0;color:#4a4338;font:13px/1.5 Georgia,'Songti SC',serif}
+  canvas{display:block;margin:0 auto}
+  #ui{position:fixed;left:18px;top:14px;max-width:380px}
+  #ui b{font-weight:normal;letter-spacing:.08em}
+  button{font:inherit;background:none;border:0;border-bottom:1px dashed #a89c86;color:#5a5244;font-style:italic;padding:2px 2px;cursor:pointer}
+  #mix{margin-top:6px;white-space:pre;font-size:12px;color:#6d6455}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="ui"><b>褶星 · 声音</b><br>WASD / arrows move the cat · Shift trot · Z sleep (purr)<br>
+  <button id="go">sound on</button><div id="mix"></div></div>
+<script type="module">
+import { createSoundscape, REGIONS, R } from './soundscape.js';
+const cv = document.getElementById('c'), g = cv.getContext('2d'), mixEl = document.getElementById('mix');
+const sc = createSoundscape();
+let W, H, S = .9; const me = { x: 0, z: 40 }, keys = {};
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; S = Math.min(W, H) / 1150; }
+resize(); addEventListener('resize', resize);
+addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyZ') sleeping = !sleeping; });
+addEventListener('keyup', e => { keys[e.code] = false; });
+document.getElementById('go').onclick = async e => { if (!sc.ready){ await sc.start(); e.target.textContent = 'mute'; } else { muted = !muted; sc.setMuted(muted); e.target.textContent = muted ? 'sound on' : 'mute'; } };
+let sleeping = false, muted = false, last = performance.now();
+// tangent-plane map around the north pole: (x,z) metres -> point on sphere
+const toSphere = (x, z) => { const l = Math.hypot(x, R, z); return { x: x / l * R, y: R / l * R, z: z / l * R }; };
+const REG = Object.entries(REGIONS).map(([k, r]) => ({ k, x: r.dir[0] / r.dir[1] * R, z: r.dir[2] / r.dir[1] * R, r: r.radius }));
+const COL = { meadow: '#a9b48a', pond: '#93a9a8', mill: '#c3a982' }, NAME = { meadow: '01 草甸 meadow', pond: '02 池塘 pond', mill: '03 风车 mill' };
+function surfaceAt(x, z){ const p = REG.find(r => r.k === 'mill'), q = REG.find(r => r.k === 'pond');
+  if (Math.hypot(x - p.x, z - p.z) < 25) return 'wood'; if (Math.hypot(x - q.x, z - q.z) < q.r * .9) return 'stone'; return 'grass'; }
+// --- hand-painted gouache map, after /workspace/sheep/site ground painting: paper grain, soft bands,
+// irregular blob edges with dithered paper bleed, pencil-tick grass. Seeded so it is stable.
+let map = null, seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function blob(c, x, y, r, col, a, wob = .14){ c.beginPath(); const n = 48, ph = rnd() * 6;
+  for (let i = 0; i <= n; i++){ const t = i / n * 6.2832, rr = r * (1 + wob * (Math.sin(t * 3 + ph) * .5 + Math.sin(t * 7 + ph * 2) * .25 + (rnd() - .5) * .25));
+    i ? c.lineTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr) : c.moveTo(x + Math.cos(t) * rr, y + Math.sin(t) * rr); }
+  c.fillStyle = col; c.globalAlpha = a; c.fill(); c.globalAlpha = 1; }
+function paintMap(){ seed = 7; map = document.createElement('canvas'); map.width = W; map.height = H; const c = map.getContext('2d'), cx = W / 2, cy = H / 2 + 120;
+  c.fillStyle = '#e9e1d0'; c.fillRect(0, 0, W, H);
+  // paper grain: fibres + mottling
+  for (let i = 0; i < W * H / 60; i++){ c.fillStyle = rnd() < .5 ? 'rgba(120,100,70,.06)' : 'rgba(255,250,238,.10)'; c.fillRect(rnd() * W, rnd() * H, 1 + rnd() * 2, 1); }
+  for (let i = 0; i < 40; i++) blob(c, rnd() * W, rnd() * H, 40 + rnd() * 120, rnd() < .5 ? '#d9cdb4' : '#efe7d6', .07, .3);
+  // wandering pencil footpaths between regions: short broken graphite ticks along a wobbly curve
+  c.strokeStyle = '#7a6c58'; c.lineWidth = 1;
+  for (let a = 0; a < REG.length; a++){ const A = REG[a], B = REG[(a + 1) % REG.length], ax = cx + A.x * S, ay = cy + A.z * S, bx = cx + B.x * S, by = cy + B.z * S,
+      nx = -(by - ay), ny = bx - ax, bend = (rnd() - .5) * .35;
+    for (let i = 0; i < 70; i++){ if (rnd() < .3) continue; const t = i / 70, w = Math.sin(t * 3.1416) * bend + Math.sin(t * 17 + a) * .012,
+        px = ax + (bx - ax) * t + nx * w, py = ay + (by - ay) * t + ny * w; c.globalAlpha = .28 * Math.sin(t * 3.1416);
+      c.beginPath(); c.moveTo(px, py); c.lineTo(px + (bx - ax) / 70 * .6 + (rnd() - .5), py + (by - ay) / 70 * .6 + (rnd() - .5)); c.stroke();
+      if (rnd() < .16 && t > .15 && t < .85){ const L = Math.hypot(nx, ny), sd = (rnd() < .5 ? 1 : -1) * (7 + rnd() * 4), hx = px + nx / L * sd, hy = py + ny / L * sd; // hedgerow dab beside the path
+        c.save(); blob(c, hx + 1.5, hy + 1.5, 4 + rnd() * 2, '#5e5a3c', .25, .3); blob(c, hx, hy, 3.5 + rnd() * 2, '#7d7a50', .6, .3); blob(c, hx - 1, hy - 1, 1.6, '#a9a576', .5, .3); c.restore(); c.globalAlpha = .28 * Math.sin(t * 3.1416); } } }
+  c.globalAlpha = 1;
+  for (const r of REG){ const x = cx + r.x * S, y = cy + r.z * S, R0 = r.r * S, col = COL[r.k];
+    // dithered bleed ring: scattered dabs fading out past the edge
+    for (let i = 0; i < 900; i++){ const t = rnd() * 6.2832, d = R0 * (1.15 + Math.pow(rnd(), 1.6) * .45); c.fillStyle = col; c.globalAlpha = .35 * (1 - (d / R0 - 1.15) / .45);
+      c.fillRect(x + Math.cos(t) * d, y + Math.sin(t) * d, 2, 2); } c.globalAlpha = 1;
+    // stacked gouache washes, outer -> inner, each a little darker
+    blob(c, x, y, R0 * 1.3, col, .32); blob(c, x, y, R0 * 1.0, col, .38); blob(c, x, y, R0 * .62, col, .45, .1);
+    blob(c, x + R0 * .15, y + R0 * .2, R0 * .5, '#000', .035, .2);   // soft shadow band, lower-right
+    blob(c, x - R0 * .25, y - R0 * .3, R0 * .35, '#fff8e8', .12, .2); // matte light band, upper-left
+    if (r.k === 'meadow'){ // hedgerow and pencil-tick grass
+      c.strokeStyle = '#6f7a55'; c.globalAlpha = .55; c.lineWidth = 1;
+      for (let i = 0; i < 700; i++){ const t = rnd() * 6.2832, d = Math.sqrt(rnd()) * R0 * 1.15, gx = x + Math.cos(t) * d, gy = y + Math.sin(t) * d, h = 2 + rnd() * 3;
+        c.beginPath(); c.moveTo(gx, gy); c.lineTo(gx + (rnd() - .5) * 1.5, gy - h); c.stroke(); }
+      for (let i = 0; i < 60; i++){ const t = -2.6 + i / 60 * 1.6; blob(c, x + Math.cos(t) * R0 * 1.05, y + Math.sin(t) * R0 * 1.05, 4 + rnd() * 3, '#7d8660', .55, .2); }
+      for (let i = 0; i < 9; i++){ const sx = x + (rnd() - .5) * R0, sy = y + (rnd() - .3) * R0 * .8; blob(c, sx + .8, sy + 1.6, 3.4, '#3f4630', .22, .15); blob(c, sx, sy, 3.2, '#ebe2cc', .95, .15); blob(c, sx - .8, sy - .9, 1.6, '#f6f0e2', .7, .1); c.fillStyle = '#4c443a'; c.globalAlpha = .8; c.fillRect(sx + 2.4, sy - 1, 1.6, 1.6); }
+      c.globalAlpha = 1; }
+    if (r.k === 'pond'){ blob(c, x, y, R0 * .45, '#6f8c8d', .45, .12); c.strokeStyle = '#f2ecdc'; c.globalAlpha = .5;
+      for (let i = 0; i < 5; i++){ const yy = y - R0 * .2 + i * R0 * .1 + (rnd() - .5) * 3, x0 = x - R0 * (.22 - i % 2 * .06) + rnd() * 8, w = R0 * (.22 + rnd() * .14); c.beginPath(); c.moveTo(x0, yy); for (let s = 1; s <= 5; s++) c.lineTo(x0 + s * w / 5, yy + Math.sin(s * 1.9 + i) * 1.2 + (rnd() - .5)); c.stroke(); }
+      c.strokeStyle = '#6f7a55'; c.globalAlpha = .6; for (let i = 0; i < 70; i++){ const t = rnd() * 6.283, rr = R0 * (.62 + rnd() * .12), rx = x + Math.cos(t) * rr, ry = y + Math.sin(t) * rr * .9, h = 3 + rnd() * 6;   // reed fringe
+        c.beginPath(); c.moveTo(rx, ry); c.lineTo(rx + (rnd() - .5) * 2, ry - h); c.stroke(); } c.globalAlpha = 1; }
+    if (r.k === 'mill'){ c.strokeStyle = '#9a7d55'; c.globalAlpha = .45; c.lineWidth = 1;   // pencil furrows of a wheat field + stubble ticks
+      for (let i = -5; i <= 5; i++){ const yy = y + i * R0 * .17, hw = Math.sqrt(Math.max(0, 1 - (i / 5.6) ** 2)) * R0 * .95; c.beginPath(); c.moveTo(x - hw, yy + rnd() * 2);
+        for (let s = 1; s <= 6; s++) c.lineTo(x - hw + s * hw / 3, yy + (rnd() - .5) * 2.5 + s * .6); c.stroke(); }
+      c.strokeStyle = '#8a6c4a'; for (let i = 0; i < 260; i++){ const t = rnd() * 6.2832, d = Math.sqrt(rnd()) * R0 * 1.05, gx = x + Math.cos(t) * d, gy = y + Math.sin(t) * d; if (d < 22) continue;
+        c.beginPath(); c.moveTo(gx, gy); c.lineTo(gx + (rnd() - .5) * 1.2, gy - 1.5 - rnd() * 2); c.stroke(); } c.globalAlpha = 1;
+      blob(c, x + 3, y + 5, 9, '#3f3428', .2, .15);
+      blob(c, x, y, 7, '#8a6c4a', .9, .05); c.strokeStyle = '#5d4a36'; c.lineWidth = 2; c.globalAlpha = .8;
+      for (let i = 0; i < 4; i++){ const t = .4 + i * 1.5708; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(t) * 16, y + Math.sin(t) * 16); c.stroke(); } c.globalAlpha = 1; c.lineWidth = 1; }
+    c.fillStyle = '#5d5547'; c.font = 'italic 13px Georgia, serif'; c.textAlign = 'center'; c.fillText(NAME[r.k], x, y - R0 * 1.42); }
+  // vignette by soft paper darkening at the edges (no glow)
+  const vg = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75); vg.addColorStop(0, 'rgba(90,70,45,0)'); vg.addColorStop(1, 'rgba(90,70,45,.18)'); c.fillStyle = vg; c.fillRect(0, 0, W, H); }
+function frame(now){
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  const run = keys.ShiftLeft || keys.ShiftRight ? 3 : 1.2, ax = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), az = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+  const mv = (ax || az) && !sleeping, speed = mv ? run : 0, k = 40 * run / 1.2;   // demo moves 40x faster than the cat so you can cross regions
+  if (mv){ const l = Math.hypot(ax, az); me.x += ax / l * k * dt; me.z += az / l * k * dt; }
+  const surface = surfaceAt(me.x, me.z);
+  sc.update(dt, { pos: toSphere(me.x, me.z), speed, surface, sleeping, night: 0 });
+  // paper map (hand-painted once per resize, see paintMap)
+  if (!map || map.width !== W || map.height !== H) paintMap(); g.drawImage(map, 0, 0); const cx = W / 2, cy = H / 2 + 120;
+  const px = cx + me.x * S, py = cy + me.z * S;   // the cat: a small clay-orange dab with a white chest fleck
+  g.fillStyle = 'rgba(70,58,44,.18)'; g.beginPath(); g.ellipse(px + 1.5, py + 3, 7, 3.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#bd7a45'; g.beginPath(); g.ellipse(px, py, 7, 5, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(232,190,140,.55)'; g.beginPath(); g.ellipse(px - 1, py - 1.6, 5, 2.2, 0, 0, 7); g.fill();   // soft lit clay band
+  g.fillStyle = 'rgba(120,70,36,.35)'; g.beginPath(); g.ellipse(px, py + 2.6, 6, 1.8, 0, 0, 7); g.fill();       // shaded belly band
+  g.fillStyle = '#ad6834'; g.beginPath(); g.moveTo(px + 3.6, py - 4.4); g.lineTo(px + 4.4, py - 7.4); g.lineTo(px + 6, py - 4.8); g.moveTo(px + 6.4, py - 4.6); g.lineTo(px + 8, py - 7.2); g.lineTo(px + 8.6, py - 4); g.fill();   // ears
+  g.fillStyle = '#b3672f'; g.beginPath(); g.arc(px + 5.5, py - 2, 3.4, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(176,104,52,.9)'; g.lineWidth = 1.6; g.lineCap = 'round'; g.beginPath(); g.moveTo(px - 6.5, py); g.quadraticCurveTo(px - 10, py - 1, px - 9.5, py - 5); g.stroke();   // tail
+  g.fillStyle = '#efe6d3'; g.beginPath(); g.arc(px + 4.5, py + 1.5, 1.6, 0, 7); g.fill();
+  const w = sc.weights(toSphere(me.x, me.z));
+  mixEl.textContent = Object.entries(w).map(([k, v]) => `${k.padEnd(7)} ${'ı'.repeat(Math.round(v * 10)).padEnd(10, '·')} ${v.toFixed(2)}`).join('\n') + `\nsurface ${surface}${sleeping ? ' · sleeping' : ''}${sc.ready ? '' : ' · (sound off)'}`;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></body></html>

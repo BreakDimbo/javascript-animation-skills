@@ -1,0 +1,6 @@
+sealbay_r4/sealbay_1440.png: meanL 187 sat 0.31 deep 4.7% pale 49.7% midUM(px,blur3,dE<38) 16.5% | boxes15 n=1561 pale 50% mid 18% deep 4% | ink px 24439 shore-share(<86px) 94%
+sealbay_r4/sealbay_390.png: meanL 189 sat 0.30 deep 4.5% pale 51.7% midUM(px,blur3,dE<38) 13.5% | boxes15 n=158 pale 47% mid 17% deep 2% | ink px 2871 shore-share(<23px) 86%
+sealbay_r4/sealbay_close.png: meanL 193 sat 0.28 deep 3.3% pale 58.0% midUM(px,blur3,dE<38) 8.1% | boxes15 n=3294 pale 59% mid 8% deep 3% | ink px 76764 shore-share(<86px) 61%
+sealbay_r5/sealbay_1440.png: meanL 184 sat 0.32 deep 5.6% pale 44.6% midUM(px,blur3,dE<38) 19.4% | boxes15 n=1550 pale 44% mid 20% deep 5% | ink px 23888 shore-share(<86px) 91%
+sealbay_r5/sealbay_390.png: meanL 184 sat 0.32 deep 5.8% pale 45.1% midUM(px,blur3,dE<38) 17.4% | boxes15 n=158 pale 42% mid 18% deep 4% | ink px 2664 shore-share(<23px) 88%
+sealbay_r5/sealbay_close.png: meanL 187 sat 0.30 deep 6.6% pale 51.1% midUM(px,blur3,dE<38) 10.2% | boxes15 n=3267 pale 51% mid 11% deep 6% | ink px 45945 shore-share(<86px) 88%

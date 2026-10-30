@@ -1,0 +1,3 @@
+Use your built-in image generation tool to create ONE square image, then copy the resulting PNG to /workspace/fold/artkit/gen/clay.png. Do not post-process it.
+
+Subject: a flat, evenly lit, top-down macro photo of smooth matte grey modelling clay (plasticine) surface, mid grey (#9a9a9a). Show only subtle hand-pressed texture: very shallow thumb smoothing, faint fingerprint ridges, tiny pores and soft tool marks. Uniform brightness across the whole image, no vignette, no shadows, no highlights, no objects, no text, so it can be tiled as a texture.

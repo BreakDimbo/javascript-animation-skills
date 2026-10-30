@@ -1,0 +1,16 @@
+<meta name="robots" content="noindex,nofollow"><!doctype html><html><body style="margin:0;background:#e8e2d2"><script type="module">
+import * as THREE from '../shared/vendor/three.module.js';
+import { GLTFLoader } from '../shared/vendor/GLTFLoader.js';
+import { DRACOLoader } from '../shared/vendor/DRACOLoader.js';
+const q=new URLSearchParams(location.search), file=q.get('f')||'catA', clip=q.get('clip')||'Idle', t=+(q.get('t')||0.3);
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(innerWidth,innerHeight); r.setClearColor(0xe8e2d2); document.body.appendChild(r.domElement);
+const s=new THREE.Scene(); s.add(new THREE.HemisphereLight(0xfff4e0,0x6a7a40,1.4)); const d=new THREE.DirectionalLight(0xffffff,2); d.position.set(2,3,2); s.add(d);
+const cam=new THREE.PerspectiveCamera(30,innerWidth/innerHeight,.001,100);
+const ld=new GLTFLoader(); const dr=new DRACOLoader(); dr.setDecoderPath('../shared/vendor/draco/'); ld.setDRACOLoader(dr); ld.load(`assets/cat/${file}.glb`, g=>{ const o=g.scene; s.add(o);
+  const box=new THREE.Box3().setFromObject(o), c=box.getCenter(new THREE.Vector3()), z=box.getSize(new THREE.Vector3());
+  console.log('size',z.toArray().map(v=>v.toFixed(3)).join(','), 'anims', g.animations.map(a=>a.name.split('|').pop()+':'+a.duration.toFixed(2)).join(' '));
+  const mx=new THREE.AnimationMixer(o); const a=g.animations.find(a=>a.name===clip||a.name.endsWith('|'+clip)); if(a){mx.clipAction(a).play(); mx.update(t);}
+  const L=Math.max(z.x,z.y,z.z); const yaw=+(q.get('yaw')||0.7); { const el=+(q.get('el')||0.22), cr=Math.cos(el)*L*2.7; cam.position.set(c.x+Math.sin(yaw)*cr,c.y+Math.sin(el)*L*2.7,c.z+Math.cos(yaw)*cr); if(el>1.4) cam.up.set(-Math.sin(yaw),0,-Math.cos(yaw)); } cam.lookAt(c);
+  o.traverse(m=>{ if(m.isMesh) console.log('mesh',m.name,m.material.name,m.geometry.attributes.position.count, !!m.material.map); });
+  r.render(s,cam); document.title='done'; });
+</script></body></html>

@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh"><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8"><title>褶星 Fold — MVP</title>
+<link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#ece4d3;overflow:hidden;font-family:"Songti SC","Noto Serif CJK SC",Georgia,serif;color:#4a4236}
+canvas{display:block}
+#card{position:fixed;left:50%;top:5%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity 1.8s ease;pointer-events:none;letter-spacing:.18em}
+#card .no{font-size:11px;opacity:.6}#card .nm{font-size:17px;margin-top:4px}
+#card .rule{width:38px;height:1px;background:#4a4236;opacity:.35;margin:8px auto 0}
+#card{white-space:nowrap}@media (max-width:480px){#card{letter-spacing:.1em}#card .nm{font-size:15px}}
+.sk-page{position:fixed;right:3.2%;bottom:7%;width:min(190px,30vw);padding:10px 10px 8px;background:#efe8d8;opacity:0;transition:opacity 1.6s ease;pointer-events:none;box-shadow:0 1px 3px rgba(60,48,30,.16);transform:rotate(-1.2deg)}
+.sk-page.on{opacity:1}.sk-page img{display:block;width:100%;mix-blend-mode:multiply;opacity:.92}
+.sk-page .cap,.sk-book .cap{font:12px/1.3 "Cormorant Garamond","Noto Serif SC",Georgia,serif;color:#4a4236;letter-spacing:.1em;text-align:center;margin-top:4px}
+.sk-page .en{display:block;font-style:italic;font-size:11px;opacity:.75}
+.sk-corner{position:fixed;right:0;bottom:0;width:26px;height:26px;background:linear-gradient(135deg,transparent 50%,#e2d8c3 50%);opacity:0;transition:opacity 2s ease;cursor:pointer}
+.sk-corner.on{opacity:.6}
+.sk-book{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(236,228,211,.55);opacity:0;pointer-events:none;transition:opacity .9s ease;z-index:30}
+.sk-book.on{opacity:1;pointer-events:auto}
+.sk-book .sheet{width:min(860px,92vw);max-height:88vh;overflow:auto;padding:26px 30px 18px;background:#efe8d8;box-shadow:0 2px 8px rgba(60,48,30,.18)}
+.sk-book .hd{font:15px/1 "Cormorant Garamond","Noto Serif SC",Georgia,serif;color:#4a4236;letter-spacing:.2em;text-align:center;margin-bottom:16px}
+.sk-book .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 16px}
+.sk-book .cell{aspect-ratio:1/1.12;border-top:1px solid rgba(74,66,54,.14);display:flex;flex-direction:column;justify-content:flex-end}
+.sk-book .cell img{width:100%;mix-blend-mode:multiply;opacity:.9}.sk-book .cell:not(.on) .cap{opacity:.35;margin-bottom:40%}
+.sk-book .cap{font-size:11px}.sk-book .ft{font:italic 11px "Cormorant Garamond",Georgia,serif;color:#6d6452;opacity:.5;text-align:right;margin-top:10px}
+@media (max-width:600px){.sk-book .grid{grid-template-columns:repeat(3,1fr)}.sk-book .sheet{padding:18px 14px}}
+#help{position:fixed;left:0;right:0;bottom:14px;text-align:center;font:italic 11px/1 "Cormorant Garamond","Noto Serif SC",Georgia,serif;color:#6d6452;opacity:.55;letter-spacing:.12em;transition:opacity 2.4s ease;pointer-events:none}#help.gone{opacity:0}
+#mods{position:fixed;right:16px;bottom:12px;font-size:10px;opacity:.4;text-align:right;white-space:pre}
+#bleed{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;background:radial-gradient(ellipse 78% 72% at 50% 52%,rgba(236,228,211,0) 62%,rgba(214,200,172,.45) 88%,rgba(198,182,150,.7) 100%)}
+#grain{position:fixed;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:multiply}
+/* paper grain: the grey (mean 50%) height texture, faint, over the plain sheet (multiplying it at full strength turned the pages grey) */
+.sk-page::before,.sk-book .sheet::before{content:'';position:absolute;inset:0;background:url(../artkit/tex/paper.png);opacity:.10;mix-blend-mode:multiply;pointer-events:none}
+.sk-book .sheet{position:relative}
+#veil{position:fixed;inset:0;z-index:40;pointer-events:none;background:#ece4d3;opacity:1;transition:opacity 2.4s ease}
+#veil.ink{background:#15130f}
+.tcard{position:fixed;inset:0;z-index:41;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 1.6s ease;font-family:"Cormorant Garamond","Noto Serif SC","Songti SC",Georgia,serif;letter-spacing:.32em;text-align:center}
+.tcard.on{opacity:1}
+.tcard .t1{font-size:19px;color:#4a4236}.tcard .t2{font-size:11px;margin-top:10px;color:#6d6452;font-style:italic;letter-spacing:.24em}
+.tcard .t3{font-size:10px;margin-top:34px;color:#6d6452;opacity:.55;letter-spacing:.2em;font-style:italic;transition:opacity 1.2s ease;min-height:1em}
+.tcard.end .t1{color:#e6dcc6}.tcard.end .t2,.tcard.end .t3{color:#b8ad96}
+#touchk{position:fixed;right:14px;bottom:44px;z-index:5;display:none;flex-direction:column;gap:14px;font:13px/1 "Cormorant Garamond","Noto Serif SC","Songti SC",Georgia,serif;color:#4a4236;letter-spacing:.2em}
+#touchk span{opacity:.55;padding:6px 8px;user-select:none;-webkit-user-select:none}
+#touchk span:active{opacity:.9}
+</style></head><body>
+<div id="veil"></div><div class="tcard title on" id="tTitle"><div class="t1">褶 星</div><div class="t2">Fold</div><div class="t3">展开中 · unfolding</div></div>
+<div id="card"><div class="no"></div><div class="nm"></div><div class="rule"></div></div>
+<div id="help">WASD 走 · Shift 跑 · Space 跳 · C 坐（画一页）· Z 睡 · J 本子 · drag 看</div>
+<div id="mods"></div><div id="bleed"></div><canvas id="grain"></canvas>
+<script type="module" src="./main.js"></script>
+</body></html>

@@ -1,0 +1,11 @@
+<meta name="robots" content="noindex,nofollow"><!doctype html><meta charset="utf-8"><body><script type="module">
+// Bakes the painted board so the game loads two PNGs instead of painting at start. Run: python3 bake.py
+import { paintBoard } from '../artkit/ground.js';
+import { boardSpec } from './world.js';
+const W = +(new URLSearchParams(location.search).get('w') || 4096);
+const t0 = performance.now();
+const b = paintBoard(boardSpec(W));
+const out = { json: JSON.stringify({ hedges: b.hedges.map(h => h.map(([u, v]) => [+u.toFixed(2), +v.toFixed(2)])), trees: b.trees, S: b.S, W: b.W, H: b.H, U0: b.U0, U1: b.U1, V0: b.V0, V1: b.V1 }),
+  board: b.canvas.toDataURL('image/png'), mask: b.mask.toDataURL('image/png'), ms: performance.now() - t0 };
+window.__bake = out;
+</script>

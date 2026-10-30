@@ -1,0 +1,94 @@
+<!doctype html><html><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8"><title>小站 r2.1 · scale sheet</title>
+<style>html,body{margin:0;background:#ece5d8;font:13px Georgia,serif;color:#3a3128}#lab{position:absolute;inset:0;pointer-events:none}
+.l{position:absolute;transform:translate(-50%,0);text-align:center;white-space:nowrap;font-size:13px}.t{position:absolute;left:24px;top:14px;font-size:18px;letter-spacing:.04em}
+.g{position:absolute;left:0;right:0;border-top:1px dashed rgba(58,49,40,.22)}.gl{position:absolute;left:6px;font-size:11px;color:rgba(58,49,40,.6)}</style></head>
+<body><canvas id="c"></canvas><div id="lab"></div>
+<script type="importmap">{"imports":{}}</script>
+<script type="module">
+// side elevation of the halt's things next to the cat, true geometry (orthographic), labelled in cat units: Lc = nose→rump, Hc = standing height to the ear tips
+import * as THREE from '../../shared/vendor/three.module.js';
+import { hookBend } from '../../artkit/bend.js';
+import { createCat } from '../../artkit/cat.js';
+import { createStationRegion } from '../regions/station.js';
+import { setCatHc, measureHeight, measureCatHc, CAT_HC_FALLBACK } from '../catScale.js';
+import { GLTFLoader } from '../../shared/vendor/GLTFLoader.js';
+import { DRACOLoader } from '../../shared/vendor/DRACOLoader.js';
+const W = 1440, H = 900, rd = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true }); rd.setSize(W, H); rd.setClearColor('#ece5d8'); rd.shadowMap.enabled = false;
+const scene = new THREE.Scene(), work = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(new THREE.Color().setRGB(.40, .43, .72, THREE.LinearSRGBColorSpace), new THREE.Color().setRGB(.30, .34, .42, THREE.LinearSRGBColorSpace), Math.PI));
+const sun = new THREE.DirectionalLight(new THREE.Color().setRGB(.60, .57, .28, THREE.LinearSRGBColorSpace), Math.PI * .9 / .75); sun.position.set(6, 9, 4); scene.add(sun);
+const st = createStationRegion(work); const S = window.__station, K = S.K;
+const cat = createCat(work, { R: 600, spawnUp: new THREE.Vector3(0, 1, 0) });
+// hound standing (greeting a cat just ahead of it)
+const hd = S.hound; for (let t = 0; t < 4; t += 1 / 30) hd.update(1 / 30, t, [hd.S.x + Math.sin(hd.S.yaw) * .55, hd.S.z + Math.cos(hd.S.yaw) * .55], 0);
+hd.S.wagA = 0; hd.update(0, 0, [hd.S.x + Math.sin(hd.S.yaw) * .55, hd.S.z + Math.cos(hd.S.yaw) * .55], 0);
+const box = (o, skip) => { o.updateMatrixWorld(true); const b = new THREE.Box3(), t = new THREE.Box3(), inv = new THREE.Matrix4().copy(o.matrixWorld).invert();
+  o.traverse(m => { if (!m.isMesh || (skip && skip(m))) return; let p = m, vis = true; while (p && p !== o.parent){ if (p.visible === false) vis = false; p = p.parent; } if (!vis || m.material.transparent) return;
+    m.geometry.computeBoundingBox(); t.copy(m.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); b.union(t); }); return b; };
+const lineup = [];
+function put(obj, scale, label, opts = {}){ const g = new THREE.Group(), inner = new THREE.Group(); g.add(inner); inner.add(obj); if (!opts.noReset){ obj.position.set(0, 0, 0); obj.quaternion.identity(); } if (opts.rotY) obj.rotation.y = opts.rotY;
+  inner.scale.setScalar(scale); scene.add(g); lineup.push({ g, inner, label, opts }); return g; }
+function go(){
+  // cats, root scale 1.25 as main.js, standing in their idle clip at t = 0:
+  //  · the in-game cat on m-station (artkit cat.js → cat.glb, fitted to 0.9 × the primitive's box)
+  //  · d-cat's cat_a7.glb (0e5f475), sized the same way d-cat does it — only loaded here, d-cat is not merged
+  const cs = 1.25, cr = cat.root; cr.scale.setScalar(cs); cr.position.set(0, 0, 0); cr.quaternion.identity();
+  const pose = (m, anims) => { const mx = new THREE.AnimationMixer(m), names = anims.map(a => a.name), nm = names.find(n => /idle|stand/i.test(n)) || names.find(n => /walk/i.test(n)) || names[0];
+    if (nm){ const a = mx.clipAction(anims.find(c => c.name === nm)); a.play(); mx.update(0); } m.updateMatrixWorld(true); return nm + ' of [' + names.join(',') + ']'; };
+  const skinBox = (o) => { o.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(o.matrixWorld).invert(), b = new THREE.Box3(), v = new THREE.Vector3(), pts = [];
+    o.traverse(m => { if (!m.isMesh || /eye|pupil/.test(m.name) || m.material.transparent) return; for (let p = m; p && p !== o.parent; p = p.parent) if (p.visible === false) return; const a = m.geometry.attributes.position; for (let i = 0; i < a.count; i += 2){ v.fromBufferAttribute(a, i); if (m.isSkinnedMesh) m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld).applyMatrix4(inv); b.expandByPoint(v); pts.push(v.y, v.z, v.x); } });
+    // nose→rump: front-most point of the head; rump = rear-most z slice whose body width is ≥ 45 % of the widest slice (so a thin tail never counts)
+    const h = b.max.y - b.min.y, NB = 60, wd = new Float32Array(NB), zl = b.max.z - b.min.z; let z1 = -1e9;
+    for (let i = 0; i < pts.length; i += 3){ const y = pts[i], z = pts[i + 1], x = Math.abs(pts[i + 2]); if (y < b.min.y + h * .3) continue; z1 = Math.max(z1, z); if (y > b.min.y + h * .8) continue;
+      const k = Math.min(NB - 1, Math.floor((z - b.min.z) / zl * NB)); wd[k] = Math.max(wd[k], x); }
+    const wmax = Math.max(...wd); let k0 = 0; while (k0 < NB && wd[k0] < wmax * .45) k0++;
+    return { b, H: h, L: z1 - (b.min.z + k0 / NB * zl) }; };
+  // m-station's in-game cat
+  const gm = cat.glb.m, gp = pose(gm, catAnims); const sb0 = skinBox(cr); const gameCat = { H: sb0.H * cs, L: sb0.L * cs };
+  // cat_a7
+  const g7 = new THREE.Group(); g7.scale.setScalar(cs); let a7 = null, p7 = '';
+  if (A7){ const m7 = A7.scene; g7.add(m7); p7 = pose(m7, A7.animations); cat.body.visible = true; const pb = new THREE.Box3(); { cr.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(cr.matrixWorld).invert(), t = new THREE.Box3(); cat.body.traverse(m => { if (m.isMesh && m.visible !== false){ m.geometry.computeBoundingBox(); t.copy(m.geometry.boundingBox).applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld)); pb.union(t); } }); } cat.body.visible = false; const mb = skinBox(m7).b; const k = Math.min((pb.max.z - pb.min.z) / (mb.max.z - mb.min.z), (pb.max.y - pb.min.y) / (mb.max.y - mb.min.y)) * .9;
+    m7.scale.setScalar(k); const mb2 = skinBox(m7).b; m7.position.set(0, pb.min.y - mb2.min.y * k, (pb.min.z + pb.max.z) / 2 - (mb2.min.z + mb2.max.z) / 2 * k);
+    m7.traverse(o => { if (o.isMesh) for (const mt of [].concat(o.material)) { if ('roughness' in mt) mt.roughness = 1; if ('metalness' in mt) mt.metalness = 0; } });
+  const s7 = skinBox(g7); a7 = { H: s7.H * cs, L: s7.L * cs }; }
+  // r2.1: everything is sized from CAT_HC (game/catScale.js); ?hc=a7 refits the halt as if cat_a7 shipped
+  const bindH = measureHeight(gm, cr), bind7 = a7 ? measureHeight(g7.children[0], g7) : null, liveH = measureCatHc(cat); console.log(`sheet: catScale.measureCatHc(game cat) ${liveH?.toFixed(4)} · bind-pose Hc game ${bindH?.toFixed(4)} a7 ${bind7?.toFixed(4)} · idle Hc game ${gameCat.H.toFixed(4)} a7 ${a7?.H.toFixed(4)}`);
+  const useA7 = /hc=a7/.test(location.search) && a7; if (useA7) setCatHc(a7.H, 'a7');
+  const Hc = useA7 ? a7.H : gameCat.H, Lc = gameCat.L, unit = useA7 ? `CAT_HC = cat_a7 (${a7.H.toFixed(3)} m) → halt ×${S.fit().s.toFixed(3)}` : `CAT_HC = in-game cat.glb (${gameCat.H.toFixed(3)} m) → halt ×${S.fit().s.toFixed(3)}`;
+  put(cr, 1, 'in-game cat (cat.glb)', { L: gameCat.L, Hs: gameCat.H, unit: true, noReset: true }); if (a7) put(g7, 1, 'cat_a7 (d-cat, not merged)', { L: a7.L, Hs: a7.H, noReset: true, Hn: 'ear tip' });
+  console.log('sheet: poses ' + gp + ' / ' + p7);
+  // hound: nose→rump without the tail, shoulder = top of the body capsule
+  const dog = hd.parts.dog; dog.position.set(0, 0, 0); dog.rotation.set(0, 0, 0);
+  const hb = box(dog, m => { let p = m; while (p){ if (p === hd.parts.tail) return true; p = p.parent; } return false; });
+  const sb = box(dog, m => m.parent !== hd.parts.body || m !== hd.parts.body.children[0]);
+  const dsc = dog.scale.x; put(dog, K, 'hound', { L: (hb.max.z - hb.min.z) * K * dsc, Hs: (sb.max.y - hb.min.y) * K * dsc, Ln: 'nose→rump', Hn: 'shoulder' });
+  const loco = S.train.cars[0], co = S.train.cars[1]; const lb = box(loco);
+  const ts = loco.scale.x; put(loco, 1, 'loco', { L: (lb.max.z - lb.min.z) * ts, Hs: (lb.max.y - lb.min.y) * ts, Hn: 'rail→stack top' });
+  const trainL = (lb.max.z - lb.min.z) * ts + (S.train.cars.length - 1) * S.train.SPACING * K; // as coupled
+  put(co, 1, 'coach', { L: (box(co).max.z - box(co).min.z) * ts, Hs: (box(co).max.y - box(co).min.y) * ts });
+  const sh = S.parts.shelter, shb = box(sh); put(sh, K, 'shelter', { rotY: Math.PI / 2, center: true, Hs: (shb.max.y - S.PH) * sh.scale.x * K, Hn: 'top (above platform)', L: (shb.max.x - shb.min.x) * sh.scale.x * K, Ln: 'roof width' });
+  const lp = S.parts.lamp; put(lp, K, 'lamp', { rotY: Math.PI / 2, center: true, Hs: .52 * lp.scale.x * K, Hn: 'above platform' });
+  const bd = S.parts.board.children, bsc = Math.min(...bd.map(c => c.scale.x)); const bg = new THREE.Group(); while (S.parts.board.children.length) bg.add(S.parts.board.children[0]);
+  put(bg, K, 'name board', { rotY: Math.PI / 2, center: true, L: .54 * bsc * K, Ln: 'board width', Hs: .43 * bsc * K, Hn: 'above platform' });
+  const ch = S.parts.churns; put(ch, K, 'churn', { rotY: Math.PI / 2, center: true, Hs: (box(ch).max.y - S.PH) * ch.scale.x * K, Hn: 'tall' });
+  // two rows on one scale, arranged along −z (screen right), bases on y = 0 / −ROW
+  const gap = .22, rows = [lineup.slice(0, 4), lineup.slice(4)], R = []; let span = 0; const ROW = 1.05;
+  rows.forEach((row, ri) => { let z = 0; for (const it of row){ const b = box(it.g); const w = b.max.z - b.min.z; it.g.position.set(-(b.min.x + b.max.x) / 2, -b.min.y - ri * ROW, z - b.max.z); R.push({ it, b, zc: z - w / 2, y0: -ri * ROW }); z -= w + gap; } span = Math.max(span, -z - gap); });
+  const cam = new THREE.OrthographicCamera(-.5, .5, .5, -.5, .1, 100), mpp = span * 1.08 / W, zc = -span / 2;
+  cam.left = -W / 2 * mpp; cam.right = W / 2 * mpp; cam.top = 1.02; cam.bottom = cam.top - H * mpp; cam.position.set(20, 0, zc); cam.lookAt(0, 0, zc); cam.updateProjectionMatrix();
+  hookBend(scene); rd.render(scene, cam);
+  const lab = document.getElementById('lab'), P = (y, zz) => { const p = new THREE.Vector3(0, y, zz).project(cam); return [(p.x + 1) / 2 * W, (1 - p.y) / 2 * H]; };
+  let html = `<div class="t">小站 r2.1 · scale sheet (true geometry, side elevation, one scale) — Hc only: ${unit}, standing to the ear tips</div>`;
+  for (let ri = 0; ri < 2; ri++) for (let k = 1; k <= 3; k++){ const [, y] = P(Hc * k - ri * ROW, 0); html += `<div class="g" style="top:${y}px"></div><div class="gl" style="top:${y - 14}px">${k} Hc</div>`; }
+  for (const { it, b, zc, y0 } of R){ const o = it.opts, [x, yy] = P(y0, zc); const hgt = (o.Hs ?? (b.max.y - b.min.y)), len = o.L ?? (b.max.z - b.min.z);
+    const t = o.unit ? `<b>${it.label}</b><br>${(hgt / Hc).toFixed(2)} Hc tall${Math.abs(hgt / Hc - 1) < .005 ? ' (unit)' : ''}` : `<b>${it.label}</b>${o.L !== undefined ? '<br>' + (len / Hc).toFixed(2) + ' Hc ' + (o.Ln || 'long') : ''}<br>${(hgt / Hc).toFixed(2)} Hc ${o.Hn || 'tall'}`;
+    html += `<div class="l" style="left:${x}px;top:${yy + 8}px">${t}</div>`; }
+  html += `<div class="l" style="left:${W / 2}px;top:${H - 26}px">train as coupled (loco + ${S.train.cars.length - 1} coach, buffer to buffer): ${(trainL / Hc).toFixed(2)} Hc · platform top ${(S.PH * K / Hc).toFixed(2)} Hc · halt fitted ×${S.fit().s.toFixed(3)} (${S.fit().src})</div>`;
+  lab.innerHTML = html; window.__sheet = { Lc, Hc, gameCat, a7, liveH, bindH, bind7, fit: S.fit(), trainL, rows: R.map(r => [r.it.label, r.it.opts.L ?? (r.b.max.z - r.b.min.z), r.it.opts.Hs ?? (r.b.max.y - r.b.min.y)]), done: true };
+}
+// give the glb cat a moment to load, then lay out
+let A7 = null; const ld = new GLTFLoader(), dr = new DRACOLoader(); dr.setDecoderPath('../../shared/vendor/draco/'); ld.setDRACOLoader(dr);
+const t0 = performance.now(); ld.load('../assets/cat/cat_a7.glb', g => { A7 = g; console.log('sheet: a7 loaded ' + ((performance.now() - t0) / 1000).toFixed(1) + 's'); }, undefined, e => { A7 = false; console.log('sheet: a7 not available ' + e); });
+// the in-game cat's clips: artkit keeps only the actions, so read them back from its mixer
+let catAnims = null; const wait = () => { if (cat.glb && A7 !== null){ catAnims = Object.values(cat.glb.act).map(a => a.getClip()); go(); } else setTimeout(wait, 300); }; wait();
+</script></body></html>

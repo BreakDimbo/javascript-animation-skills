@@ -1,0 +1,34 @@
+# r6 measurements (meas5.py; lead sealbay_meas.py mask b>r+25&b>g+10, L=mean RGB)
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_1440.png: meanL 181 sat 0.36 deep 5.2% pale 38.2% midUM(px,blur3,dE<38) 25.1% | boxes15 n=1571 pale 37% mid 26% deep 4% | ink px 4316 shore-share(<86px) 97%
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_390.png: meanL 182 sat 0.36 deep 5.3% pale 38.9% midUM(px,blur3,dE<38) 23.0% | boxes15 n=159 pale 31% mid 26% deep 2% | ink px 504 shore-share(<23px) 98%
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_close.png: meanL 183 sat 0.34 deep 6.5% pale 43.4% midUM(px,blur3,dE<38) 16.9% | boxes15 n=3337 pale 43% mid 18% deep 6% | ink px 13678 shore-share(<86px) 86%
+/workspace/fold-wt/sealbay/game/shots/sealbay_r4/sealbay_1440.png: meanL 187 sat 0.31 deep 4.7% pale 49.7% midUM(px,blur3,dE<38) 16.5% | boxes15 n=1561 pale 50% mid 18% deep 4% | ink px 6757 shore-share(<86px) 96%
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/sealbay_1440.png: meanL 184 sat 0.32 deep 5.6% pale 44.6% midUM(px,blur3,dE<38) 19.4% | boxes15 n=1550 pale 44% mid 20% deep 5% | ink px 4144 shore-share(<86px) 98%
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_1440.png: meanL 181 sat 0.36 deep(L<110) 5% pale(L>200) 38%  n=379559
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_390.png: meanL 182 sat 0.36 deep(L<110) 5% pale(L>200) 39%  n=43743
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_close.png: meanL 183 sat 0.34 deep(L<110) 7% pale(L>200) 43%  n=775855
+# per-pool (pools6.py: L<110 components; core = L<80 share; soft px = rays L<110 -> L>200 excluding hard-line rays; hard = perimeter px within 3 px of L<68 line). Non-pool rows: (645,262)/(703,265)/(1058,352)=seals, (645,330)=red kayak
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_1440.png water px 379280 deep(L<110) 5.2% shore landL<30px 97.8 vs 30-90 115.3 -> 15.2% darker
+  pool {'c': (1053, 265), 'area_pct': np.float64(1.07), 'core_pct': np.float64(11.6), 'Lstd': np.float64(11.0), 'soft_px_med': 22, 'soft_px_min': 8, 'nrays': 65, 'hard_pct': np.float64(4.8)}
+  pool {'c': (645, 262), 'area_pct': np.float64(0.16), 'core_pct': np.float64(0.7), 'Lstd': np.float64(8.2), 'soft_px_med': 50, 'soft_px_min': 5, 'nrays': 70, 'hard_pct': np.float64(0.0)}
+  pool {'c': (703, 265), 'area_pct': np.float64(0.16), 'core_pct': np.float64(2.4), 'Lstd': np.float64(7.7), 'soft_px_med': 43, 'soft_px_min': 8, 'nrays': 68, 'hard_pct': np.float64(0.0)}
+  pool {'c': (1076, 292), 'area_pct': np.float64(0.18), 'core_pct': np.float64(0.4), 'Lstd': np.float64(8.9), 'soft_px_med': 20, 'soft_px_min': 9, 'nrays': 64, 'hard_pct': np.float64(8.8)}
+  pool {'c': (645, 330), 'area_pct': np.float64(0.06), 'core_pct': np.float64(0.0), 'Lstd': np.float64(0.3), 'soft_px_med': 24, 'soft_px_min': 5, 'nrays': 15, 'hard_pct': np.float64(70.2)}
+  pool {'c': (488, 363), 'area_pct': np.float64(1.89), 'core_pct': np.float64(9.9), 'Lstd': np.float64(9.0), 'soft_px_med': 19, 'soft_px_min': 7, 'nrays': 65, 'hard_pct': np.float64(14.7)}
+  pool {'c': (1058, 352), 'area_pct': np.float64(0.11), 'core_pct': np.float64(13.8), 'Lstd': np.float64(10.0), 'soft_px_med': 4, 'soft_px_min': 2, 'nrays': 43, 'hard_pct': np.float64(45.3)}
+  pool {'c': (1137, 442), 'area_pct': np.float64(0.61), 'core_pct': np.float64(15.6), 'Lstd': np.float64(12.1), 'soft_px_med': 17, 'soft_px_min': 9, 'nrays': 70, 'hard_pct': np.float64(10.1)}
+  pool {'c': (1081, 513), 'area_pct': np.float64(1.05), 'core_pct': np.float64(16.7), 'Lstd': np.float64(10.6), 'soft_px_med': 29, 'soft_px_min': 9, 'nrays': 53, 'hard_pct': np.float64(19.7)}
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/sealbay_1440.png water px 374909 deep(L<110) 5.6% shore landL<30px 107.4 vs 30-90 120.9 -> 11.2% darker
+  pool {'c': (1055, 260), 'area_pct': np.float64(2.02), 'core_pct': np.float64(22.5), 'Lstd': np.float64(9.1), 'soft_px_med': 15, 'soft_px_min': 4, 'nrays': 70, 'hard_pct': np.float64(2.3)}
+  pool {'c': (642, 263), 'area_pct': np.float64(0.16), 'core_pct': np.float64(0.3), 'Lstd': np.float64(7.1), 'soft_px_med': 34, 'soft_px_min': 4, 'nrays': 70, 'hard_pct': np.float64(10.7)}
+  pool {'c': (700, 266), 'area_pct': np.float64(0.16), 'core_pct': np.float64(2.0), 'Lstd': np.float64(8.2), 'soft_px_med': 56, 'soft_px_min': 6, 'nrays': 66, 'hard_pct': np.float64(19.4)}
+  pool {'c': (647, 331), 'area_pct': np.float64(0.06), 'core_pct': np.float64(0.0), 'Lstd': np.float64(nan), 'soft_px_med': 20, 'soft_px_min': 3, 'nrays': 19, 'hard_pct': np.float64(45.2)}
+  pool {'c': (463, 362), 'area_pct': np.float64(1.43), 'core_pct': np.float64(30.0), 'Lstd': np.float64(9.5), 'soft_px_med': 15, 'soft_px_min': 3, 'nrays': 72, 'hard_pct': np.float64(0.0)}
+  pool {'c': (1058, 353), 'area_pct': np.float64(0.11), 'core_pct': np.float64(15.2), 'Lstd': np.float64(10.5), 'soft_px_med': 4, 'soft_px_min': 2, 'nrays': 41, 'hard_pct': np.float64(43.4)}
+  pool {'c': (447, 394), 'area_pct': np.float64(0.07), 'core_pct': np.float64(0.0), 'Lstd': np.float64(3.0), 'soft_px_med': 15, 'soft_px_min': 5, 'nrays': 56, 'hard_pct': np.float64(0.0)}
+  pool {'c': (1114, 490), 'area_pct': np.float64(1.51), 'core_pct': np.float64(18.0), 'Lstd': np.float64(9.9), 'soft_px_med': 19, 'soft_px_min': 3, 'nrays': 67, 'hard_pct': np.float64(0.0)}
+/workspace/fold-wt/sealbay/game/shots/sealbay_r5/r6_sealbay_390.png water px 43633 deep(L<110) 5.3% shore landL<30px 108.4 vs 30-90 118.9 -> 8.8% darker
+  pool {'c': (287, 334), 'area_pct': 1.4, 'core_pct': 5.7, 'Lstd': 11.8, 'soft_px_med': 11, 'soft_px_min': 4, 'nrays': 65, 'hard_pct': 8.6}
+  pool {'c': (134, 379), 'area_pct': 1.85, 'core_pct': 11.9, 'Lstd': 9.0, 'soft_px_med': 9, 'soft_px_min': 4, 'nrays': 60, 'hard_pct': 18.0}
+  pool {'c': (304, 414), 'area_pct': 0.59, 'core_pct': 16.2, 'Lstd': 13.1, 'soft_px_med': 7, 'soft_px_min': 4, 'nrays': 66, 'hard_pct': 12.3}
+  pool {'c': (287, 446), 'area_pct': 1.01, 'core_pct': 17.7, 'Lstd': 11.1, 'soft_px_med': 22, 'soft_px_min': 5, 'nrays': 45, 'hard_pct': 24.7}

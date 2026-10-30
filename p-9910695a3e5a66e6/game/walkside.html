@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"></head><body style="margin:0;background:#efe9da"><script type="module">
+/* r8 #5: side-on walk strip. Each row = one moment of the walk cycle; the cat is advanced by STRIDE·t/T (the in-game travel),
+   so a paw in stance must stay on the same vertical guide from row to row (no foot sliding). Dark line = ground.
+   D1: STRIDE comes from the glb extras (CatRig userData.stride, ?stride= overrides, r10 constants as fallback); stance and drift are
+   measured on the toe tips (paw bone tail, extras.paw lengths) over M samples per cycle: stance = toe within ?eps= (default 1 mm) of that toe's
+   lowest point; drift = travel-axis slide of the toe across one stance. Result in the console and on window.WALKSIDE. */
+import * as THREE from '../shared/vendor/three.module.js';
+import { GLTFLoader } from '../shared/vendor/GLTFLoader.js';
+import { DRACOLoader } from '../shared/vendor/DRACOLoader.js';
+const q=new URLSearchParams(location.search), clip=q.get('clip')||'walk', N=+(q.get('n')||6), M=+(q.get('m')||96), EPS=+(q.get('eps')||.001);
+const W=innerWidth, H=innerHeight, rh=H/N;
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(W,H); r.setClearColor(0xefe9da); r.autoClear=false; document.body.appendChild(r.domElement);
+const s=new THREE.Scene(); s.add(new THREE.HemisphereLight(0xfff4e0,0x6a7a40,1.5)); const d=new THREE.DirectionalLight(0xffffff,1.8); d.position.set(3,4,1); s.add(d);
+const asp=W/rh, vh=.42, cam=new THREE.OrthographicCamera(-vh*asp/2, vh*asp/2, vh*.92, -vh*.12, .01, 10); cam.position.set(5,0,.2); cam.lookAt(0,0,.2);
+const lm=new THREE.LineBasicMaterial({color:0x3d4a2a}), gm=new THREE.LineBasicMaterial({color:0xa0522d});
+const line=(a,b,m)=>new THREE.Line(new THREE.BufferGeometry().setFromPoints([a,b]),m);
+s.add(line(new THREE.Vector3(0,0,-2),new THREE.Vector3(0,0,2),lm));
+for(let z=-1;z<=1.001;z+=.05) s.add(line(new THREE.Vector3(0,0,z),new THREE.Vector3(0,-.012,z),lm));
+const ld=new GLTFLoader(), dr=new DRACOLoader(); dr.setDecoderPath('../shared/vendor/draco/'); ld.setDRACOLoader(dr);
+ld.load(`assets/cat/${q.get('f')||'cat'}.glb`, g=>{ const o=g.scene; s.add(o); const mx=new THREE.AnimationMixer(o);
+  let ex={}; o.traverse(n=>{ if(n.userData&&n.userData.stride) ex=n.userData; });
+  const STRIDE=+(q.get('stride')||0)||(ex.stride&&+ex.stride[clip])||{walk:.1649,trot:.22,run:.367}[clip], src=q.get('stride')?'url':(ex.stride?'glb extras':'fallback');
+  const a=g.animations.find(a=>a.name===clip||a.name.endsWith('|'+clip));
+  const t0=Math.min(...a.tracks.map(t=>t.times[0])); if(t0>0&&ex.stride&&!q.has('raw')){ for(const t of a.tracks) t.times=t.times.map(x=>x-t0); a.resetDuration(); } /* same key shift as artkit/cat.js for D1 glbs (?raw = unshifted) */ const act=mx.clipAction(a); act.play(); const T=a.duration;
+  const names=['fpaw.L','fpaw.R','hpaw.L','hpaw.R'], paws=names.map(n=>o.getObjectByName(n.replace('.',''))||o.getObjectByName(n));
+  const plen=names.map(n=>(ex.paw&&+ex.paw[n])||0);
+  const toe=(i)=>paws[i].localToWorld(new THREE.Vector3(0,plen[i],0));
+  const pose=t=>{ act.time=t; mx.update(0); o.position.z=STRIDE*t/T; o.updateMatrixWorld(true); };
+  const S=[]; for(let j=0;j<=M;j++){ pose(j*T/M); S.push([0,1,2,3].map(toe)); }
+  const res={clip,stride:STRIDE,source:src,eps:EPS,toe_tip:plen.every(x=>x>0),paws:{}}, guides=[];
+  names.forEach((n,i)=>{ const y=S.map(p=>p[i].y), lo=Math.min(...y), st=y.map(v=>v<lo+EPS); let drift=0, runs=0, k=0, lift=Math.max(...y)-lo;
+    const start=st.findIndex((v,j)=>!v); /* walk from the first swing sample so a stance isn't split by the cycle wrap */
+    for(let c=0;c<M && start>=0;c++){ const j=(start+c)%M; if(st[j]){ let e=j, z0=S[j][i].z, zmin=z0, zmax=z0, cc=0;
+        while(st[(e+1)%M] && cc<M){ e=(e+1)%M; cc++; const wrap=e<j?STRIDE:0; const z=S[e][i].z+wrap; zmin=Math.min(zmin,z); zmax=Math.max(zmax,z); }
+        drift=Math.max(drift,zmax-zmin); runs++; if(!guides.some(z=>Math.abs(z-z0)<.02)) guides.push(z0); c+=cc; } }
+    res.paws[n]={stance_frac:+(st.slice(0,M).filter(Boolean).length/M).toFixed(3), drift:+drift.toFixed(4), lift:+lift.toFixed(4), stances:runs}; });
+  res.drift_max=Math.max(...Object.values(res.paws).map(p=>p.drift));
+  guides.forEach(z=>s.add(line(new THREE.Vector3(0,-.02,z),new THREE.Vector3(0,.3,z),gm)));
+  for(let i=0;i<N;i++){ pose(i*T/N);
+    r.setViewport(0,H-(i+1)*rh,W,rh); r.setScissor(0,H-(i+1)*rh,W,rh); r.setScissorTest(true); r.clear(); r.render(s,cam); }
+  if(q.get('dbg')!==null){ const i=+q.get('dbg'); res.dbg={T, n:a.tracks[0].times.length, series:S.map((p,j)=>[+(j*T/M).toFixed(4),+p[i].y.toFixed(4),+(p[i].z-STRIDE*j/M).toFixed(4)])}; }
+  window.WALKSIDE=res; console.log('WALKSIDE '+JSON.stringify(res)); document.title='done'; });
+</script></body></html>

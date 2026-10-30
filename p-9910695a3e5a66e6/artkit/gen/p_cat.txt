@@ -1,0 +1,7 @@
+Use your built-in image generation tool to create ONE image, then copy the resulting PNG to /workspace/fold/artkit/gen/cat_turnaround.png. Do not post-process it.
+
+Subject: a character turnaround sheet of ONE old, plump orange tabby shorthair cat, sculpted as a matte hand-made clay / plasticine miniature figure (like a stop-motion puppet), painted with soft gouache.
+Show the SAME cat four times in a row, standing on all four legs, full body: side view facing left, front view, back view (seen from behind, tail visible), three-quarter view from behind-left.
+Design: unmistakably a cat at a glance. Two upright triangular ears with pale pink inner ear, round head with full cheeks, short muzzle with white whisker pads and white chin, amber eyes, a long thick tail held in a relaxed low curve with a slightly raised tip. Old and plump: soft round belly, broad shoulders, short sturdy legs. Coat: warm muted marmalade orange (#d98a3e) with darker rust tabby stripes (#a65a26) across the back, flanks and forehead (an M mark), ringed tail; cream-white chest, belly and four white socks.
+Material: matte clay with subtle fingerprint/paper grain, rounded soft forms, no hard edges, no fur strands, no outlines, no specular highlights, no glow.
+Light: soft daylight from the upper left, gentle shading. Background: perfectly flat uniform pure magenta #FF00FF, no ground shadow, no text, no labels.

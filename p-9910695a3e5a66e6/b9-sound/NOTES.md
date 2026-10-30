@@ -1,0 +1,61 @@
+# b9-sound — 褶星 Fold ambient soundscape
+
+Run: `cd /workspace/fold && python3 -m http.server 8765`, open `/b9-sound/index.html`, click **sound on**.
+WASD/arrows move the cat (sped up 40× so you can cross regions), Shift to trot, Z to sleep (purr). Checked in headless Chrome with no console errors; screenshot in `shot.png`.
+
+## API (`soundscape.js`)
+```js
+import { createSoundscape, REGIONS } from '../b9-sound/soundscape.js';
+const sc = createSoundscape(listener);   // THREE.AudioListener (uses .context + .getInput()), an AudioContext, or nothing
+await sc.start();                        // must be called from a user gesture
+sc.update(dt, { pos, speed, surface: 'grass'|'stone'|'wood', sleeping, night: 0..1, autoSteps: true });
+sc.step(surface, k);                     // manual footfall (pass autoSteps:false and call this from the cat's gait instead)
+sc.setMuted(bool); sc.weights(pos);      // weights -> {meadow,pond,mill} 0..1
+```
+`pos` is a planet-centred position in metres (R = 600). The weight is the great-circle distance to each region centre, smoothstepped from 0.5·radius down to 1.4·radius. Between regions only the wind is left.
+
+## What works
+- **Meadow**: recorded bleats and a lamb, reused skylark phrases (daytime only), crickets that fade in as `night` rises, airy wind.
+- **Pond**: generated water lapping (band-passed noise with slow swells), generated duck quacks (short saw bursts through a band-pass).
+- **Mill**: generated creaks from the sails (wobbling saw through a narrow band-pass, timed by gusts), a low wind rumble and stronger wind.
+- **Shared wind**: two pink-noise beds panned left and right. A slow gust value moves both level and low-pass cutoff.
+- **Footsteps**: a short noise burst per surface. Grass is soft and crackly, stone is a short bright tick, wood is a hollow low knock. Step rate follows speed.
+- **Purr**: low-passed pink noise pulsed at about 24 Hz. Ambience dips to around 55% while sleeping.
+- The mix is restrained: a gentle compressor, a 1.5 s fade-in, and no stingers.
+
+## Merge notes / TODO
+- Replace `REGIONS` dirs and radii with the real region anchors. The file exports it as a mutable object, so you can also set it at runtime.
+- The surface should come from the ground or terrain module. The demo fakes it: wood near the mill, stone around the pond.
+- Sound is not positional (it is a mix by distance, plus random pans). If you need positional sound, use `THREE.PositionalAudio` per sheep with the same buffers.
+- Pass `night` from the day/night module.
+
+## Licences
+`snd/*.mp3` are copied from `/workspace/sheep/site/plus/snd` because the http server root (`/workspace/fold`) can't reach `../../sheep`. Sources:
+bleat1–4 are public domain (earthcalling, Wikimedia Commons). lamb1 is CC BY-SA 4.0 (Yosef Ben Melamed). lark is CC BY-SA 4.0 (Marie-Lan Taÿ Pamart, via xeno-canto). crickets is CC BY-SA 3.0 (Thatcher).
+For full links and edits, see `/workspace/sheep/site/docs/sound.md`. Credit these in the merged game's credits. Everything else is generated WebAudio.
+
+## Polish round 1
+- round 1: only the demo page changed (`soundscape.js` and its exports are untouched). The map of flat circles is now a hand-painted gouache map, painted once into an offscreen canvas on each resize. It has paper grain with faint mottling, stacked washes with wobbly edges and a soft light/shadow band, and a speckled paper-bleed edge. The meadow has pencil-tick grass, a hedgerow and sheep dabs; the pond has a darker centre and water strokes; the mill has a hub and sails. Labels are small italic serif, and the vignette darkens the paper (no glow). The player is a small orange clay cat dab with a white chest fleck. Headless Chrome shows no console errors; `shot.png` updated.
+- round 2: still demo-page only (`soundscape.js` and its exports are untouched). Added faint broken pencil footpaths that wobble between the three regions and fade near each end, so the empty paper reads as one hand-drawn map. The UI is wider, so the help line no longer wraps. Headless Chrome shows no page console errors; `shot.png` updated.
+- round 3: demo page only (`soundscape.js` and its exports are untouched). The region mix meters were heavy black blocks (▮), the last digital-looking element. They are now light pencil ticks (ı) on dotted paper, matching the hand-drawn map. `shot.png` updated; the page renders in headless Chrome.
+- round 4: demo page only (`soundscape.js` and its exports are untouched). The orange cat dab is now a small clay figure: muted orange, a soft lit band on top, a shaded belly band, two ears and a curled tail stroke. The boxed 'sound on' button is now italic serif text with a dashed pencil underline, so no hard digital box is left. Re-shot in headless Chrome; `shot.png` updated.
+- round 5: started at 20:32 with only a few minutes left, so this was a small, safe change: the help text on the demo page said "move the dot", left over from before the cat figure, and now says "move the cat" (NOTES.md also updated). `soundscape.js` and its exports are untouched. Re-shot in headless Chrome; `shot.png` updated.
+- round 6: started at 20:32 with about 7 minutes left, so this was one small change to the demo page (`soundscape.js` and its exports are untouched). The meadow sheep dabs were flat near-white paper dots. Each now has a soft olive contact shadow to the lower right, a muted cream fleece and a small lighter top-left dab, so they read as tiny matte clay forms on the grass, like the designer's sheep. Headless Chrome shows no console errors; `shot.png` updated.
+- round 7: started at 20:33 with about 6 minutes left, so this was one small change to the demo page (`soundscape.js` and its exports are untouched). The pond had no edge detail. It now has a fringe of about 70 short olive pencil-tick reeds around the water, using the same tick style as the meadow grass, so it reads as a hand-painted pond rim. Headless Chrome shows no page console errors; `shot.png` updated.
+- round 8: started at 20:33 with about 6 minutes left, so this was one small change to the demo page (`soundscape.js` and its exports are untouched). The mill region was a bare tan wash. It now has wobbly pencil furrows of a wheat field, about 260 stubble ticks in the same tick style as the meadow grass, and a soft contact shadow under the mill hub, so all three regions read as hand-painted. Headless Chrome shows no page console errors; `shot.png` updated.
+- round 9: started at 20:34 with about 5 minutes left. I looked at the current shot.png critically. The map reads as hand-painted gouache: paper grain, washes, pencil ticks, a clay cat and sheep. Nothing broken stood out, and there wasn't enough time for a safe visual change, so the code is unchanged. Next step if there's more time: soft hedgerow dabs along the footpaths, and the meter text closer to the designer's serif weight.
+- round 10: started at 20:34 with about 4.5 minutes left, so this was one small change to the demo page (`soundscape.js` and its exports are untouched). This is the hedgerow idea from round 9. Small olive clay dabs (a contact shadow, a body and a light top-left fleck) now sit at intervals beside the pencil footpaths, so the empty paper between regions reads as hand-painted hedgerow lanes. Headless Chrome shows no page console errors; `shot.png` updated. The dabs are spaced at random intervals rather than on a fixed beat.
+- round 11: started at 20:35 with about 4 minutes left, so this was one small change to the demo page (`soundscape.js` and its exports are untouched). The pond's water strokes were 5 straight, evenly spaced, ruled-looking lines. They are now short, staggered, wobbly pencil ripples of varying length, so the pond centre reads as hand-drawn. Headless Chrome render checked by eye; `shot.png` updated. Note: port 8765 serves a different root, so use a fresh `http.server` started from /workspace/fold (e.g. :8799).
+- round 12: started at 20:36, after the 20:35 feature freeze, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). I re-rendered the page in headless Chrome on a fresh server (:8799). The gouache map, paper grain, pencil ticks, clay cat, sheep and hedgerow dabs all render; `shot.png` refreshed. Next if there's time: the mill sails are thin dark strokes, and could become soft clay blades with a contact shadow.
+- round 13: started at 20:36, after the 20:35 feature freeze, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). I re-rendered the page in headless Chrome on a fresh server (:8799) and checked it by eye: the paper grain, gouache region washes, pencil-tick grass, stubble and reeds, clay cat, sheep and hedgerow dabs all render; `shot.png` refreshed. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 14: started at 20:36:39, after the 20:35 feature freeze and with about 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` (20:36) stands. Still the next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 15: started at 20:36:50, after the 20:35 feature freeze and about 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` (20:36) stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 16: started at 20:37:01, after the 20:35 feature freeze and about 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` (20:36) stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 17: started at 20:37:11, after the 20:35 feature freeze and about 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` (20:36) stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 18: started at 20:37:25, after the 20:35 feature freeze and under 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 19: started at 20:37:35, after the 20:35 feature freeze and under 2 minutes before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 20: started at 20:37:43, after the 20:35 feature freeze and about 1 minute before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 21: started at 20:37:56, after the 20:35 feature freeze and about 1 minute before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 22: started at 20:38:06, after the 20:35 feature freeze and about 1 minute before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 23: started at 20:38:16, after the 20:35 feature freeze and under 1 minute before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.
+- round 24: started at 20:38:24, after the 20:35 feature freeze and under 1 minute before the 20:39 stop, so no code changed (`soundscape.js`, its exports and `index.html` are untouched). The existing `shot.png` stands. Next step: turn the thin dark mill-sail strokes into soft clay blades with a contact shadow.

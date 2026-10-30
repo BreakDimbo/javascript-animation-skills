@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh"><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8"><title>褶星 Fold — merge</title>
+<link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#ece4d3;overflow:hidden;font-family:"Songti SC","Noto Serif CJK SC",Georgia,serif;color:#4a4236}
+canvas{display:block}
+#card{position:fixed;left:50%;top:14%;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity 1.8s ease;pointer-events:none;letter-spacing:.18em}
+#card .no{font-size:11px;opacity:.6}#card .nm{font-size:17px;margin-top:4px}
+#card .rule{width:38px;height:1px;background:#4a4236;opacity:.35;margin:8px auto 0}
+#help{position:fixed;left:16px;bottom:12px;font-size:11px;opacity:.5;letter-spacing:.08em}
+#mods{position:fixed;right:16px;bottom:12px;font-size:10px;opacity:.4;text-align:right;white-space:pre}
+#bleed{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;background:radial-gradient(ellipse 78% 72% at 50% 52%,rgba(236,228,211,0) 62%,rgba(214,200,172,.45) 88%,rgba(198,182,150,.7) 100%)}
+#grain{position:fixed;inset:0;pointer-events:none;opacity:.10;mix-blend-mode:multiply}
+</style></head><body>
+<div id="card"><div class="no"></div><div class="nm"></div><div class="rule"></div></div>
+<div id="help">WASD 走 · Shift 跑 · Space 跳 · C 坐 · Z 睡 · drag 看</div>
+<div id="mods"></div><div id="bleed"></div><canvas id="grain"></canvas>
+<script type="module" src="./merge.js"></script>
+</body></html>

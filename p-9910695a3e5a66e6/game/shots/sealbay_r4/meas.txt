@@ -1,0 +1,3 @@
+/workspace/fold-wt/sealbay/game/shots/sealbay_r4/sealbay_1440.png: meanL 187 sat 0.31 deep(L<110) 5% pale(L>200) 50%  n=377088
+/workspace/fold-wt/sealbay/game/shots/sealbay_r4/sealbay_390.png: meanL 189 sat 0.30 deep(L<110) 5% pale(L>200) 52%  n=43396
+/workspace/fold-wt/sealbay/game/shots/sealbay_r4/sealbay_close.png: meanL 193 sat 0.28 deep(L<110) 3% pale(L>200) 58%  n=766509

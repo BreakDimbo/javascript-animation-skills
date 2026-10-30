@@ -1,0 +1,5 @@
+Fold audio — third-party licence record (internal; not shown in game credits).
+Final files copied from team/audio/ (sound designer drop 2026-10-30; see team/audio/README.md for sources, measurements and loop points).
+All sources are CC0 except one CC BY 4.0 element in amb_sealbay.ogg:
+Fur seal call: "Vocal signal of female Arctocephalus gazella to pup" by T. Aubin, P. Jouventin, I. Charrier, CC BY 4.0, via Wikimedia Commons / PLOS ONE (doi:10.1371/journal.pone.0134513). Pitch-shifted, filtered and reverberated.
+Music: theme_a_orbit_loop (rendered with VSCO 2 Community Edition samples, CC0 1.0).

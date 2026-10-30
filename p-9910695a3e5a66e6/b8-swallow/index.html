@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh"><head><meta name="robots" content="noindex,nofollow"><link rel="icon" href="data:,"><meta charset="utf-8"><title>褶星 Fold — b8 家燕 · 梦中飞行</title>
+<style>
+html,body{margin:0;height:100%;background:#efe8d8;overflow:hidden}
+canvas{display:block}
+#paper{position:fixed;inset:0;pointer-events:none;mix-blend-mode:multiply;opacity:.55;background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(90,70,40,.22) 100%),url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45 0 0 0 0 .38 0 0 0 0 .28 0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#ui{position:fixed;left:18px;bottom:16px;font:13px/1.4 Georgia,'Songti SC',serif;color:#5b5044;z-index:60;letter-spacing:.04em}
+#ui button{font:inherit;color:#5b5044;background:none;border:1px solid #b9ab94;padding:3px 10px;cursor:pointer}
+</style></head>
+<body><div id="paper"></div>
+<div id="ui">家燕 · barn swallows &nbsp;<button id="go">dream flight</button></div>
+<script type="module">
+import * as THREE from '../shared/vendor/three.module.js';
+import { createSwallows, updateSwallows, playDreamFlight, setPaperFade, isDreaming } from './swallow.js';
+
+const R = 600;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xefe8d8);
+scene.fog = new THREE.Fog(0xefe8d8, 60, 420);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 3000);
+scene.add(new THREE.HemisphereLight(0xfff6e6, 0x8a7a62, 1.6));
+const sun = new THREE.DirectionalLight(0xfff1dc, 1.4); sun.position.set(300, 800, 400); scene.add(sun);
+
+// ---- simple gouache-banded ground (equirect canvas paint) ----
+function paintGround() {
+  const W = 2048, H = 1024, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+  const hedge = [];
+  const pal = [[143,150,104],[163,166,112],[186,176,124],[128,138,98],[171,152,108],[150,160,118]];
+  const n3 = (x, y, z) => Math.sin(x*1.7+Math.sin(y*2.3)*1.3)+Math.sin(y*1.9+Math.sin(z*1.6)*1.4)+Math.sin(z*2.1+Math.sin(x*1.8)*1.2);
+  for (let j = 0; j < H; j++) {
+    const th = j / H * Math.PI;
+    for (let i = 0; i < W; i++) {
+      const ph = i / W * Math.PI * 2;
+      const x = Math.sin(th)*Math.cos(ph), y = Math.cos(th), z = Math.sin(th)*Math.sin(ph);
+      const f = n3(x*6, y*6, z*6) + 0.5*n3(x*14+3, y*14, z*14-2);
+      const band = Math.floor((f + 4.5) * 1.3);             // posterised fields
+      const c = pal[((band % pal.length) + pal.length) % pal.length];
+      const edge = Math.abs(((f + 4.5) * 1.3) % 1 - 0.5) > 0.47; // hedgerow line between bands
+      const grain = (Math.random() - 0.5) * 10;
+      const k = (j * W + i) * 4, m = edge ? 0.72 : 1;
+      if (edge && Math.random() < 0.004) hedge.push(i, j);
+      d[k] = c[0]*m+grain; d[k+1] = c[1]*m+grain; d[k+2] = c[2]*m+grain; d[k+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  // soft gouache brush washes (uneven pigment, like the designer's field painting)
+  for (let k = 0; k < 900; k++) {
+    const x = Math.random()*W, y = Math.random()*H, l = Math.random() < .5;
+    ctx.fillStyle = l ? 'rgba(232,222,190,.06)' : 'rgba(60,66,40,.05)';
+    ctx.beginPath(); ctx.ellipse(x, y, 20+Math.random()*60, 4+Math.random()*8, Math.random()*.4-.2, 0, 7); ctx.fill();
+  }
+  // hedgerow shrub blobs dabbed along field edges (dark gouache, light top-left rim)
+  for (let k = 0; k < hedge.length; k += 2) {
+    const x = hedge[k], y = hedge[k+1], r = 2 + Math.random()*3;
+    ctx.fillStyle = 'rgba(78,90,58,.55)'; ctx.beginPath(); ctx.ellipse(x, y, r*1.4, r, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(150,158,110,.35)'; ctx.beginPath(); ctx.ellipse(x-r*.4, y-r*.4, r*.6, r*.4, 0, 0, 7); ctx.fill();
+  }
+  // pencil-tick grass
+  ctx.strokeStyle = 'rgba(70,80,50,.22)'; ctx.lineWidth = 1;
+  for (let k = 0; k < 26000; k++) { const x = Math.random()*W, y = Math.random()*H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+1, y-3); ctx.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const planet = new THREE.Mesh(new THREE.SphereGeometry(R, 256, 128), new THREE.MeshLambertMaterial({ map: paintGround() }));
+scene.add(planet);
+// a few clay tree blobs so altitude/motion reads
+const treeM = new THREE.MeshLambertMaterial({ color: 0x6f7a52 });
+// soft lumpy clay crown: smooth icosphere with low-freq bumps (no facets)
+const crownG = new THREE.IcosahedronGeometry(1, 3); { const a = crownG.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < a.count; i++) { v.fromBufferAttribute(a, i); const k = 1 + 0.08 * Math.sin(v.x * 5 + v.y * 3) * Math.sin(v.z * 4 + 1); v.multiplyScalar(k); v.y *= 0.85; a.setXYZ(i, v.x, v.y, v.z); }
+  { const n = crownG.attributes.normal; for (let i = 0; i < a.count; i++) { v.fromBufferAttribute(a, i).normalize(); n.setXYZ(i, v.x, v.y, v.z); } n.needsUpdate = true; } }
+const trunkM = new THREE.MeshLambertMaterial({ color: 0x6b5541 });
+const up = new THREE.Vector3(0, 1, 0);
+const START = new THREE.Vector3(0.2, 1, 0.1).normalize();
+for (let i = 0; i < 1400; i++) {
+  const dir = new THREE.Vector3().randomDirection();
+  if (dir.dot(START) > 0.99995) continue; // keep the opening shot clear
+  const g = new THREE.Group(); const h = 3 + Math.random() * 4;
+  const crown = new THREE.Mesh(crownG, treeM); crown.scale.setScalar(h * 0.45); crown.position.y = h; g.add(crown);
+  const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, h, 8), trunkM); tr.position.y = h / 2; g.add(tr);
+  g.position.copy(dir).multiplyScalar(R); g.quaternion.setFromUnitVectors(up, dir); scene.add(g);
+}
+
+const sw = createSwallows(scene, { radius: R, camera }, { groups: 10 });
+// put a group near the start view so the idle shot shows them
+const A = new THREE.Vector3(0.2, 1, 0.1).normalize(), B = new THREE.Vector3(0.9, 0.5, -0.6).normalize();
+sw.groups[0].start.copy(A); sw.groups[0].axis.set(1, 0, 0).projectOnPlane(A).normalize(); sw.groups[0].ang = 0; sw.groups[0].speed = 0.002 / 60;
+
+// idle view: cat-height-ish camera at A looking along the swallows
+function idleCam(t) {
+  const g = sw.groups[0], q = new THREE.Quaternion().setFromAxisAngle(g.axis, g.ang);
+  const c = g.start.clone().applyQuaternion(q);
+  const fwd = new THREE.Vector3().crossVectors(g.axis, c).normalize();
+  camera.position.copy(c).multiplyScalar(R + 1.2).addScaledVector(fwd, -9);
+  camera.up.copy(c); camera.lookAt(c.clone().multiplyScalar(R + 5).addScaledVector(fwd, 6));
+}
+let dreaming = false, fadeBack = 0;
+function startDream() {
+  if (isDreaming()) return;
+  dreaming = true;
+  playDreamFlight(A, B, () => {
+    dreaming = false; fadeBack = 1;
+    const g = sw.groups[0]; g.start.copy(B); g.axis.set(0, 0, 1).projectOnPlane(B).normalize(); g.ang = 0; // "sleep spot B"
+  });
+}
+document.getElementById('go').onclick = startDream;
+if (new URLSearchParams(location.search).has('dream')) startDream();
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  updateSwallows(dt);
+  if (!dreaming) { idleCam(); if (fadeBack > 0) { fadeBack = Math.max(0, fadeBack - dt / 1.4); setPaperFade(fadeBack); } }
+  renderer.render(scene, camera);
+});
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+window.__fold = { startDream, camera };
+</script>
+</body></html>

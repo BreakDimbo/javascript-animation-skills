@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta name="robots" content="noindex,nofollow"><meta charset="utf-8"><title>褶星 Fold — b7 finds & sleep spots</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(75% 120% at 50% 50%,#eee6d9 0%,#eee6d9 40%,#e7dfd4 64%,#dfd7cc 100%)}
+canvas{display:block}
+#paper{position:fixed;inset:0;background:#f4efe4;opacity:0;transition:opacity 1.2s ease;pointer-events:none}
+#hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);font:italic 12px Georgia,"Times New Roman",serif;color:rgba(60,62,50,.62);white-space:nowrap}
+#find{position:fixed;left:50%;top:22px;transform:translateX(-50%);font:13px Georgia,serif;color:rgba(60,62,50,.75);transition:opacity .6s}
+</style></head><body>
+<div id="find"></div>
+<div id="hint">WASD to wander · Shift to trot · Z to curl up on a warm stone or cushion</div>
+<div id="paper"></div>
+<script type="module">
+import * as THREE from '../shared/vendor/three.module.js';
+import { createFinds, createSleepSpots, saveGame, loadGame, sleepFade, R } from './finds.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0xe9e2d4, 20, 90);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 2000);
+scene.add(new THREE.HemisphereLight(0xf6efe0, 0xa8a488, 2.0));
+const sun = new THREE.DirectionalLight(0xfff3dc, 1.15); sun.position.set(300, 800, 200); scene.add(sun);
+
+// planet stub: gouache-banded ground with paper grain (canvas texture)
+const cv = document.createElement('canvas'); cv.width = cv.height = 1024; const cx = cv.getContext('2d'); const N = 1024;
+let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+const wrap = (f) => { for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) { cx.save(); cx.translate(ox, oy); f(); cx.restore(); } };
+cx.fillStyle = '#b6bd93'; cx.fillRect(0, 0, N, N);
+// soft gouache field patches (blurred, low alpha) — muted sage / straw / moss like the designer's fields
+const fields = ['#c4c49c', '#a9b382', '#bfbd90', '#9fac78', '#cbc5a0', '#b0b788'];
+cx.filter = 'blur(14px)';
+for (let i = 0; i < 26; i++) { const x = rnd() * N, y = rnd() * N, w = 90 + rnd() * 220, h = 60 + rnd() * 160, r = rnd() * 3, c = fields[i % fields.length];
+  wrap(() => { cx.globalAlpha = .55; cx.fillStyle = c; cx.beginPath(); cx.ellipse(x, y, w, h, r, 0, 7); cx.fill(); }); }
+cx.filter = 'blur(2px)';
+// hedgerow strokes: wobbly dark moss lines between fields
+for (let i = 0; i < 7; i++) { let x = rnd() * N, y = rnd() * N, a = rnd() * 6.28; const pts = [];
+  for (let k = 0; k < 24; k++) { pts.push([x, y]); a += (rnd() - .5) * .35; x += Math.cos(a) * 14; y += Math.sin(a) * 14; }
+  wrap(() => { cx.globalAlpha = .35; cx.strokeStyle = '#6f7d4c'; cx.lineWidth = 5 + rnd() * 3; cx.lineCap = 'round'; cx.beginPath(); pts.forEach(([px, py], k) => k ? cx.lineTo(px, py) : cx.moveTo(px, py)); cx.stroke(); }); }
+cx.filter = 'none';
+// pencil-tick grass: short slanted graphite strokes
+cx.lineCap = 'round';
+for (let i = 0; i < 5200; i++) { const x = rnd() * N, y = rnd() * N, l = 3 + rnd() * 5, a = -1.2 + (rnd() - .5) * .6;
+  cx.globalAlpha = .12 + rnd() * .16; cx.strokeStyle = rnd() < .75 ? '#56633b' : '#e9e2c6'; cx.lineWidth = .9;
+  cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); cx.stroke(); }
+// paper grain
+for (let i = 0; i < 26000; i++) { cx.globalAlpha = .07; cx.fillStyle = rnd() < .5 ? '#3f4630' : '#f4efe4'; cx.fillRect(rnd() * N, rnd() * N, 1, 1); }
+cx.globalAlpha = 1;
+const tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(36, 18); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+const planet = { radius: R, heightAt: () => 0, isTransition: (d) => Math.abs(d.y) < 0.85 };
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(R, 256, 128), new THREE.MeshLambertMaterial({ map: tex })));
+
+const finds = createFinds(scene, planet, 7);
+// spawn spot + demo finds near spawn so the test scene shows them
+const spawnDir = new THREE.Vector3(0.02, 0.2, 1).normalize();
+const near = (dx, dz) => { const t = new THREE.Vector3(1, 0, 0), b = new THREE.Vector3().crossVectors(spawnDir, t).normalize(); t.crossVectors(b, spawnDir); return spawnDir.clone().addScaledVector(t, dx / R).addScaledVector(b, dz / R).normalize(); };
+const sleep = createSleepSpots(scene, planet, 11, { dirs: [near(1.6, -2.0), near(-2.2, -3.2)] });
+for (const [k, dx, dz] of [['yarn', 0.8, -1.4], ['catnip', -1.2, -1.6], ['log', 0.6, -4], ['butterfly', -0.4, -2.4], ['hedgeGap', 0, -6.5]]) finds.add(k, near(dx, dz));
+
+// placeholder cat (orange, white chest + paw tips)
+const cat = new THREE.Group(); scene.add(cat);
+const orange = new THREE.MeshLambertMaterial({ color: 0xd98a4a, }), white = new THREE.MeshLambertMaterial({ color: 0xf1eadb });
+const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.27, 4, 8), orange); body.rotation.x = Math.PI / 2; body.position.y = 0.15; cat.add(body);
+const chest = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), white); chest.position.set(0, 0.13, -0.16); cat.add(chest);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), orange); head.position.set(0, 0.22, -0.24); cat.add(head);
+for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.05, 4), orange); e.position.set(s * 0.04, 0.29, -0.24); cat.add(e); }
+for (const [x, z] of [[-.05, -.15], [.05, -.15], [-.05, .13], [.05, .13]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.02, 0.1, 5), orange); p.position.set(x, 0.05, z); cat.add(p); const t = new THREE.Mesh(new THREE.SphereGeometry(0.021, 6, 4), white); t.position.set(x, 0.01, z); cat.add(t); }
+const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.22, 3, 5), orange); tail.position.set(0, 0.2, 0.27); tail.rotation.x = -0.6; cat.add(tail);
+
+// cat state on sphere
+const st = { pos: spawnDir.clone().multiplyScalar(R), fwd: new THREE.Vector3(), curled: false, roll: 0 };
+const saved = loadGame(); if (saved?.pos) st.pos.copy(saved.pos);
+{ const up = st.pos.clone().normalize(); st.fwd.set(0, 1, 0).projectOnPlane(up).normalize().negate(); if (st.fwd.lengthSq() < .1) st.fwd.set(1, 0, 0).projectOnPlane(up).normalize(); }
+const keys = {}; addEventListener('keydown', (e) => { keys[e.code] = true; if (e.code === 'KeyZ') trySleep(); }); addEventListener('keyup', (e) => keys[e.code] = false);
+const paper = document.getElementById('paper'), findEl = document.getElementById('find');
+
+async function trySleep() {
+  if (st.curled) return; const s = sleep.nearest(st.pos, 1.4); if (!s) { findEl.textContent = 'nowhere warm to sleep here'; return; }
+  st.curled = true; st.pos.copy(s.pos).add(s.pos.clone().normalize().multiplyScalar(0.08));
+  saveGame({ pos: st.pos, spot: s.id, kind: s.kind });
+  await sleepFade(paper); findEl.textContent = 'saved — slept on a ' + (s.kind === 'stone' ? 'sun-warm stone' : 'cushion'); st.curled = false;
+}
+
+const camPos = new THREE.Vector3(), clock = new THREE.Clock(), tmpQ = new THREE.Quaternion(), m4 = new THREE.Matrix4();
+const LABEL = { yarn: 'a loose yarn end', catnip: 'catnip — the cat rolls', log: 'a fallen log', butterfly: 'a butterfly, just out of reach', hedgeGap: 'a gap in the hedge, cat-sized' };
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const up = st.pos.clone().normalize();
+  if (!st.curled) {
+    const turn = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0), mv = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0);
+    st.fwd.applyAxisAngle(up, turn * 2.2 * dt);
+    const speed = keys.ShiftLeft || keys.ShiftRight ? 3.2 : 1.2;
+    const next = st.pos.clone().addScaledVector(st.fwd, mv * speed * dt).setLength(R);
+    if (finds.canPass(next)) st.pos.copy(next);
+  }
+  const nup = st.pos.clone().normalize(); st.fwd.projectOnPlane(nup).normalize();
+  const hit = finds.update(dt, t, st.pos);
+  st.roll = THREE.MathUtils.lerp(st.roll, hit?.kind === 'catnip' && !st.curled ? 1 : 0, dt * 3);
+  if (hit && !st.curled) findEl.textContent = LABEL[hit.kind];
+  // orient cat: local -Z forward, +Y up
+  const right = new THREE.Vector3().crossVectors(st.fwd, nup).normalize();
+  m4.makeBasis(right, nup, st.fwd.clone().negate()); cat.quaternion.setFromRotationMatrix(m4);
+  cat.position.copy(st.pos);
+  cat.rotateZ(Math.sin(t * 4) * 0.9 * st.roll); // catnip roll
+  cat.scale.set(1, st.curled ? 0.6 : 1, st.curled ? 0.65 : 1);
+  // spring-arm cam
+  const sprint = keys.ShiftLeft || keys.ShiftRight;
+  const want = st.pos.clone().addScaledVector(st.fwd, sprint ? -3 : -2).addScaledVector(nup, 0.5);
+  camPos.lerp(want, 1 - Math.exp(-dt * 5)); if (camPos.lengthSq() < 1) camPos.copy(want);
+  camera.position.copy(camPos); camera.up.copy(nup); camera.lookAt(st.pos.clone().addScaledVector(nup, 0.2).addScaledVector(st.fwd, 1.2));
+  renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+frame();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+window.__fold = { st, finds, sleep, trySleep };
+</script></body></html>
