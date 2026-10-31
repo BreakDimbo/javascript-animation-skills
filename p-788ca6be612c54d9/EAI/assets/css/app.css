@@ -1208,6 +1208,12 @@ html[data-theme="dark"] .i.ico-moon{display:block}
   .stack-hint span:nth-child(2){display:none}
 }
 .stack--full.is-focus .layer__label{opacity:0;pointer-events:none}
+/* r7 hit-testing: only the sheets themselves take the pointer. The world plane (z = 0, mid-stack) and each .layer box are invisible but
+   used to sit in front of the lower sheets' visible strips; the 3D labels' padding overlapped neighbouring sheets. Tiles on lower sheets do not lift. */
+.stack--full .stack__world,.stack--full .layer,.stack--full .layer__label{pointer-events:none}
+.stack--full .layer__slab,.stack--full .layer__edge{pointer-events:auto}
+.stack--full .layer:not(.is-top) .tile:hover,.stack--full .layer:not(.is-top) .tile.is-hot{--tz:0px}
+.stack--full .layer.is-hot:not(.is-top) .layer__slab{box-shadow:inset 0 0 0 1.5px var(--ink-3)}
 /* r5b click-to-top: on narrow screens the 00–05 tabs carry the layer names; the 3D labels would clip at the edge */
 @media (max-width:560px){.stack--full .layer__label{display:none}}
 @media (min-width:901px){.ltabs{display:flex;flex-wrap:wrap}.ltab{flex:1 1 auto}}
@@ -1535,3 +1541,52 @@ html[data-theme="dark"] .scrim{background:rgba(0,0,0,.6)}
 /* r6: one focus language site-wide — ochre ring on keyboard focus only, never on pointer focus */
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 :where(a,button,input,select,textarea,summary,[tabindex]):focus:not(:focus-visible){outline:none}
+
+/* ------------------------------ Round 7 · hero: pinned layer-by-layer choreography, composited motion ------------------------------
+   The runway is long enough for the stack to open and for each of the five sheets to come to the top with a short hold.
+   Motion is transform/opacity only: per-sheet falloff is a matte overlay chosen by slot (no filter on 3D planes), the
+   blurred band behind the copy is gone (it re-blurred the moving stack every frame), and the 3D planes keep their raster
+   scale while the stack moves (will-change) instead of re-rasterising text on every frame. */
+.hero.cine{--runway:330vh}
+.cine__pin,.cine__pinbox{display:contents}
+/* QA: hit-testing of the 3D sheets is clipped to the stage as well as their paint (some engines let preserve-3d planes take the
+   pointer outside an overflow:hidden box), so the stack can never sit over the first links of the reading index below */
+.cine__stage{clip-path:inset(0)}
+.stack--hero .stack__world,.stack--hero .layer__slab,.stack--hero .layer__edge,.stack--hero .layer__drop{will-change:transform}
+.cine__blur{display:none}
+.cine__side .hero__chips li{-webkit-backdrop-filter:none;backdrop-filter:none}
+.cine__stage::after{opacity:1;transition:opacity 700ms var(--e-out-cubic)}
+.cine.is-handoff .cine__stage::after{opacity:0}
+.cine__title .line--zh{text-shadow:0 10px 30px rgba(0,0,0,.5)}
+.stack--hero .layer__slab,.stack--hero .layer.is-dim .layer__slab,.stack--hero .layer.is-hot .layer__slab,
+.stack--hero .layer--2 .layer__slab,.stack--hero .layer--3 .layer__slab,.stack--hero .layer--4 .layer__slab,.stack--hero .layer--5 .layer__slab{filter:none;transition:box-shadow 260ms var(--e-out-quint)}
+.stack--hero .layer__slab::after{content:"";position:absolute;inset:0;border-radius:inherit;background:#0c0b09;opacity:.0;pointer-events:none;transition:opacity 520ms var(--e-out-cubic)}
+.stack--hero .layer:not([data-slot]).layer--2 .layer__slab::after,.stack--hero .layer[data-slot="1"] .layer__slab::after{opacity:.08}
+.stack--hero .layer:not([data-slot]).layer--3 .layer__slab::after,.stack--hero .layer[data-slot="2"] .layer__slab::after{opacity:.15}
+.stack--hero .layer:not([data-slot]).layer--4 .layer__slab::after,.stack--hero .layer[data-slot="3"] .layer__slab::after{opacity:.22}
+.stack--hero .layer:not([data-slot]).layer--5 .layer__slab::after,.stack--hero .layer[data-slot="4"] .layer__slab::after{opacity:.29}
+.stack--hero .layer.is-hot .layer__slab::after,.cine.is-handoff .stack--hero .layer__slab::after{opacity:0}
+.stack--hero .layer__label{top:100%;opacity:0;transition:color 360ms var(--e-out-cubic)} /* at the sheet's outer corner: no sheet above can cover it */
+.stack--hero .layer.is-top .layer__label{color:#ece4d2}
+.stack--hero .layer.is-top .layer__label::before{background:rgba(236,228,210,.7)}
+/* the caption beside the stack names the sheet on top, verbatim from the stack data */
+.cine__layer{position:absolute;z-index:5;left:clamp(24px,6vw,96px);top:calc(var(--bar-h) + 22vh);width:min(380px,27vw);margin:0;pointer-events:none;opacity:0;color:#ece4d2}
+.cine__layer-k{display:flex;align-items:baseline;gap:12px;margin:0;font:500 12px var(--f-mono);letter-spacing:.14em;color:rgba(236,228,210,.6)}
+.cine__layer-k b{font-weight:500;color:var(--ochre)}
+.cine__layer-t{margin:14px 0 16px;font:400 clamp(26px,2.3vw,36px)/1.15 var(--f-disp);letter-spacing:-.01em;text-wrap:balance;word-break:keep-all}
+.cine__layer-l{list-style:none;margin:0;padding:14px 0 0;border-top:1px solid rgba(236,228,210,.16);display:grid;gap:7px;font-size:14px;line-height:1.5;color:rgba(236,228,210,.66)}
+@media (min-width:901px) and (max-height:820px){.cine__layer{top:calc(var(--bar-h) + 16vh)}.cine__layer-t{margin:10px 0 12px}}
+/* reduced motion keeps the pin and the five steps, as crossfades */
+@media (prefers-reduced-motion:reduce) and (min-width:1024px) and (hover:hover){.hero.cine{height:calc(100svh + var(--runway))}}
+/* phones and touch: a shorter pin — the stack and its caption hold under the bar while the five sheets turn, then the copy follows */
+@media (max-width:1023px),(hover:none){
+  .cine__stage{overflow:clip}
+  .cine__pin{display:block;order:2;margin:0 calc(var(--pad)*-1) 4px}
+  .cine__pin::after{content:"";display:block;height:var(--runway-m,150svh)}
+  .cine__pinbox{display:block;position:sticky;top:max(calc(var(--bar-h) + 8px),calc(50svh - 200px));z-index:2}
+  .stack--hero .layer__label{display:none}
+  .cine__pin .cine__object{margin:0}
+  .cine__layer{position:relative;left:auto;top:auto;width:auto;min-height:9.6em;padding:4px var(--pad) 0;margin-top:30px}
+  .cine__layer-t{margin:8px 0 10px;font-size:24px}
+  .cine__layer-l{padding-top:10px;gap:4px;font-size:13px}
+}

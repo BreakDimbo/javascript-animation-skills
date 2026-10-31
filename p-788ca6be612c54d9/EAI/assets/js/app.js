@@ -78,14 +78,27 @@ Spring.prototype.step = function (dt) {
   return !done;
 };
 var loop = (function () {
-  var set = [], raf = 0, last = 0;
+  /* the one frame loop: pre hooks read scroll and set spring targets, springs step, then batched style writes flush once */
+  var set = [], pre = [], post = [], raf = 0, last = 0, busy = false;
   function tick(ts) {
-    var dt = Math.min(0.05, last ? (ts - last) / 1000 : 1 / 60); last = ts;
+    var dt = Math.min(0.05, last ? (ts - last) / 1000 : 1 / 60); last = ts; busy = true;
+    for (var p = 0; p < pre.length; p++) pre[p]();
     for (var i = set.length - 1; i >= 0; i--) { var s = set[i]; if (!s.step(dt)) { s.live = false; set.splice(i, 1); } }
+    busy = false;
+    for (var j = 0; j < post.length; j++) { post[j].q = false; post[j](); }
+    post.length = 0;
     raf = set.length ? requestAnimationFrame(tick) : 0; if (!raf) last = 0;
   }
-  return { add: function (s) { set.push(s); if (!raf) raf = requestAnimationFrame(tick); } };
+  function req() { if (!raf) raf = requestAnimationFrame(tick); }
+  return {
+    add: function (s) { set.push(s); if (!busy) req(); },
+    kick: function () { if (!busy) req(); },
+    pre: function (f) { pre.push(f); },
+    once: function (f) { if (!busy) { f(); return; } if (!f.q) { f.q = true; post.push(f); } }
+  };
 })();
+/* write a style value only when it changed (custom properties invalidate the element's subtree even when equal) */
+function setv(e, k, v) { var c = e.__pv || (e.__pv = {}); if (c[k] === v) return; c[k] = v; if (k.charCodeAt(0) === 45) e.style.setProperty(k, v); else e.style[k] = v; }
 /* a tween for things that must take a fixed time (scroll, timeline playback) */
 function tween(ms, fn, ease, done) {
   var t0 = performance.now(), id = { stop: false };
@@ -1054,114 +1067,212 @@ function buildStack(host, full, labels) {
   });
   host.appendChild(world);
   var S = { rx: 54, rz: -34, gap: 40, sc: 1, ty: 0 };
-  function apply() {
-    world.style.setProperty('--rx', S.rx.toFixed(2) + 'deg'); world.style.setProperty('--rz', S.rz.toFixed(2) + 'deg');
-    world.style.setProperty('--sc', S.sc.toFixed(4)); world.style.setProperty('--ty', S.ty.toFixed(1) + 'px');
+  function flush() {
+    setv(world, '--rx', S.rx.toFixed(2) + 'deg'); setv(world, '--rz', S.rz.toFixed(2) + 'deg');
+    setv(world, '--sc', S.sc.toFixed(4)); setv(world, '--ty', S.ty.toFixed(1) + 'px');
     var n = L.length, mid = (n - 1) / 2;
-    L.forEach(function (l, i) { l.style.setProperty('--z', ((n - 1 - i - mid) * S.gap).toFixed(1) + 'px'); l.style.setProperty('--do', clamp(0.25 + S.gap / 140, 0.25, 0.75).toFixed(2)); });
+    L.forEach(function (l, i) { setv(l, '--z', ((n - 1 - i - mid) * S.gap).toFixed(1) + 'px'); setv(l, '--do', clamp(0.25 + S.gap / 140, 0.25, 0.75).toFixed(2)); });
   }
+  /* several springs move the world in one frame: their writes are merged into one flush after the springs step */
+  function apply() { loop.once(flush); }
   var sp = {};
   ['rx', 'rz', 'gap', 'ty'].forEach(function (k) { sp[k] = new Spring(S[k], k === 'gap' || k === 'ty' ? SPR.heavy : SPR.def, function (v) { S[k] = v; apply(); }); });
   apply();
   return { world: world, layers: L, S: S, sp: sp, apply: apply };
 }
 
+/* shared sheet engine — 00's click-to-top and the hero's scroll choreography use the same springs.
+   order[] lists sheets top-first. Each sheet has a fractional slot spring (sl); dz = (index − slot) × gap, so a reorder is
+   pure translateZ. The sheet that travels (`mover`) also lifts (up) and slides out along its own plane (dx) so it never cuts
+   through the others, then settles. Springs are critically damped (c = 2√k): ~500 ms settle, no overshoot. Every sheet is
+   retargeted from wherever it is now (springs keep their velocity), so a new order mid-animation always lands; pending timers
+   are cleared and their end state re-issued, so no sheet is left slid out or at a stale slot. */
+var SPR_SHEET = [180, 26.8], SPR_OUT = [300, 34.6];
+function sheetEngine(st) {
+  var E = { order: st.layers.map(function (l, i) { return i; }) };
+  E.L = st.layers.map(function (l, i) {
+    var o = { tm: [] };
+    o.flush = function () {
+      setv(l, '--dz', ((i - o.sl.x) * st.S.gap + o.up.x + o.lift.x * 22 + o.drop.x).toFixed(1) + 'px');
+      setv(l, '--dx', o.dx.x.toFixed(1) + 'px');
+    };
+    o.put = function () { loop.once(o.flush); };
+    o.sl = new Spring(i, SPR_SHEET, o.put); o.up = new Spring(0, SPR_SHEET, o.put); o.dx = new Spring(0, SPR_SHEET, o.put);
+    o.lift = new Spring(0, SPR.snappy, o.put); o.drop = new Spring(0, SPR.def, o.put);
+    return o;
+  });
+  /* the gap spring drives --z; keep every sheet's slot offset in step with it */
+  var gapOn = st.sp.gap.on; st.sp.gap.on = function (v) { gapOn(v); E.L.forEach(function (o) { o.put(); }); };
+  E.snap = function () { E.L.forEach(function (o, i) { o.tm.forEach(clearTimeout); o.tm = []; o.sl.to(E.order.indexOf(i), true); o.up.to(0, true); o.dx.to(0, true); }); };
+  E.go = function (next, mover, dir) {
+    var prev = E.order, k = 0, wW = 520; E.order = next.slice();
+    next.forEach(function (j, s) {
+      var o = E.L[j]; o.tm.forEach(clearTimeout); o.tm = [];
+      o.dx.k = SPR_SHEET[0]; o.dx.c = SPR_SHEET[1];
+      if (j === mover) {
+        /* slide out along the sheet's own plane, travel in z clear of the stack, then settle in its new slot */
+        var hops = Math.abs(prev.indexOf(j) - s), up = s === 0 ? st.S.gap * 0.9 + 26 : 18;
+        o.sl.to(s); o.dx.k = SPR_OUT[0]; o.dx.c = SPR_OUT[1]; o.dx.to((dir || -1) * 0.46 * wW); o.up.to(up);
+        o.tm.push(setTimeout(function () { o.dx.k = SPR_SHEET[0]; o.dx.c = SPR_SHEET[1]; o.dx.to(0); o.up.to(0); }, 190 + 50 * Math.max(0, hops - 1)));
+      } else {
+        o.dx.to(0); o.up.to(0);
+        /* the others step to their new slots, top-most first, with a slight stagger */
+        if (Math.abs(o.sl.t - s) > 1e-3 || Math.abs(o.sl.x - s) > 1e-3) { var d = 70 + 45 * k++; o.tm.push(setTimeout(function () { o.sl.to(s); }, d)); }
+      }
+    });
+  };
+  return E;
+}
+
 function initHeroStack() {
   var host = $('#hero-stack'); if (!host) return;
-  var sec = $('.hero.cine'), st = buildStack(host, false, true), cap = $('.hero__object-cap'), capText = cap ? cap.textContent : '';
-  var n = st.layers.length, base = 1;
+  var sec = $('.hero.cine'), st = buildStack(host, false, true), E = sheetEngine(st), cap = $('.hero__object-cap'), capText = cap ? cap.textContent : '';
+  var n = st.layers.length, base = 1, MOB = false, mq = matchMedia('(max-width:1023px),(hover:none)');
+  var labs = st.layers.map(function (l) { return $('.layer__label', l); });
+  /* every scroll-driven value is written on the element that uses it, and only when it changes: a custom property set on the
+     section would re-resolve style for the whole hero subtree on every frame */
+  function q(s) { return sec ? $(s, sec) : null; }
+  var elT = q('.cine__title'), elLamp = q('.cine__lamp'), elCh = q('.cine__chapter'), elSh = q('.cine__shade'), pin = q('.cine__pin'), box = q('.cine__pinbox');
+  var elC = sec ? $$('.cine__k, .cine__cap, .cine__scrim, .cine__blur, .cine__copy, .cine__side, .hero__arrow', sec) : [];
+  function wv(e, k, v) { if (e) setv(e, k, v); }
+
+  /* the layer caption: each sheet's own name and short content, verbatim from D.stack */
+  var capL = null, capIn = null;
+  var CAPS = D.stack.map(function (l, i) {
+    var names = l.tiles.map(function (t) { return t.t; }), same = l.tiles.length === 1 || names.join(' · ') === l.title;
+    var rows = same ? l.tiles.map(function (t) { return t.lines[0]; }) : names;
+    return '<p class="cine__layer-k"><b>' + String(i + 1).padStart(2, '0') + '</b>' + esc(l.k) + '</p><p class="cine__layer-t">' + esc(l.title) + '</p>' +
+      '<ul class="cine__layer-l">' + rows.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>';
+  });
+  if (box) { capL = el('div', { 'class': 'cine__layer', 'aria-hidden': 'true' }); capIn = el('div', { 'class': 'cine__layer-in' }); capL.appendChild(capIn); box.appendChild(capL); }
+  var capTok = 0;
+  function setCaption(i) {
+    if (!capIn) return;
+    var html = i < 0 ? '' : CAPS[i], tok = ++capTok;
+    if (!capIn.innerHTML || !capIn.animate) { capIn.innerHTML = html; return; }
+    var a = capIn.animate([{ opacity: 1 }, { opacity: 0, transform: 'translate3d(0,-6px,0)' }], { duration: RM ? 120 : 150, easing: 'ease-in', fill: 'forwards' });
+    a.onfinish = function () {
+      if (tok !== capTok) return;
+      capIn.innerHTML = html; a.cancel();
+      capIn.animate(RM ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translate3d(0,8px,0)' }, { opacity: 1, transform: 'none' }], { duration: RM ? 200 : 360, easing: 'cubic-bezier(.22,1,.36,1)' });
+    };
+  }
+
   function fit() {
     var w = host.clientWidth, h = host.clientHeight || 500;
-    base = innerWidth < 1024 ? clamp(Math.min(w / 600, h / 430), 0.4, 1.2) : clamp(Math.min(w / 780, h / 500), 0.6, 2.1);
-    pose();
+    MOB = mq.matches;
+    base = MOB ? clamp(Math.min(w / 600, h / 430), 0.4, 1.2) : clamp(Math.min(w / 780, h / 500), 0.6, 2.1);
+    need = true; loop.kick();
   }
   var scS = new Spring(1, SPR.def, function (v) { st.S.sc = v; st.apply(); });
   /* entrance: each sheet drops into place bottom-first (90ms stagger) on its own spring, while the stack settles its angle */
-  var drops = st.layers.map(function (l) {
-    var o = {};
-    function put() { l.style.setProperty('--dz', (o.z.x + o.lift.x * 26).toFixed(1) + 'px'); }
-    o.z = new Spring(0, SPR.def, put); o.lift = new Spring(0, SPR.snappy, put);
-    return o;
-  });
   var ready = RM;
   if (!RM) {
     st.sp.gap.to(110, true); st.sp.rx.to(62, true); st.sp.rz.to(-46, true); scS.to(base * 0.94, true);
-    st.layers.forEach(function (l, i) { drops[i].z.to(380, true); l.style.setProperty('--la', '0'); });
+    st.layers.forEach(function (l, i) { E.L[i].drop.to(380, true); l.style.setProperty('--la', '0'); });
   }
   var vis = true; onVisible(host, function (v) { vis = v; });
   root.addEventListener('eai:ready', function () {
-    ready = true; pose();
+    ready = true; need = true; loop.kick();
     st.layers.forEach(function (l, i) {
       var d = 200 + (n - 1 - i) * 100;
-      setTimeout(function () { drops[i].z.to(0); tween(520, function (v) { l.style.setProperty('--la', v.toFixed(3)); }); }, RM ? 0 : d);
+      setTimeout(function () { E.L[i].drop.to(0); tween(520, function (v) { l.style.setProperty('--la', v.toFixed(3)); }, null, function () { l.style.removeProperty('--la'); }); }, RM ? 0 : d);
     });
   });
-  /* scroll narrative over the pinned runway (px windows → 0..1): explode, then turn and zoom into chapter 00, then hand off */
-  var P = 0, px = 0, py = 0, pinned = false;
+
+  /* scroll choreography over the pinned runway (0..1):
+     0–.10   the cover clears and the stack opens until every sheet's edge and label reads
+     .10–.84 five equal windows: in each, one sheet comes to the top on the same springs as 00's click-to-top, then holds.
+             The deck turns like a carousel (the old top slides off along its plane and settles at the bottom, the rest step up),
+             so the order is a pure function of scroll position and reversing simply turns it back.
+     .84–1   the last sheet goes under, the stack closes into chapter 00's resting pose on paper, and the pin releases */
+  var P = 0, px = 0, py = 0, W = -1, need = true;
   function ss(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+  var T0 = 0.1, T1 = 0.84;
+  function rot(w) { var o = []; for (var k = 0; k < n; k++) o.push((w + k) % n); return o; }
+  function turnTo(w) {
+    if (w === W) return;
+    var prev = W, next = rot(w % n), top = next[0]; W = w;
+    st.layers.forEach(function (l, j) { var s = next.indexOf(j); l.setAttribute('data-slot', s); l.classList.toggle('is-top', s === 0); });
+    if (prev < 0 || RM) {
+      E.order = next; E.snap();
+      if (RM && prev >= 0 && st.world.animate) st.world.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' });
+    } else if (w === prev + 1) E.go(next, E.order[0], -1); /* forward: the old top slides off and goes under */
+    else E.go(next, top, -1);                               /* back (or a jump): the sheet comes out and up to the top */
+    setCaption(w < n ? top : -1);
+  }
   function pose() {
     if (!ready) return;
-    var e1 = ss(0, 0.48, P), e2 = ss(0.42, 0.84, P), e3 = ss(0.8, 1, P), calm = 1 - e1;
-    /* e1 explode · e2 turn toward top-down and zoom · e3 settle into chapter 00's resting pose on paper */
-    st.sp.gap.to(lerp(64 + 118 * e1 - 40 * e2, 64, e3) + Math.max(0, -py) * 10 * calm);
-    st.sp.rz.to(lerp(-34 - 24 * e1 + 38 * e2, -34, e3) + px * 9 * calm);
-    st.sp.rx.to(lerp(54 + 6 * e1 - 24 * e2, 54, e3) - py * 6 * calm);
-    scS.to(base * lerp(1 + 0.04 * e1 + 0.16 * e2, 0.86, e3));
-    if (!sec) return;
-    var S = sec.style;
-    S.setProperty('--p-t-y', (-170 * e1).toFixed(1) + 'px'); S.setProperty('--p-t-o', (1 - ss(0.04, 0.4, P)).toFixed(3));
-    S.setProperty('--p-zh-x', (90 * e1).toFixed(1) + 'px'); S.setProperty('--p-zh-o', (1 - ss(0, 0.3, P)).toFixed(3));
-    S.setProperty('--p-c-o', (1 - ss(0, 0.2, P)).toFixed(3)); S.setProperty('--p-c-y', (46 * ss(0, 0.24, P)).toFixed(1) + 'px');
-    S.setProperty('--p-obj-y', ((12 * e1 - 19 * e2) * (1 - e3)).toFixed(2) + 'vh'); S.setProperty('--p-lamp', (1 + 0.18 * e2).toFixed(3));
-    S.setProperty('--p-ch-o', (ss(0.5, 0.66, P) * (1 - ss(0.78, 0.86, P))).toFixed(3)); S.setProperty('--p-ch-y', (24 * (1 - ss(0.5, 0.7, P))).toFixed(1) + 'px');
-    S.setProperty('--p-sh-o', ss(0.8, 0.96, P).toFixed(3)); sec.classList.toggle('is-handoff', P > 0.86);
-    host.style.setProperty('--p-lab', (ss(0.14, 0.38, P) * (1 - ss(0.78, 0.92, P))).toFixed(3));
+    var e1 = ss(0, T0, P), e3 = ss(T1, 1, P), calm = 1 - e1, ex = e1 * (1 - e3), mv = RM ? 0 : 1;
+    st.sp.gap.to(lerp(64, MOB ? 78 : 96, ex) + Math.max(0, -py) * 10 * calm);
+    st.sp.rz.to(-34 - 6 * ex + px * 9 * calm);
+    st.sp.rx.to(54 + 4 * ex - py * 6 * calm);
+    scS.to(base * lerp(lerp(1, MOB ? 0.9 : 0.8, e1), 0.86, e3));
+    turnTo(P < T1 ? clamp(Math.floor((P - T0) / ((T1 - T0) / n)), 0, n - 1) : n);
+    var lab = (ss(0.03, T0, P) * (1 - ss(T1 + 0.01, T1 + 0.08, P))).toFixed(3);
+    labs.forEach(function (x) { wv(x, 'opacity', lab); });
+    wv(capL, 'opacity', (ss(0.05, T0, P) * (1 - ss(T1 - 0.02, T1 + 0.03, P))).toFixed(3));
+    if (MOB || !sec) return;
+    wv(host, 'transform', 'translate3d(' + (9 * ex * mv).toFixed(2) + 'vw,' + (-17 * ex * mv).toFixed(2) + 'vh,0)');
+    wv(elT, '--p-t-y', (-170 * e1 * mv).toFixed(1) + 'px'); wv(elT, '--p-t-o', (1 - ss(0.01, 0.08, P)).toFixed(3));
+    wv(elT, '--p-zh-x', (90 * e1 * mv).toFixed(1) + 'px'); wv(elT, '--p-zh-o', (1 - ss(0, 0.06, P)).toFixed(3));
+    var co = (1 - ss(0, 0.05, P)).toFixed(3), cy = (46 * ss(0, 0.06, P) * mv).toFixed(1) + 'px';
+    elC.forEach(function (x) { wv(x, '--p-c-o', co); wv(x, '--p-c-y', cy); });
+    wv(elLamp, '--p-lamp', (1 + 0.1 * ex * mv).toFixed(3));
+    wv(elCh, '--p-ch-o', (ss(T1 + 0.02, T1 + 0.07, P) * (1 - ss(0.95, 0.995, P))).toFixed(3)); wv(elCh, '--p-ch-y', (24 * (1 - ss(T1 + 0.02, T1 + 0.08, P)) * mv).toFixed(1) + 'px');
+    wv(elSh, '--p-sh-o', ss(0.88, 0.98, P).toFixed(3));
+    var ho = P > 0.86; if (ho !== sec.classList.contains('is-handoff')) sec.classList.toggle('is-handoff', ho);
   }
-  /* scroll reads only scrollY: the runway's geometry is measured on resize, never inside the scroll path */
-  var raf = 0, sTop = 0, sH = 0, sVH = innerHeight, sIn = true, sCls = null, sDark = null;
-  function geo() { if (!sec) return; var r = sec.getBoundingClientRect(); sTop = r.top + scrollY; sH = sec.offsetHeight; sVH = innerHeight; }
-  function onScroll() {
-    if (raf) return;
-    raf = requestAnimationFrame(function () {
-      raf = 0; if (!sec) return;
-      var top = sTop - scrollY, run = sH - sVH;
-      pinned = run > 40;
-      var np = pinned ? clamp(-top / run, 0, 1) : 0, dark = top + sH > 80 && np < 0.86, cl = np > 0.002;
-      if (cl !== sCls) { sCls = cl; sec.classList.toggle('is-scrolling', cl); }
-      if (dark !== sDark) { sDark = dark; root.classList.toggle('hero-dark', dark); }
-      if (!sIn && np >= 1 && P >= 1) return; /* far below the hero: nothing to pose */
-      if (Math.abs(np - P) > 0.0005 || np === 0 || np === 1) { P = np; pose(); }
-    });
+  /* one frame loop: scroll and pointer only mark the pose dirty; the shared spring loop reads scrollY once per frame,
+     poses, then steps the springs. Geometry is measured on resize, never in the scroll path */
+  var sTop = 0, sH = 0, sVH = innerHeight, sRun = 1, sIn = true, sCls = null, sDark = null;
+  function geo() {
+    if (!sec) return; MOB = mq.matches; sVH = innerHeight;
+    var r = sec.getBoundingClientRect(); sH = sec.offsetHeight;
+    if (MOB && pin && box) {
+      var pr = pin.getBoundingClientRect(), stick = parseFloat(getComputedStyle(box).top) || 64;
+      sTop = pr.top + scrollY - stick; sRun = Math.max(1, pin.offsetHeight - box.offsetHeight);
+    } else { sTop = r.top + scrollY; sRun = sH - sVH; }
   }
+  function frame() {
+    if (!sec || !need) return; need = false;
+    var y = scrollY, pinned = sRun > 40;
+    var np = pinned ? clamp((y - sTop) / sRun, 0, 1) : 0, cl = np > 0.002, dark = secTop + sH - y > 80 && (MOB || np < 0.86);
+    if (cl !== sCls) { sCls = cl; sec.classList.toggle('is-scrolling', cl); }
+    if (dark !== sDark) { sDark = dark; root.classList.toggle('hero-dark', dark); }
+    if (!sIn && np >= 1 && P >= 1) return; /* far below the hero: nothing to pose */
+    P = np; pose();
+  }
+  var secTop = 0;
+  function measure() { geo(); if (sec) secTop = sec.getBoundingClientRect().top + scrollY; }
+  loop.pre(frame);
+  function dirty() { need = true; loop.kick(); }
   if (sec && 'IntersectionObserver' in window) new IntersectionObserver(function (es) { sIn = es[0].isIntersecting; }).observe(sec);
-  addEventListener('scroll', onScroll, { passive: true });
-  addEventListener('resize', function () { geo(); fit(); onScroll(); });
-  if ('ResizeObserver' in window) { var gT; new ResizeObserver(function () { clearTimeout(gT); gT = setTimeout(function () { geo(); onScroll(); }, 60); }).observe(doc.body); }
-  geo();
-  fit(); onScroll();
-  /* hover a sheet: it lifts, the caption names it; click goes to chapter 00 with that sheet brought forward */
+  addEventListener('scroll', dirty, { passive: true });
+  addEventListener('resize', function () { measure(); fit(); }, { passive: true });
+  if ('ResizeObserver' in window) { var gT; new ResizeObserver(function () { clearTimeout(gT); gT = setTimeout(function () { measure(); dirty(); }, 60); }).observe(doc.body); }
+  measure(); fit();
+  /* hover a sheet: it lifts a little, the caption names it; click goes to chapter 00 with that sheet brought to the top */
   var hot = -1;
   function setHot(i) {
     if (i === hot) return; hot = i;
-    drops.forEach(function (d, j) { d.lift.to(j === i ? 1 : 0); });
-    st.layers.forEach(function (l, j) { l.classList.toggle('is-hot', j === i); l.classList.toggle('is-dim', i >= 0 && j !== i); });
+    E.L.forEach(function (o, j) { o.lift.to(j === i ? 1 : 0); });
+    st.layers.forEach(function (l, j) { l.classList.toggle('is-hot', j === i); });
     if (cap) cap.textContent = i >= 0 ? String(i + 1).padStart(2, '0') + ' · ' + D.stack[i].k : capText;
   }
   host.addEventListener('pointermove', function (e) {
     if (e.pointerType !== 'mouse') return;
     var l = e.target.closest && e.target.closest('.layer'); setHot(l ? st.layers.indexOf(l) : -1);
-  });
-  host.addEventListener('pointerleave', function () { setHot(-1); });
+  }, { passive: true });
+  host.addEventListener('pointerleave', function () { setHot(-1); }, { passive: true });
   host.addEventListener('click', function (e) {
     var l = e.target.closest && e.target.closest('.layer'); if (!l) return;
     var v = $('#viz-stack'), i = st.layers.indexOf(l); if (v) scrollToEl(v);
     if (window.EAI_STACK_FOCUS) setTimeout(function () { window.EAI_STACK_FOCUS(i); }, 450); else window.EAI_STACK_PENDING = i;
   });
-  var pmR = 0;
   if (FINE) addEventListener('pointermove', function (e) {
-    if (!vis || e.pointerType !== 'mouse') return;
-    px = e.clientX / innerWidth - 0.5; py = e.clientY / innerHeight - 0.5;
-    if (!pmR) pmR = requestAnimationFrame(function () { pmR = 0; pose(); });
+    if (!vis || e.pointerType !== 'mouse' || MOB) return;
+    px = e.clientX / innerWidth - 0.5; py = e.clientY / innerHeight - 0.5; dirty();
   }, { passive: true });
 }
 
@@ -1171,23 +1282,8 @@ function initFullStack() {
   var REST = { rx: 54, rz: -34 }, PICK = { rx: 38, rz: -24 };
   var focus = -1, hot = -1, sel = null;
   function gapFromSlider() { return lerp(6, 92, (+peel.value) / 100); }
-  /* click-to-top: order[] lists sheets top-first. Each sheet has a fractional slot spring (sl); dz = (index − slot) × gap,
-     so a reorder is pure translateZ. A picked sheet also lifts (up) and slides out along its own plane (dx), then settles on top.
-     Springs are critically damped (c = 2√k): ~500 ms settle, no overshoot. Transform/opacity only, nothing that lays out per frame. */
-  var SPR_SHEET = [180, 26.8], SPR_OUT = [300, 34.6];
-  var order = st.layers.map(function (l, i) { return i; });
-  var L = st.layers.map(function (l, i) {
-    var o = { tm: [] };
-    o.put = function () {
-      l.style.setProperty('--dz', ((i - o.sl.x) * st.S.gap + o.up.x + o.lift.x * 22).toFixed(1) + 'px');
-      l.style.setProperty('--dx', o.dx.x.toFixed(1) + 'px');
-    };
-    o.sl = new Spring(i, SPR_SHEET, o.put); o.up = new Spring(0, SPR_SHEET, o.put); o.dx = new Spring(0, SPR_SHEET, o.put);
-    o.lift = new Spring(0, SPR.snappy, o.put);
-    return o;
-  });
-  /* the gap spring drives --z; keep every sheet's slot offset in step with it */
-  var gapOn = st.sp.gap.on; st.sp.gap.on = function (v) { gapOn(v); L.forEach(function (o) { o.put(); }); };
+  /* click-to-top: the shared sheet engine (sheetEngine above) keeps order[] top-first and moves sheets on springs */
+  var E = sheetEngine(st);
   var scS = new Spring(1, SPR.def, function (v) { st.S.sc = v; st.apply(); });
   function fitSc(f) {
     var w = host.clientWidth, h = host.clientHeight || 560, mob = w < 560;
@@ -1200,43 +1296,30 @@ function initFullStack() {
 
   /* layout: the stack stays in place; the chosen sheet is on top (order[0]), the rest keep their relative order beneath it */
   function layout(snap) {
-    var top = order[0];
-    L.forEach(function (o, i) {
-      if (snap) { o.tm.forEach(clearTimeout); o.tm = []; o.sl.to(order.indexOf(i), true); o.up.to(0, true); o.dx.to(0, true); }
-      var h = i === hot && i !== focus;
-      o.lift.to(h ? 1 : 0, snap);
+    var top = E.order[0];
+    if (snap) E.snap();
+    E.L.forEach(function (o, i) {
+      var h = i === hot && i !== top;
+      o.lift.to(0, snap);
       st.layers[i].classList.toggle('is-focus', i === focus);
       st.layers[i].classList.toggle('is-top', i === top);
       st.layers[i].classList.toggle('is-hot', h);
-      st.layers[i].classList.toggle('is-dim', hot >= 0 && hot !== focus && i !== hot);
+      st.layers[i].classList.toggle('is-dim', false);
     });
     host.classList.toggle('is-picked', focus >= 0);
     fit(snap);
   }
   /* bring sheet i to the top in place (i < 0: back to the natural 01–05 order) */
   function reorder(i, snap) {
-    var prev = order.slice(), next = i < 0 ? prev.slice().sort(function (a, b) { return a - b; }) : [i].concat(prev.filter(function (j) { return j !== i; }));
-    order = next;
+    var prev = E.order, next = i < 0 ? prev.slice().sort(function (a, b) { return a - b; }) : [i].concat(prev.filter(function (j) { return j !== i; }));
     var moved = next.some(function (j, s) { return prev[s] !== j; });
-    if (snap || !moved) { layout(snap); return; }
+    if (snap || !moved) { E.order = next; layout(snap); return; }
     if (RM) { /* reduced motion: instant reorder, short fade */
-      layout(true);
+      E.order = next; layout(true);
       st.world.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
       return;
     }
-    var k = 0, wW = st.world.offsetWidth || 520;
-    next.forEach(function (j, s) {
-      var o = L[j]; o.tm.forEach(clearTimeout); o.tm = [];
-      if (i >= 0 && j === i && prev.indexOf(j) !== 0) {
-        /* lift and slide out along the sheet's own plane, rise above the stack, then settle on top */
-        o.dx.k = SPR_OUT[0]; o.dx.c = SPR_OUT[1];
-        o.dx.to(-0.46 * wW); o.up.to(st.S.gap * 0.9 + 26); o.sl.to(0);
-        o.tm.push(setTimeout(function () { o.dx.k = SPR_SHEET[0]; o.dx.c = SPR_SHEET[1]; o.dx.to(0); o.up.to(0); }, 190));
-      } else if (prev.indexOf(j) !== s) {
-        /* the others step down (or back) beneath it, top-most first, with a slight stagger */
-        o.tm.push(setTimeout(function () { o.sl.to(s); }, 70 + 45 * k++));
-      }
-    });
+    E.go(next, i >= 0 && prev[0] !== i ? i : -1);
     layout(false);
   }
   function setFocus(i, opt) {
@@ -1281,14 +1364,20 @@ function initFullStack() {
 
   /* drag to orbit (overview only): horizontal → yaw, vertical → pitch. Capture only after a real drag so taps stay clicks */
   var down = null, dragging = false, lastX = 0, lastT = 0, vx = 0;
-  host.addEventListener('pointerdown', function (e) { if (e.button) return; down = { x: e.clientX, y: e.clientY, rz: st.sp.rz.t, rx: st.sp.rx.t, id: e.pointerId }; dragging = false; lastX = e.clientX; lastT = performance.now(); vx = 0; });
+  /* the sheet is chosen at press time: sheets keep moving while the button is down, and a release over another sheet would
+     otherwise turn the click into a click on their common parent (no sheet at all) */
+  var press = null;
+  host.addEventListener('pointerdown', function (e) {
+    if (e.button) return; down = { x: e.clientX, y: e.clientY, rz: st.sp.rz.t, rx: st.sp.rx.t, id: e.pointerId }; dragging = false; lastX = e.clientX; lastT = performance.now(); vx = 0;
+    var l = e.target.closest('.layer'); press = l ? { i: +l.dataset.i, tile: e.target.closest('.tile') } : null;
+  });
   host.addEventListener('pointermove', function (e) {
     if (!down || e.pointerId !== down.id) {
       if (e.pointerType === 'mouse' && !down) { var l = e.target.closest && e.target.closest('.layer'); var h = l ? st.layers.indexOf(l) : -1; if (h !== hot) { hot = h; layout(); } }
       return;
     }
     var dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!dragging && Math.hypot(dx, dy) > 6) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); }
+    if (!dragging && Math.hypot(dx, dy) >= 5) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); }
     if (!dragging) return;
     var now = performance.now(); vx = (e.clientX - lastX) / Math.max(1, now - lastT); lastX = e.clientX; lastT = now;
     st.sp.rz.to(clamp(down.rz + dx * 0.28, -80, 10)); st.sp.rx.to(clamp(down.rx - dy * 0.22, 18, 70));
@@ -1299,13 +1388,15 @@ function initFullStack() {
     down = null; setTimeout(function () { dragging = false; }, 0);
   }
   host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
+  /* sheet index comes from the element's own data-i (fixed at build), never from DOM order or positions that change while animating */
+  st.layers.forEach(function (l, i) { l.dataset.i = i; });
   host.addEventListener('click', function (e) {
+    var pr = e.detail ? press : null; press = null;
     if (dragging) return;
-    var lab = e.target.closest('.layer__label'); if (lab) { setFocus(+lab.dataset.l); return; }
-    var l = e.target.closest('.layer'), i = l ? st.layers.indexOf(l) : -1;
-    if (i < 0) { if (focus >= 0) setFocus(null); return; }
-    if (i !== focus) { setFocus(i); return; }
-    var t = e.target.closest('.tile'); if (t) selectTile(t.getAttribute('aria-pressed') === 'true' ? null : t);
+    var l = e.target.closest('.layer'), i = pr ? pr.i : l ? +l.dataset.i : -1;
+    if (i < 0) return; /* a click beside the sheets keeps the current order (00 / Esc return to the overview) */
+    if (i !== E.order[0] || i !== focus) { setFocus(i); return; }
+    var t = pr ? pr.tile : e.target.closest('.tile'); if (t) selectTile(t.getAttribute('aria-pressed') === 'true' ? null : t);
   });
   host.addEventListener('keydown', function (e) {
     var step = { ArrowLeft: [0, -6], ArrowRight: [0, 6], ArrowUp: [-4, 0], ArrowDown: [4, 0] }[e.key];
@@ -2040,15 +2131,21 @@ function boot() {
     var preT = 0, preS = false, preGo = function () { if (preT !== 1 || !preS) return; preT = 2; requestIdleCallback(function idleMount() { if (mapApi) return; if (performance.now() - preLast < 600) { requestIdleCallback(idleMount, { timeout: 4000 }); return; } initMap(); }, { timeout: 4000 }); };
     var preLoad = function () { setTimeout(function () { preT = 1; preGo(); }, 3000); };
     /* wait for the scroll to settle (600 ms quiet) so the mount and shadow pre-pass never land inside a scroll */
+    /* never while the pinned hero is on screen: a pause between two of its scroll steps is not a settled scroll, and the
+       mount (shader link, shadow pre-pass) would land in the middle of the choreography */
+    var heroIn = false, heroEl = $('.hero.cine');
+    if (heroEl && 'IntersectionObserver' in window) new IntersectionObserver(function (es) { heroIn = es[0].isIntersecting; }).observe(heroEl);
     var preQ = 0, preLast = 0, preOn = function () {
       preLast = performance.now(); if (preT === 2) { removeEventListener('scroll', preOn); return; }
-      clearTimeout(preQ); preQ = setTimeout(function () { preS = true; preGo(); }, 600);
+      clearTimeout(preQ); preQ = setTimeout(function () { if (heroIn) return; preS = true; preGo(); }, 600);
     };
     addEventListener('scroll', preOn, { passive: true });
     if (doc.readyState === 'complete') preLoad(); else addEventListener('load', preLoad, { once: true });
     /* no scroll at all: after 7 s with no input, or the moment the reader aims at a link into the map, build ahead anyway */
     var preIn = 0, preArm = function () { clearTimeout(preIn); preIn = setTimeout(function () { if (preT === 1) { preS = true; preGo(); } }, 7000); };
-    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, preArm, { passive: true }); });
+    /* pointermove re-arms too (throttled to once per 200 ms), so a reader moving the mouse never gets the mount mid-gesture */
+    var preArmT = 0, preArmMove = function () { var t = performance.now(); if (t - preArmT < 200) return; preArmT = t; preArm(); };
+    ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, t === 'pointermove' ? preArmMove : preArm, { passive: true }); });
     addEventListener('load', preArm, { once: true }); if (doc.readyState === 'complete') preArm();
     var preAim = function (e) {
       var a = e.target && e.target.closest && e.target.closest('a[href^="#"]'); if (!a) return;
