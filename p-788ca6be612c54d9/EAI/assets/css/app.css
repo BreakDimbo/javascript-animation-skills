@@ -5,6 +5,7 @@
 /* first rule: paint the paper before anything else, so there is never a white flash */
 html,body{background:#f3eee3}
 html[data-theme="dark"],html[data-theme="dark"] body{background:#11100d}
+html[data-theme="dark"]{color-scheme:dark}html[data-theme="light"]{color-scheme:light}
 
 
 /* First rule: the canvas colour, so there is never a white flash. */
@@ -35,7 +36,7 @@ html[data-theme="dark"]{background:#11100d;color:#ede6d6}
   --hl:rgba(198,146,43,.26);
   --lamp:rgba(255,250,236,.85);
   --shadow-c:40,30,10;
-  --focus:#2f5fb3;
+  --focus:#a8761a;
   --f-sans:"Inter","Inter Fallback","PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
   --f-disp:"Newsreader","Newsreader Fallback","EAI Serif SC","Noto Serif CJK SC","Source Han Serif SC","Songti SC","STSong",serif;
   --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
@@ -65,7 +66,7 @@ html[data-theme="dark"]{
   --hl:rgba(215,168,74,.28);
   --lamp:rgba(255,226,170,.06);
   --shadow-c:0,0,0;
-  --focus:#9db8ff;
+  --focus:#e0b45c;
 }
 
 /* ------------------------------ base ------------------------------ */
@@ -264,7 +265,7 @@ html[data-theme="dark"] .ico-moon{display:block}
 .stack{position:absolute;inset:0;perspective:2000px;perspective-origin:50% 35%;user-select:none;-webkit-user-select:none}
 .stack__world{--rx:54deg;--rz:-34deg;--sc:1;position:absolute;left:50%;top:50%;width:520px;height:300px;margin:-150px 0 0 -260px;transform-style:preserve-3d;
   transform:translateY(var(--ty,0px)) scale(var(--sc)) rotateX(var(--rx)) rotateZ(var(--rz))}
-.layer{position:absolute;inset:0;transform-style:preserve-3d;transform:translateZ(calc(var(--z,0px) + var(--dz,0px)));opacity:var(--la,1)}
+.layer{position:absolute;inset:0;transform-style:preserve-3d;transform:translate3d(var(--dx,0px),0,calc(var(--z,0px) + var(--dz,0px)));opacity:var(--la,1)}
 .layer__slab{position:absolute;inset:0;display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--card-2);
   box-shadow:inset 0 0 0 1px var(--rule-2);transform-style:preserve-3d}
 .layer__edge{position:absolute;left:0;right:0;bottom:0;height:9px;border-radius:0 0 14px 14px;background:color-mix(in oklab,var(--ink) 22%,var(--bg-2));transform-origin:50% 100%;transform:rotateX(-90deg)}
@@ -1207,6 +1208,8 @@ html[data-theme="dark"] .i.ico-moon{display:block}
   .stack-hint span:nth-child(2){display:none}
 }
 .stack--full.is-focus .layer__label{opacity:0;pointer-events:none}
+/* r5b click-to-top: on narrow screens the 00–05 tabs carry the layer names; the 3D labels would clip at the edge */
+@media (max-width:560px){.stack--full .layer__label{display:none}}
 @media (min-width:901px){.ltabs{display:flex;flex-wrap:wrap}.ltab{flex:1 1 auto}}
 
 /* =====================================================================
@@ -1220,7 +1223,7 @@ html[data-theme="dark"]{--bg-page:#11100d}
   --p-t-y:0px;--p-t-o:1;--p-zh-x:0px;--p-zh-o:1;--p-c-o:1;--p-c-y:0px;--p-obj-y:0px;--p-lamp:1;--p-ch-o:0;--p-ch-y:24px;--p-sh-o:0}
 .cine__stage{position:sticky;top:0;height:100svh;min-height:640px;overflow:hidden;isolation:isolate;background:#0c0b09;color:#ece4d2;
   --ink:#ece4d2;--ink-2:#cdc4b0;--ink-3:#a39a86;--ink-4:#7f7768;--card:rgba(255,246,228,.07);--card-2:rgba(255,246,228,.05);
-  --rule:rgba(236,228,210,.14);--rule-2:rgba(236,228,210,.26);--bg:#0c0b09;--bg-2:#16140f;--hl:rgba(215,168,74,.3);--ochre:#d7a84a;--ochre-t:#e0b45c;--focus:#9db8ff}
+  --rule:rgba(236,228,210,.14);--rule-2:rgba(236,228,210,.26);--bg:#0c0b09;--bg-2:#16140f;--hl:rgba(215,168,74,.3);--ochre:#d7a84a;--ochre-t:#e0b45c;--focus:#e0b45c}
 .cine__stage::after{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
   background:radial-gradient(120% 90% at 50% 42%,transparent 52%,rgba(0,0,0,.55) 100%);opacity:calc(1 - var(--p-sh-o))}
 .cine__lamp{position:absolute;inset:0;z-index:0;pointer-events:none;transform:scale(var(--p-lamp));transform-origin:50% 0}
@@ -1528,3 +1531,7 @@ html[data-theme="dark"] .scrim{background:rgba(0,0,0,.6)}
 .palette__g{font-size:11px;letter-spacing:.08em;color:var(--ink-2)}
 /* W2-10 fuzzy matches mark the letters that matched */
 .palette__t mark{background:none;color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent,currentColor);text-underline-offset:3px;text-decoration-thickness:1.5px}
+
+/* r6: one focus language site-wide — ochre ring on keyboard focus only, never on pointer focus */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+:where(a,button,input,select,textarea,summary,[tabindex]):focus:not(:focus-visible){outline:none}

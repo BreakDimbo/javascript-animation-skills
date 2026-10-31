@@ -1,0 +1,80 @@
+/* 03 Factories — supply arcs over an aligned 4-column comparison (SECTIONS_SPEC §03; P2 P5 P6 P9 P12 P14) */
+.fx{--g:36px;position:relative;margin-top:8px}
+.fx-band{position:relative;margin:0 0 -2px}
+.fx-arcs{display:block;width:100%;height:auto;overflow:visible}
+.fx-arc{cursor:pointer;outline:none}
+.fx-arc__hit{fill:none;stroke:transparent;stroke-width:18}
+.fx-arc__l{fill:none;stroke:var(--ink-4);stroke-width:1.3;stroke-linecap:round;transition:stroke var(--t-ui),opacity var(--t-ui)}
+.fx-arc text{font:500 10.5px var(--f-mono);letter-spacing:.06em;fill:var(--ink-3);transition:fill var(--t-ui),opacity var(--t-ui);paint-order:stroke;stroke:var(--bg-2,var(--bg));stroke-width:6px;stroke-linejoin:round}
+.sec--tint .fx-arc text{stroke:color-mix(in oklab,var(--bg) 92%,var(--ink))}
+.fx-arc:hover .fx-arc__l,.fx-arc.is-hot .fx-arc__l,.fx-arc.is-on .fx-arc__l{stroke:var(--ochre)}
+.fx-arc:hover text,.fx-arc.is-hot text,.fx-arc.is-on text{fill:var(--ink)}
+.fx-arc.is-dim{opacity:.32}
+.fx-arc:focus-visible text{fill:var(--ink);text-decoration:underline;text-decoration-color:var(--focus)}
+.fx-arc:focus-visible .fx-arc__l{stroke:var(--focus);stroke-width:2}
+.fx-band.is-pre .fx-arc__l{stroke-dasharray:1;stroke-dashoffset:1}
+.fx-band.is-pre .fx-arc text{opacity:0}
+.fx-band.is-draw .fx-arc__l{stroke-dasharray:1;animation:fx-draw 760ms var(--e-out-quint) both;animation-delay:calc(var(--k) * 120ms)}
+.fx-band.is-draw .fx-arc text{animation:fx-fade 400ms var(--e-out-quint) both;animation-delay:520ms}
+@keyframes fx-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes fx-fade{from{opacity:0}to{opacity:1}}
+.fx-tip{position:absolute;z-index:3;transform:translate(-50%,calc(-100% - 14px));width:max-content;max-width:280px;padding:10px 14px 11px;border-radius:8px;
+  background:var(--ink);color:var(--bg);box-shadow:0 6px 20px rgba(0,0,0,.28);pointer-events:none}
+.fx-tip b{display:block;font:500 10.5px var(--f-mono);letter-spacing:.08em;opacity:.7;margin-bottom:4px}
+.fx-tip span{font-size:13.5px;line-height:1.6}
+/* heads */
+.fx-heads,.fx-r{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:var(--g)}
+.fx-heads{grid-template-rows:auto auto}
+.fx-h{position:relative;display:grid;grid-row:span 2;grid-template-rows:subgrid;padding-top:18px;border-top:1px solid var(--rule-2);transition:opacity var(--t-ui-2) var(--e-out-quint)}
+.fx-h::before{content:"";position:absolute;left:0;top:-1px;width:32px;height:2px;background:var(--fc);transform-origin:left;transition:transform var(--t-ui-2) var(--e-out-quint)}
+.fx-h.is-c::before{transform:scaleX(var(--sx,3))}
+.fx-h__b{display:flex;flex-direction:column;gap:10px;align-items:flex-start;width:100%;border:0;background:none;padding:0;cursor:pointer;text-align:left;color:var(--ink)}
+.fx-h__n{font:500 11px var(--f-mono);letter-spacing:.12em;color:var(--ink-4)}
+.fx-h__t{font:400 34px/1.04 var(--f-disp);letter-spacing:-.02em;transition:color var(--t-ui)}
+.fx-h__b[aria-pressed="true"] .fx-h__n{color:var(--ochre-t)}
+.fx-h__b:hover .fx-h__t{color:var(--ink)}
+.fx-h__b:focus-visible{outline:2px solid var(--focus);outline-offset:6px;border-radius:4px}
+.fx-h__s{margin:14px 0 0;font-size:14px;line-height:1.65;color:var(--ink-2);min-height:3.3em}
+/* rows */
+.fx-m{margin-top:34px}
+.fx-r{position:relative;grid-template-rows:auto auto;padding:0 0 22px;transition:background-color var(--t-ui)}
+.fx-r__l{grid-column:1 / -1;margin:0 0 12px;padding-top:14px;border-top:1px solid var(--rule);font:500 10.5px var(--f-mono);letter-spacing:.14em;color:var(--ink-4);transition:color var(--t-ui)}
+.fx-r.is-r .fx-r__l{color:var(--ink-2)}
+.fx-r--bound .fx-r__l{color:var(--red)}
+.fx-c{min-width:0;transition:opacity var(--t-ui-2) var(--e-out-quint)}
+.fx-c p,.fx-c ul{margin:0;font-size:14px;line-height:1.75;color:var(--ink-2)}
+.fx-c ul{list-style:none;padding:0;display:grid;gap:6px}
+.fx-c li{position:relative;padding-left:14px}
+.fx-c li::before{content:"";position:absolute;left:0;top:.82em;width:6px;height:1px;background:var(--ink-4)}
+.fx-r--kpi .fx-c p{font-size:13.5px;line-height:1.8;color:var(--ink-2);word-spacing:.08em}
+.fx-r--who .fx-c p{color:var(--ink)}
+.fx-r--bound .fx-c p{font:400 17px/1.6 var(--f-disp);color:var(--ink)}
+.fx.has-c .fx-c:not(.is-c),.fx.has-c .fx-h:not(.is-c){opacity:.38}
+.fx-r--foot{padding:18px 0 0;border-top:1px solid var(--rule)}
+.fx-more{display:inline-flex;gap:8px;align-items:center;min-height:32px;padding:0;border:0;background:none;cursor:pointer;font:500 12.5px var(--f-sans);color:var(--ink-3);transition:color var(--t-ui)}
+.fx-more span:last-child{transition:transform var(--t-ui-2) var(--e-out-quint)}
+.fx-more:hover{color:var(--ink)}
+.fx-more:hover span:last-child{transform:translateX(3px)}
+.fx-more:active{opacity:.7}
+.fx-more:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:4px}
+.fx-cap{margin:40px 0 0;max-width:46em;font-size:12.5px;line-height:1.7;color:var(--ink-4)}
+@media (prefers-reduced-motion: reduce){.fx-band.is-pre .fx-arc__l{stroke-dasharray:none}.fx-band.is-pre .fx-arc text{opacity:1}.fx-h::before,.fx-more span:last-child{transition:none}}
+@media (max-width: 1100px){.fx{--g:24px}.fx-h__t{font-size:28px}}
+/* phone: band off, heads become a 2×2 tab grid, one factory's column at a time */
+@media (max-width: 760px){
+  .fx-band{display:none}
+  .fx-heads{grid-template-columns:minmax(0,1fr)}
+  .fx-h{padding:0;display:block}
+  .fx-h::before{display:none}
+  .fx-h__b{flex-direction:row;align-items:baseline;gap:12px;min-height:48px;padding:12px 0}
+  .fx-h__t{font-size:22px}
+  .fx-h__s{display:none}
+  .fx.is-mob .fx-h.is-c{box-shadow:inset 2px 0 0 var(--fc);padding-left:14px}
+  .fx.is-mob .fx-h.is-c .fx-h__s{display:block;margin:-4px 0 14px;min-height:0;font-size:15px}
+  .fx.is-mob .fx-h{opacity:1}
+  .fx.is-mob .fx-h:not(.is-c) .fx-h__t{color:var(--ink-3)}
+  .fx-r{grid-template-columns:minmax(0,1fr)}
+  .fx.is-mob .fx-c:not(.is-c){display:none}
+  .fx.is-mob .fx-c{opacity:1}
+  .fx-m{margin-top:20px}
+}

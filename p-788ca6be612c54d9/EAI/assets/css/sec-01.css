@@ -1,0 +1,88 @@
+/* 01 Anchors — maturity ledger + evidence stair (SECTIONS_SPEC §01; P1 P3 P11 P17) */
+.ax{--hw:280px;margin-top:8px}
+.ax-hd,.ax-scale{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 20px}
+.ax-hd{grid-template-columns:var(--hw) repeat(4,minmax(0,1fr));column-gap:20px;align-items:end;padding-bottom:12px;border-bottom:1px solid var(--rule-2);
+  font:500 11.5px/1.4 var(--f-mono);letter-spacing:.12em;color:var(--ink-4)}
+.ax-hd__k{display:none}
+.ax-hd__s{display:flex;align-items:center;gap:8px;color:var(--ink-3)}
+.ax-hd__s i{width:7px;height:7px;border-radius:50%;background:var(--sc);flex:none}
+.ax-hd__s--settled{--sc:var(--st-settled)}.ax-hd__s--draft{--sc:var(--st-draft)}.ax-hd__s--proposed{--sc:var(--st-proposed)}.ax-hd__s--plan{--sc:var(--st-plan)}
+.ax-hd__s--draft i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--sc)}
+.ax-hd__s--proposed i{border-radius:1px;transform:rotate(45deg) scale(.85)}
+.ax-hd__s--plan i{background:transparent;border:1.5px dashed var(--sc)}
+/* the scale's own rule: settled → plan, a hairline that fades toward the less mature end */
+.ax-r{position:relative;display:grid;grid-template-columns:var(--hw) minmax(0,1fr);grid-template-areas:"name scale" "name body";gap:0 20px;padding:26px 0 36px;border-bottom:1px solid var(--rule);scroll-margin-top:calc(var(--bar-h) + 24px)}
+.ax-name{grid-area:name;padding-right:24px}
+.ax-b{display:block;font:500 10.5px var(--f-mono);letter-spacing:.14em;color:var(--ink-4)}
+.ax-name h3{margin:10px 0 0;font:400 30px/1.15 var(--f-disp);letter-spacing:-.015em;color:var(--ink);text-wrap:balance}
+.ax-scale{grid-area:scale;align-items:center;min-height:30px}
+.ax-cell{min-width:0}
+.ax-cell .status{height:auto;padding:0;background:none;box-shadow:none;font-size:14px;line-height:1.5;color:var(--ink);white-space:normal;align-items:baseline}
+.ax-cell .status::before{flex:none;transform:translateY(-1px)}
+.ax-cell .status--proposed::before{transform:translateY(-1px) rotate(45deg) scale(.85)}
+.ax-none{display:block;width:12px;height:1px;background:var(--rule);font-size:0;color:transparent}
+.ax-body{grid-area:body;columns:2;column-gap:40px;margin-top:22px;padding-top:20px;border-top:1px dashed var(--rule)}
+.ax-body p{break-inside:avoid-column;margin:0 0 14px;font-size:14.5px;line-height:1.85;color:var(--ink-2)}
+.ax-body p:first-child{color:var(--ink)}
+.ax-r:target .ax-name h3,.ax-r.is-flash .ax-name h3{color:var(--ochre-t)}
+/* evidence: callout + a stair in the margin */
+#anchors .evidence{grid-template-columns:minmax(0,1fr) 400px;gap:0 64px;align-items:start;margin-top:72px;padding-top:28px;border-top:3px double var(--rule-2)}
+#anchors .evidence .callout{padding:0;background:none;box-shadow:none;border:0;border-radius:0;font-size:15px;line-height:1.9;color:var(--ink-2)}
+#anchors .evidence .callout b{display:block;margin:0 0 12px;font:500 11px var(--f-mono);letter-spacing:.14em;color:var(--ochre-t)}
+#anchors .ladder{gap:0;border-left:1px solid var(--rule-2)}
+#anchors .ladder li{--k:0}
+#anchors .ladder li:nth-child(2){--k:1}#anchors .ladder li:nth-child(3){--k:2}#anchors .ladder li:nth-child(4){--k:3}#anchors .ladder li:nth-child(5){--k:4}
+#anchors .ladder__b{min-height:40px;padding:9px 0 9px calc(16px + var(--k) * 18px);border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--rule);font-size:13.5px;color:var(--ink-2)}
+#anchors .ladder li:first-child .ladder__b{color:var(--ink)}
+#anchors .ladder__b::before{width:18px;color:var(--ink-4)}
+#anchors .ladder__b i{left:0;width:calc(var(--k) * 18px + 6px);background:color-mix(in oklab,var(--ochre) 14%,transparent);transition-delay:calc(var(--k) * 60ms)}
+@media (prefers-reduced-motion: reduce){#anchors .ladder__b i{transition:none}}
+@media (max-width: 1100px){.ax{--hw:200px}.ax-name h3{font-size:24px}#anchors .evidence{grid-template-columns:1fr;gap:32px}}
+@media (max-width: 760px){
+  .ax-hd{display:none}
+  .ax-r{grid-template-columns:minmax(0,1fr);grid-template-areas:"name" "scale" "body";padding:22px 0 26px}
+  .ax-name{padding:0}
+  .ax-name h3{font-size:26px}
+  .ax-scale{grid-template-columns:minmax(0,1fr);gap:8px;margin-top:14px}
+  .ax-cell:has(.ax-none){display:none}
+  .ax-body{grid-template-columns:minmax(0,1fr);margin-top:16px}
+  #anchors .evidence{margin-top:48px}
+}
+/* r6 · governance timeline: full-bleed track + sticky detail pane on the right, scrub handle, no play */
+#anchors .tx{--txw:min(1360px,calc(100vw - 48px));width:var(--txw);margin:72px 0 0 calc((100% - var(--txw)) / 2);padding:0;background:none;border-radius:0;box-shadow:none;border-top:1px solid var(--rule-2);
+  display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-areas:"bar bar" "track det" "cap cap";gap:0 32px;overflow:visible}
+#anchors .tx .viz__bar{grid-area:bar;padding:18px 0 6px;background:none;border:0}
+#anchors .tx .tl{grid-area:track;padding:8px 0 4px;overflow-x:auto;overscroll-behavior-x:contain}
+#anchors .tx .tl svg{min-width:720px}
+#anchors .tx .tl:focus-visible{box-shadow:none;outline:1px solid var(--focus);outline-offset:4px;border-radius:4px}
+#anchors .tx .tl-detail{grid-area:det;align-self:start;position:sticky;top:calc(var(--bar-h) + 24px);display:block;min-height:0;margin-top:16px;padding:18px 0 0 24px;border-top:0;box-shadow:inset 1px 0 0 var(--rule-2)}
+#anchors .tx .tl-detail__d{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;margin-bottom:14px}
+#anchors .tx .tl-detail__d b{width:100%;font-size:40px;margin:0}
+#anchors .tx .tl-detail__d .status{margin:0}
+#anchors .tx .tl-detail h5{font:400 22px/1.3 var(--f-disp);margin:0 0 8px}
+#anchors .tx .tl-detail p{font-size:14px;line-height:1.8}
+#anchors .tx .cap{grid-area:cap;margin-top:14px;padding:12px 0 0;border-top:1px solid var(--rule)}
+#anchors .tx .lane-bg{fill:none}
+#anchors .tx .past{fill:color-mix(in oklab,var(--ochre) 3.5%,transparent)}
+/* the cursor is a handle: ochre date pill you can grab */
+#anchors .tx .cur-cap{fill:var(--ochre)}
+#anchors .tx .cur-t{fill:#1a1612}
+#anchors .tx .cur-line{stroke:var(--ochre)}
+#anchors .tx .cur-hit{cursor:grab}
+#anchors .tx .tl:active .cur-hit{cursor:grabbing}
+#anchors .tx .ev:focus-visible circle{stroke:var(--focus)}
+/* token ↔ event link from the maturity ledger */
+#anchors .tx svg.has-hl .ev:not(.is-hl){opacity:.28;transition:opacity var(--t-ui-2) var(--e-out-quint)}
+#anchors .tx svg .ev{transition:opacity var(--t-ui-2) var(--e-out-quint)}
+#anchors .tx svg .ev.is-hl circle{stroke:var(--ochre);stroke-width:2.5}
+#anchors .tx svg .ev.is-hl text{fill:var(--ink)}
+.ax-cell .status{cursor:pointer;border-radius:3px;transition:color var(--t-ui)}
+.ax-cell .status:hover,.ax-cell .status.is-hl{color:var(--ochre-t)}
+.ax-cell .status:focus-visible{outline:1px solid var(--focus);outline-offset:4px}
+@media (prefers-reduced-motion: reduce){#anchors .tx svg .ev{transition:none}}
+@media (max-width: 1100px){#anchors .tx{grid-template-columns:minmax(0,1fr) 260px}}
+@media (max-width: 760px){
+  #anchors .tx{--txw:100%;margin-left:0;grid-template-columns:minmax(0,1fr);grid-template-areas:"bar" "track" "det" "cap"}
+  #anchors .tx .tl-detail{position:static;padding:16px 0 0;box-shadow:inset 0 1px 0 var(--rule)}
+  #anchors .tx .tl-detail__d b{font-size:30px}
+}

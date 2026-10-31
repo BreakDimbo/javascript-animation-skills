@@ -6,19 +6,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>企业级 Agentic AI 全景图 · 技术架构与产业格局</title>
 <meta name="description" content="梳理企业级智能体的技术架构与产业格局：由哪些能力构成、谁在制定标准、厂商如何布局、建设与选型看什么。每项判断都注明出处与适用边界。">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f3eee3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#11100d" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#11100d">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231d1a16%27/%3E%3Crect x=%277%27 y=%277%27 width=%278%27 height=%278%27 rx=%271.5%27 fill=%27%23c6922b%27/%3E%3Crect x=%2717%27 y=%277%27 width=%278%27 height=%278%27 rx=%271.5%27 fill=%27%23a32929%27/%3E%3Crect x=%277%27 y=%2717%27 width=%278%27 height=%278%27 rx=%271.5%27 fill=%27%234f8a3c%27/%3E%3Crect x=%2717%27 y=%2717%27 width=%278%27 height=%278%27 rx=%271.5%27 fill=%27%234d6fb0%27/%3E%3C/svg%3E">
 <script>
-  /* theme before paint: no flash */
-  (function(){var t;try{t=localStorage.getItem('eai-theme')}catch(e){}
-  if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
-  document.documentElement.dataset.theme=t;document.documentElement.classList.remove('no-js');document.documentElement.classList.add('js');})();
+  /* theme before paint: no flash. Dark by default; only an explicit toggle choice (localStorage) overrides it */
+  (function(){var t,d=document;try{t=localStorage.getItem('eai-theme')}catch(e){}
+  if(t!=='light')t='dark';
+  d.documentElement.dataset.theme=t;
+  var m=d.querySelector('meta[name="theme-color"]');if(m)m.content=t==='dark'?'#11100d':'#f3eee3';
+  m=d.querySelector('meta[name="color-scheme"]');if(m)m.content=t;document.documentElement.classList.remove('no-js');document.documentElement.classList.add('js');})();
 </script>
 <script>/* font preloads only over http(s): Chromium refuses CORS-mode preloads from file:// */
 if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186a'].forEach(function(f){var l=document.createElement('link');l.rel='preload';l.as='font';l.type='font/woff2';l.crossOrigin='';l.href='assets/fonts/'+f+'.woff2';document.head.appendChild(l)});</script>
 <link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/sec-02.css">
+<link rel="stylesheet" href="assets/css/sec-05.css">
+<link rel="stylesheet" href="assets/css/sec-10.css">
+<link rel="stylesheet" href="assets/css/sec-04.css">
+<link rel="stylesheet" href="assets/css/sec-thesis.css">
+<link rel="stylesheet" href="assets/css/sec-ext.css"><!--w2css-->
+<link rel="stylesheet" href="assets/css/sec-09.css">
+<link rel="stylesheet" href="assets/css/sec-07.css">
+<link rel="stylesheet" href="assets/css/sec-03.css">
+<link rel="stylesheet" href="assets/css/sec-08.css">
+<link rel="stylesheet" href="assets/css/sec-06.css">
+<link rel="stylesheet" href="assets/css/sec-01.css">
+<link rel="stylesheet" href="assets/css/sec-idx.css">
 </head>
 <body>
 <a class="skip" href="#main">跳到正文</a>
@@ -320,39 +334,30 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <p class="lede">企业级 Agentic AI 的标准化工作分散在基金会项目、社区提案、政府计划和厂商实现中，成熟度差异很大。引用一个概念前，应先确认它的类型、治理主体、版本状态和互操作范围；名称相似不代表已形成统一架构或采购类别。</p>
     </header>
 
-    <div class="grid grid--3 anchors">
-      <article class="card card--anchor" id="anchor-aaif">
-        <div class="card__k"><span class="badge">LF</span><h3>AAIF</h3></div>
-        <p>Linux Foundation（Linux 基金会）于 2025 年 12 月成立 Agentic AI Foundation（智能体 AI 基金会，简称 AAIF），创始贡献项目包括 MCP、goose 与 AGENTS.md。2026 年 10 月 22 日接纳 Agent Skills、Open Responses、OpenEnv、OpenSandbox，官方公告称项目已增至 10 个。</p>
-        <p>10 个项目为：MCP（工具与资源连接，Anthropic）、A2A（Agent 间互操作，Google）、AGENTS.md（代码仓库约定，OpenAI）、goose（本地 Agent 实现，Block）、agentgateway（Agent 通信入口）、Agent Router（Agent 流量控制）、Agent Skills（技能封装，Anthropic）、Open Responses（模型 API（应用程序接口）互操作，OpenAI）、OpenEnv（训练与评测环境，Hugging Face）、OpenSandbox（安全执行沙箱，阿里巴巴）。<a class="sref" href="#src-S04" data-src="S04">[S04]</a></p>
-        <p>其 Taxonomy &amp; Landscape Workstream（分类体系与全景图工作组）的目标是统一术语并建立 CNCF（云原生计算基金会）风格的生态图景；截至核验期，CONTRIBUTING（贡献指南）仍以 Taxonomy（分类体系）为重点，Landscape（全景图）的正式贡献流程尚待接受。</p>
-        <div class="card__meta">
-          <span class="status status--settled">术语工作流 · 已确立</span>
-          <span class="status status--draft">Landscape · 待定稿</span>
-        </div>
+    <div class="ax" id="ax">
+      <div class="ax-hd" aria-hidden="true"><span>治理主体</span><span class="ax-hd__k">成熟度 →</span><span class="ax-hd__s ax-hd__s--settled"><i></i>已确立</span><span class="ax-hd__s ax-hd__s--draft"><i></i>待定稿</span><span class="ax-hd__s ax-hd__s--proposed"><i></i>未生效</span><span class="ax-hd__s ax-hd__s--plan"><i></i>推进计划</span></div>
+      <article class="ax-r" id="anchor-aaif">
+        <div class="ax-name"><span class="ax-b">LF</span><h3>AAIF</h3></div>
+        <div class="ax-scale"><div class="ax-cell" data-s="settled"><span class="status status--settled">术语工作流 · 已确立</span></div><div class="ax-cell" data-s="draft"><span class="status status--draft">Landscape · 待定稿</span></div><div class="ax-cell" data-s="proposed"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="plan"><span class="ax-none" aria-hidden="true">—</span></div></div>
+        <div class="ax-body"><p>Linux Foundation（Linux 基金会）于 2025 年 12 月成立 Agentic AI Foundation（智能体 AI 基金会，简称 AAIF），创始贡献项目包括 MCP、goose 与 AGENTS.md。2026 年 10 月 22 日接纳 Agent Skills、Open Responses、OpenEnv、OpenSandbox，官方公告称项目已增至 10 个。</p><p>10 个项目为：MCP（工具与资源连接，Anthropic）、A2A（Agent 间互操作，Google）、AGENTS.md（代码仓库约定，OpenAI）、goose（本地 Agent 实现，Block）、agentgateway（Agent 通信入口）、Agent Router（Agent 流量控制）、Agent Skills（技能封装，Anthropic）、Open Responses（模型 API（应用程序接口）互操作，OpenAI）、OpenEnv（训练与评测环境，Hugging Face）、OpenSandbox（安全执行沙箱，阿里巴巴）。<a class="sref" href="#src-S04" data-src="S04">[S04]</a></p><p>其 Taxonomy &amp; Landscape Workstream（分类体系与全景图工作组）的目标是统一术语并建立 CNCF（云原生计算基金会）风格的生态图景；截至核验期，CONTRIBUTING（贡献指南）仍以 Taxonomy（分类体系）为重点，Landscape（全景图）的正式贡献流程尚待接受。</p></div>
       </article>
-      <article class="card card--anchor" id="anchor-cncf">
-        <div class="card__k"><span class="badge">CNCF</span><h3>AI Native Landscape</h3></div>
-        <p>AI Native Landscape（AI 原生全景图）重构议题提出将工作负载区分为 AI Agents（AI 智能体）、Inference（推理）、Training（训练）、Data（数据），并以 AI Native Infrastructure（AI 原生基础设施）作为共享基础。</p>
-        <p>社区同时研究 Agent 互操作、编排、工具使用与可观测性；Agentic Standards Checklist（智能体标准检查清单）强调 Agent 身份、云原生部署与全生命周期治理。这些材料提供基线，但并未规定企业必须购入专有 AgentOS。</p>
-        <div class="card__meta"><span class="status status--proposed">提议结构 · 未生效</span></div>
+      <article class="ax-r" id="anchor-cncf">
+        <div class="ax-name"><span class="ax-b">CNCF</span><h3>AI Native Landscape</h3></div>
+        <div class="ax-scale"><div class="ax-cell" data-s="settled"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="draft"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="proposed"><span class="status status--proposed">提议结构 · 未生效</span></div><div class="ax-cell" data-s="plan"><span class="ax-none" aria-hidden="true">—</span></div></div>
+        <div class="ax-body"><p>AI Native Landscape（AI 原生全景图）重构议题提出将工作负载区分为 AI Agents（AI 智能体）、Inference（推理）、Training（训练）、Data（数据），并以 AI Native Infrastructure（AI 原生基础设施）作为共享基础。</p><p>社区同时研究 Agent 互操作、编排、工具使用与可观测性；Agentic Standards Checklist（智能体标准检查清单）强调 Agent 身份、云原生部署与全生命周期治理。这些材料提供基线，但并未规定企业必须购入专有 AgentOS。</p></div>
       </article>
-      <article class="card card--anchor" id="anchor-nist">
-        <div class="card__k"><span class="badge">NIST</span><h3>AI Agent Standards Initiative</h3></div>
-        <p>美国国家标准与技术研究院（NIST）于 2026 年 2 月宣布的 AI Agent Standards Initiative（AI 智能体标准计划），将互操作、开放协议、安全身份作为工作方向。</p>
-        <p>这是标准推进计划，而不是一套已经覆盖全部 Agent 运行与商业架构的规范。需特别注意「以用户名义行动」引出的授权与审计问题。</p>
-        <div class="card__meta"><span class="status status--plan">推进计划</span></div>
+      <article class="ax-r" id="anchor-nist">
+        <div class="ax-name"><span class="ax-b">NIST</span><h3>AI Agent Standards Initiative</h3></div>
+        <div class="ax-scale"><div class="ax-cell" data-s="settled"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="draft"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="proposed"><span class="ax-none" aria-hidden="true">—</span></div><div class="ax-cell" data-s="plan"><span class="status status--plan">推进计划</span></div></div>
+        <div class="ax-body"><p>美国国家标准与技术研究院（NIST）于 2026 年 2 月宣布的 AI Agent Standards Initiative（AI 智能体标准计划），将互操作、开放协议、安全身份作为工作方向。</p><p>这是标准推进计划，而不是一套已经覆盖全部 Agent 运行与商业架构的规范。需特别注意「以用户名义行动」引出的授权与审计问题。</p></div>
       </article>
     </div>
 
-    <figure class="viz viz--timeline" id="viz-timeline">
+    <figure class="viz viz--timeline tx" id="viz-timeline">
       <div class="viz__bar">
         <div>
           <p class="viz__k">交互 · 治理时间轴</p>
           <p class="viz__t">拖动时间游标：同一个名字，在哪条轨道上、何时换了轨道</p>
-        </div>
-        <div class="viz__tools">
-          <button class="btn btn--ghost btn--sm" type="button" id="tl-play" aria-pressed="false"><svg class="i i-play" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="play"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><svg class="i i-pause" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="pause"><rect x="14" y="3" width="5" height="18" rx="1"/> <rect x="5" y="3" width="5" height="18" rx="1"/></svg><span>播放</span></button>
         </div>
       </div>
       <div class="tl" id="tl" tabindex="0" role="slider" aria-label="时间游标，左右方向键移动" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div>
@@ -398,19 +403,26 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <figcaption class="cap">落位依据：术语表每条的「所属能力域」字段（如 C5/C6 落在两域之间，G 落在治理横轴，「跨层」落在中轴）；厂商高亮依据该厂商名称是否出现在术语的「代表实现」或「专业定义」中。地图是本页数据的重排，不是新增判断。</figcaption>
     </figure>
 
-    <div class="domains" id="domain-list"></div>
-
-    <div class="axis-note">
-      <div class="axis axis--g1">
+    <div class="lm" id="lens" data-lens="bound">
+      <div class="lm__g lm__g--g1">
         <b>G1 · Security / Identity / Policy / Audit（安全 / 身份 / 策略 / 审计）</b>
         <span>身份、权限、资源、注册、审计贯穿所有组件；高风险操作还需人工审批、停止与回滚机制。应在项目初期按风险等级配置基础控制，并在业务扩展时加深，而非到「高级阶段」才考虑安全。</span>
       </div>
-      <div class="axis axis--g2">
+      <div class="lm__hd" role="tablist" aria-label="能力域对照：选择要展开阅读的一列">
+        <span class="lm__corner"><b>C1–C8</b> 能力域</span>
+        <button class="lm__tab" type="button" role="tab" data-f="bound" aria-selected="true">职责</button>
+        <button class="lm__tab" type="button" role="tab" data-f="prod" aria-selected="false">代表产品 / 实践</button>
+        <button class="lm__tab" type="button" role="tab" data-f="cn" aria-selected="false">中国厂商 / 本地生态</button>
+        <button class="lm__tab" type="button" role="tab" data-f="err" aria-selected="false">典型失误</button>
+      </div>
+      <div class="domains lm__rows" id="domain-list"></div>
+      <div class="lm__g lm__g--g2">
         <b>G2 · Evaluation / Observability / AgentOps / FinOps（评测 / 可观测性 / 智能体运维 / 成本运营）</b>
         <span>评测、可观测、可靠性（恢复、SLO（服务等级目标）、告警）与成本治理同样横切。看得见调用不等于能证明结果正确；能算清 Token 也不等于能算清任务。</span>
       </div>
     </div>
   </div>
+
 </section>
 
 <!-- ============================== 03 FACTORIES ============================== -->
@@ -422,21 +434,8 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <p class="lede">「AI Factory」「Token Factory（Token 工厂）」等是厂商与行业常用的产业叙事。以下按供给内容、核心能力、评价指标、典型购买者和代表产品分别说明，并用「边界」注明它<strong>不是</strong>什么。</p>
     </header>
 
-    <figure class="viz viz--flow" id="viz-flow">
-      <div class="viz__bar">
-        <div>
-          <p class="viz__k">交互 · 四厂供给关系</p>
-          <p class="viz__t">点击工厂查看详情；悬停连线查看供给内容</p>
-        </div>
-      </div>
-      <div class="flow">
-        <div class="flow__stage" id="flow-stage"></div>
-        <div class="flow__detail" id="flow-detail" aria-live="polite"></div>
-      </div>
-      <figcaption class="cap">连线与说明摘自 04 协作架构「四厂之间的供给关系」；AI 与 Token 两厂之间的交叠区对应 05 术语谱系中的「推理服务：Token Factory ∩ AI Factory」。</figcaption>
-    </figure>
-
-    <div class="grid grid--4 factories" id="factory-grid"></div>
+    <div class="fx" id="fx"></div>
+    <p class="fx-cap">连线与说明摘自 04 协作架构「四厂之间的供给关系」；AI 与 Token 两厂之间的交叠区对应 05 术语谱系中的「推理服务：Token Factory ∩ AI Factory」。</p>
   </div>
 </section>
 
@@ -449,42 +448,59 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <p class="lede">企业可以在多个系统间共享身份、策略、沙箱、状态、观测和审计能力，不一定需要一个名为 AgentOS 的独立产品。Agent Harness 负责执行循环和工具调用，Agent Runtime 负责任务托管与隔离；MCP、A2A、OpenAPI（开放接口描述规范）或事件接口的验收，须连同业务权限和事务语义一起进行。</p>
     </header>
 
-    <figure class="fig fig--plate">
+    <div class="ap" id="arch-plate">
+      <div class="ap-plate">
+        <figure class="fig fig--plate">
+          <div class="ap-img">
       <button class="fig__open" type="button" data-lightbox="assets/img/four-factories.webp" aria-label="放大查看原图：四个工厂如何协作">
         <img src="assets/img/four-factories.webp" alt="四个工厂如何协作：AI Factory、Token Factory、Data-Knowledge Factory 与 Agent Factory 的能力、代表产品和相互供给关系，下方依次为 AgentOS、Agent Harness 与 Agent Runtime、跨层协议、企业业务系统与业务产出" width="1672" height="941" loading="lazy" decoding="async">
         <span class="fig__hint"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="zoom-in"><circle cx="11" cy="11" r="8"/> <line x1="21" x2="16.65" y1="21" y2="16.65"/> <line x1="11" x2="11" y1="8" y2="14"/> <line x1="8" x2="14" y1="11" y2="11"/></svg>放大查看</span>
       </button>
+            <div class="ap-pins">
+          <button class="ap-pin" type="button" data-pin="1" style="--x:26.4%;--y:22.4%" aria-label="注 1：AI → Token"><span>1</span></button>
+          <button class="ap-pin" type="button" data-pin="2" style="--x:48.8%;--y:22.4%" aria-label="注 2：Token → Knowledge"><span>2</span></button>
+          <button class="ap-pin" type="button" data-pin="3" style="--x:69.5%;--y:22.4%" aria-label="注 3：Knowledge → Agent"><span>3</span></button>
+          <button class="ap-pin" type="button" data-pin="5" style="--x:13.9%;--y:62.6%" aria-label="注 5：运行与治理"><span>5</span></button>
+          <button class="ap-pin" type="button" data-pin="6" style="--x:30%;--y:84.4%" aria-label="注 6：跨层协议"><span>6</span></button>
+          <button class="ap-pin" type="button" data-pin="7" style="--x:78.8%;--y:89.6%" aria-label="注 7：更高的任务完成率"><span>7</span></button>
+          <button class="ap-pin" type="button" data-pin="8" style="--x:90.3%;--y:89.6%" aria-label="注 8：更低的单位任务成本"><span>8</span></button>
+          <button class="ap-pin" type="button" data-pin="9" style="--x:98%;--y:89.6%" aria-label="注 9：更高的业务 ROI"><span>9</span></button>
+            </div>
+          </div>
       <figcaption class="cap"><b>四个工厂如何协作。</b>自上而下依次为四类工厂及其代表产品、共享运行与治理能力（AgentOS）、执行循环与托管环境（Agent Harness、Agent Runtime）、跨层协议、企业业务系统与业务产出。图中 AgentOS 表示一组共享能力，不代表必须采购同名产品；业务产出栏中"例如"后的百分比、金额与回本周期为示意，不是实测或来源数据。点击图片可查看原图。 <a href="assets/img/four-factories.webp" target="_blank" rel="noopener">在新窗口打开原图 ↗</a></figcaption>
     </figure>
-
-    <div class="grid grid--3 arch-cards">
-      <article class="card">
-        <h4>四厂之间的供给关系</h4>
-        <dl>
-          <dt>AI → Token</dt><dd>算力供给：集群、加速器与推理底座。</dd>
-          <dt>Token → Knowledge</dt><dd>Embedding（向量嵌入）、抽取与分类所需的模型服务。</dd>
-          <dt>Knowledge → Agent</dt><dd>检索与数据；场景反馈回流知识层。</dd>
-          <dt>Token → Agent</dt><dd>模型路由、预算与成本归因。</dd>
-        </dl>
-        <p class="small">共享某项能力不等于包含另一个工厂；调用外部 API 也不等于拥有底层工厂。</p>
-      </article>
-      <article class="card">
-        <h4>可共享的运行与治理能力</h4>
-        <dl>
-          <dt>运行与治理</dt><dd>身份与权限、资源调度、沙箱隔离、记忆与状态、审计合规、多智能体管理；可由多个现有系统组合实现。</dd>
-          <dt>跨层协议</dt><dd>MCP 连接工具与资源；A2A 支持多智能体协作；OpenTelemetry（开放遥测标准）贯通可观测性。</dd>
-        </dl>
-      </article>
-      <article class="card">
-        <h4>价值口径</h4>
-        <dl>
-          <dt>更高的任务完成率</dt><dd>从演示走向稳定业务产出的比例。</dd>
-          <dt>更低的单位任务成本</dt><dd>Token + 运维 + 重试 + 人工的综合成本。</dd>
-          <dt>更高的业务 ROI</dt><dd>降本、增收、新业务三类收益可分别归因。</dd>
-        </dl>
-      </article>
+      </div>
+      <div class="ap-notes">
+        <section class="ap-g" aria-labelledby="ap-g1">
+          <h3 class="ap-g__t" id="ap-g1">四厂之间的供给关系</h3>
+          <dl>
+            <div class="ap-n" data-pin="1"><dt><span class="ap-k">1</span>AI → Token</dt><dd>算力供给：集群、加速器与推理底座。</dd></div>
+            <div class="ap-n" data-pin="2"><dt><span class="ap-k">2</span>Token → Knowledge</dt><dd>Embedding（向量嵌入）、抽取与分类所需的模型服务。</dd></div>
+            <div class="ap-n" data-pin="3"><dt><span class="ap-k">3</span>Knowledge → Agent</dt><dd>检索与数据；场景反馈回流知识层。</dd></div>
+            <div class="ap-n ap-n--nopin" data-pin="4"><dt><span class="ap-k">4</span>Token → Agent</dt><dd>模型路由、预算与成本归因。</dd></div>
+          </dl>
+          <p class="ap-small">共享某项能力不等于包含另一个工厂；调用外部 API 也不等于拥有底层工厂。</p>
+        </section>
+        <section class="ap-g" aria-labelledby="ap-g2">
+          <h3 class="ap-g__t" id="ap-g2">可共享的运行与治理能力</h3>
+          <dl>
+            <div class="ap-n" data-pin="5"><dt><span class="ap-k">5</span>运行与治理</dt><dd>身份与权限、资源调度、沙箱隔离、记忆与状态、审计合规、多智能体管理；可由多个现有系统组合实现。</dd></div>
+            <div class="ap-n" data-pin="6"><dt><span class="ap-k">6</span>跨层协议</dt><dd>MCP 连接工具与资源；A2A 支持多智能体协作；OpenTelemetry（开放遥测标准）贯通可观测性。</dd></div>
+          </dl>
+        </section>
+        <section class="ap-g" aria-labelledby="ap-g3">
+          <h3 class="ap-g__t" id="ap-g3">价值口径</h3>
+          <dl>
+            <div class="ap-n" data-pin="7"><dt><span class="ap-k">7</span>更高的任务完成率</dt><dd>从演示走向稳定业务产出的比例。</dd></div>
+            <div class="ap-n" data-pin="8"><dt><span class="ap-k">8</span>更低的单位任务成本</dt><dd>Token + 运维 + 重试 + 人工的综合成本。</dd></div>
+            <div class="ap-n" data-pin="9"><dt><span class="ap-k">9</span>更高的业务 ROI</dt><dd>降本、增收、新业务三类收益可分别归因。</dd></div>
+          </dl>
+        </section>
+      </div>
+      <i class="ap-lead" aria-hidden="true"></i>
     </div>
   </div>
+
 </section>
 
 <!-- ============================== 05 LINEAGE ============================== -->
@@ -500,12 +516,17 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="lineage-q" placeholder="搜索术语、产品或项目…" aria-label="搜索术语谱系" autocomplete="off"></div>
       <div class="select"><select id="lineage-layer" aria-label="按层筛选"><option value="">全部层</option></select></div>
       <div class="seg" role="tablist" aria-label="视图">
-        <button role="tab" aria-selected="true" data-lview="table" id="lv-table" aria-controls="lineage-tablewrap">表格</button>
+        <button role="tab" aria-selected="true" data-lview="matrix" id="lv-matrix" aria-controls="lineage-matrix">矩阵</button>
+        <button role="tab" aria-selected="false" data-lview="table" id="lv-table" aria-controls="lineage-tablewrap">表格</button>
         <button role="tab" aria-selected="false" data-lview="time" id="lv-time" aria-controls="lineage-time">时间轴</button>
       </div>
       <span class="count" id="lineage-count"></span>
     </div>
 
+    <div class="lx" id="lineage-matrix" role="tabpanel" aria-labelledby="lv-matrix">
+      <div class="lx-m"><span class="lx-colhl" aria-hidden="true"></span><div class="lx-hd"></div><div class="lx-body" role="listbox" aria-label="术语谱系矩阵：行是术语，列是大厂推动者"></div></div>
+      <aside class="lx-pane" aria-live="polite"></aside>
+    </div>
     <div class="tbl-wrap" id="lineage-tablewrap" role="tabpanel" aria-labelledby="lv-table">
       <div class="tbl-scroll" tabindex="0" role="region" aria-label="术语谱系表，可左右及上下滚动">
         <table class="lineage" id="lineage-table">
@@ -528,30 +549,30 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <p class="lede">这四组名称经常在产品文档和方案讨论中混用。判断时应看运行对象、接口、责任边界、管理平面和故障语义，而不是产品名称。</p>
     </header>
 
-    <div class="grid grid--2 pairs">
-      <article class="card pair">
+    <div class="bx" id="bx">
+      <article class="pair bx-r" id="pair-1">
+        <span class="bx-n" aria-hidden="true">01</span>
         <h3 class="pair__h"><span class="pair__a">Framework</span><span class="pair__ne" aria-label="不等于">≠</span><span class="pair__b">Harness</span></h3>
-        <p><b>Framework</b>（框架）是用于构建 Agent 的可编程积木；<b>Harness</b> 是把模型置于目标、上下文、工具、反馈、验证和停止规则中的可执行支架。两者可以重叠。</p>
-        <p>OpenAI 2026 年 Agents API 以托管 Codex Harness 为核心，说明 Harness 也能由远端托管服务交付；Microsoft Agent Framework 文档则把 Harness Agent 作为框架内一种特定 Agent 实现。</p>
-        <div class="card__meta"><span class="chip">Claude Agent SDK</span><span class="chip">OpenAI Codex</span><span class="chip">Microsoft Agent Framework</span></div>
+        <div class="bx-cols"><p class="bx-s"><b>Framework</b>（框架）是用于构建 Agent 的可编程积木；</p><p class="bx-s"><b>Harness</b> 是把模型置于目标、上下文、工具、反馈、验证和停止规则中的可执行支架。两者可以重叠。</p></div>
+        <aside class="bx-note"><p>OpenAI 2026 年 Agents API 以托管 Codex Harness 为核心，说明 Harness 也能由远端托管服务交付；Microsoft Agent Framework 文档则把 Harness Agent 作为框架内一种特定 Agent 实现。</p><div class="card__meta"><span class="chip">Claude Agent SDK</span><span class="chip">OpenAI Codex</span><span class="chip">Microsoft Agent Framework</span></div></aside>
       </article>
-      <article class="card pair">
+      <article class="pair bx-r" id="pair-2">
+        <span class="bx-n" aria-hidden="true">02</span>
         <h3 class="pair__h"><span class="pair__a">Agent Runtime</span><span class="pair__ne" aria-label="不等于">≠</span><span class="pair__b">Model Runtime</span></h3>
-        <p><b>Agent Runtime</b> 运行 Agent 应用与任务控制逻辑；<b>Model Runtime</b>（模型运行时）托管模型权重、批处理和 Token 生成。Google 官方参考架构明确区分这两个运行时。</p>
-        <p>Red Hat AI Inference / vLLM / llm-d 主要属于模型推理及其分布式调度领域，而 AWS AgentCore Runtime 主要面向 Agent 执行环境。</p>
-        <div class="card__meta"><span class="chip">AgentCore Runtime</span><span class="chip">vLLM</span><span class="chip">llm-d</span></div>
+        <div class="bx-cols"><p class="bx-s"><b>Agent Runtime</b> 运行 Agent 应用与任务控制逻辑；</p><p class="bx-s"><b>Model Runtime</b>（模型运行时）托管模型权重、批处理和 Token 生成。Google 官方参考架构明确区分这两个运行时。</p></div>
+        <aside class="bx-note"><p>Red Hat AI Inference / vLLM / llm-d 主要属于模型推理及其分布式调度领域，而 AWS AgentCore Runtime 主要面向 Agent 执行环境。</p><div class="card__meta"><span class="chip">AgentCore Runtime</span><span class="chip">vLLM</span><span class="chip">llm-d</span></div></aside>
       </article>
-      <article class="card pair">
+      <article class="pair bx-r" id="pair-3">
+        <span class="bx-n" aria-hidden="true">03</span>
         <h3 class="pair__h"><span class="pair__a">Control Plane</span><span class="pair__ne" aria-label="不等于">≠</span><span class="pair__b">AgentOS</span></h3>
-        <p><b>控制平面</b>是管理身份、注册、策略和生命周期的一组系统职责；<b>AgentOS</b> 仍缺乏统一行业规范，可以是多种能力的组合与商业命名。</p>
-        <p>Microsoft Agent 365 和 IBM watsonx Orchestrate 均有官方控制平面定位，但商业边界并不完全相同。同名不等于跨厂商能力相同。</p>
-        <div class="card__meta"><span class="chip">Microsoft Agent 365</span><span class="chip">IBM watsonx Orchestrate</span></div>
+        <div class="bx-cols"><p class="bx-s"><b>控制平面</b>是管理身份、注册、策略和生命周期的一组系统职责；</p><p class="bx-s"><b>AgentOS</b> 仍缺乏统一行业规范，可以是多种能力的组合与商业命名。</p></div>
+        <aside class="bx-note"><p>Microsoft Agent 365 和 IBM watsonx Orchestrate 均有官方控制平面定位，但商业边界并不完全相同。同名不等于跨厂商能力相同。</p><div class="card__meta"><span class="chip">Microsoft Agent 365</span><span class="chip">IBM watsonx Orchestrate</span></div></aside>
       </article>
-      <article class="card pair">
+      <article class="pair bx-r" id="pair-4">
+        <span class="bx-n" aria-hidden="true">04</span>
         <h3 class="pair__h"><span class="pair__a">MCP</span><span class="pair__ne" aria-label="不等于">≠</span><span class="pair__b">A2A</span></h3>
-        <p><b>MCP</b> 的核心是 AI 应用与工具/资源的标准化连接；<b>A2A</b> 的核心是独立 Agent 的能力发现与任务协作。二者可共存，也不排斥 REST（表述性状态转移）接口、队列与企业事件总线。</p>
-        <p>MCP 不提供自动授权，A2A 也不证明远端 Agent 的行为值得信任。</p>
-        <div class="card__meta"><span class="chip">MCP</span><span class="chip">A2A</span><span class="chip">REST / 事件总线</span></div>
+        <div class="bx-cols"><p class="bx-s"><b>MCP</b> 的核心是 AI 应用与工具/资源的标准化连接；</p><p class="bx-s"><b>A2A</b> 的核心是独立 Agent 的能力发现与任务协作。二者可共存，也不排斥 REST（表述性状态转移）接口、队列与企业事件总线。</p></div>
+        <aside class="bx-note"><p>MCP 不提供自动授权，A2A 也不证明远端 Agent 的行为值得信任。</p><div class="card__meta"><span class="chip">MCP</span><span class="chip">A2A</span><span class="chip">REST / 事件总线</span></div></aside>
       </article>
     </div>
   </div>
@@ -565,10 +586,21 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <h2 id="h-vendors" class="reveal-title">九家主流厂商的公开架构，放到同一坐标系中对照</h2>
       <p class="lede">各厂商的产品边界和命名体系不同。下列映射保留其官方架构口径，再用本站的能力坐标对照；映射结果不表示不同厂商的产品具有相同责任、成熟度或服务承诺。</p>
     </header>
-    <div class="grid grid--3 vendors" id="vendor-grid"></div>
-    <div class="callout callout--quiet callout--prose">
-      <b>引用提示</b>不要把厂商项目或计划的发布时间当作概念起源（例如「Agent Factory」），也不要把厂商的价值主张写成标准定义。宜写「某厂商将其方案称为……」，而不是「行业已公认……」。
+    <div class="vx" id="vx">
+      <nav class="vx-side" aria-label="九家厂商">
+        <p class="vx-lab">九家 · 官方架构口径</p>
+        <ol class="vx-ix" id="vx-ix"></ol>
+        <div class="vx-lens" role="group" aria-label="阅读方式"><button type="button" data-m="one" aria-pressed="true">逐家阅读</button><button type="button" data-m="two" aria-pressed="false">两家对照</button><button type="button" data-m="judge" aria-pressed="false">只看判断</button></div>
+        <p class="vx-hint" aria-hidden="true"><span>↑ ↓ 逐家</span><span id="vx-pos"></span></p>
+      </nav>
+      <div class="vx-main">
+        <div class="vx-rd" id="vx-rd" aria-live="polite"></div>
+        <ol class="vx-judges" id="vx-judges" hidden></ol>
+      </div>
     </div>
+    <div class="vx-cite"><span class="vx-cite__k" aria-hidden="true"></span><div class="callout callout--quiet callout--prose">
+      <b>引用提示</b>不要把厂商项目或计划的发布时间当作概念起源（例如「Agent Factory」），也不要把厂商的价值主张写成标准定义。宜写「某厂商将其方案称为……」，而不是「行业已公认……」。
+    </div></div>
   </div>
 </section>
 
@@ -581,13 +613,13 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <p class="lede">比较产品时，应逐项记录主营类别、支持能力、开源或商用形态、运行边界、部署模式、扩展接口、已验证版本、成熟度和主要约束。一格一产品的 Landscape 图适合了解概况，<strong>不能作为采购比选依据</strong>。</p>
     </header>
 
-    <div class="scen" id="scen">
+    <div class="scen dx-scen" id="scen">
       <div class="seg seg--scen" role="tablist" aria-label="场景">
         <button role="tab" aria-selected="true" aria-controls="scen-a" id="st-a">A</button>
         <button role="tab" aria-selected="false" aria-controls="scen-b" id="st-b">B</button>
         <button role="tab" aria-selected="false" aria-controls="scen-c" id="st-c">C</button>
       </div>
-      <div class="grid grid--3 scen__panels">
+      <div class="scen__panels dx-panels">
         <article class="scenario" id="scen-a" role="tabpanel" aria-labelledby="st-a">
           <h4>场景 A · 单任务、低风险、有限并发</h4>
           <span class="who">典型：查询、抽取、单据生成、内部问答</span>
@@ -618,26 +650,31 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       </div>
     </div>
 
-    <div class="grid grid--2 bvb">
-      <article class="card">
-        <h3>Build vs Buy：什么该自建</h3>
-        <p>当企业需要<strong>差异化业务决策逻辑、复杂本地系统对接、可审计的自有知识模型、关键工作流规则</strong>时，应考虑自建上层业务适配与 Agent 逻辑。</p>
-        <p>通用模型 Serving、日志、身份、Agent Registry（智能体注册中心）或沙箱，则可在安全、交付模式和 TCO（总拥有成本）允许时采购或复用。</p>
-        <div class="callout"><b>关键判断</b>全自建并不是「自主可控」的唯一解；标准接口、可导出的数据与工件、明确的切换预案，往往更有效。</div>
-      </article>
-      <article class="card">
+    <div class="dx-led">
+      <div class="dx-led__main">
+        <h3 class="dx-led__h">Build vs Buy：什么该自建</h3>
+        <div class="dx-led__cols">
+          <div class="dx-led__c"><p class="dx-led__k">自建</p><p>当企业需要<strong>差异化业务决策逻辑、复杂本地系统对接、可审计的自有知识模型、关键工作流规则</strong>时，应考虑自建上层业务适配与 Agent 逻辑。</p></div>
+          <div class="dx-led__c"><p class="dx-led__k">采购 · 复用</p><p>通用模型 Serving、日志、身份、Agent Registry（智能体注册中心）或沙箱，则可在安全、交付模式和 TCO（总拥有成本）允许时采购或复用。</p></div>
+        </div>
+        <div class="dx-led__judge"><b>关键判断</b><p>全自建并不是「自主可控」的唯一解；标准接口、可导出的数据与工件、明确的切换预案，往往更有效。</p></div>
+      </div>
+      <aside class="dx-note">
         <h3>同一产品往往横跨多个能力域</h3>
         <p>Google ADK 首要属于 Framework，但能实现编排与多 Agent 协作；AWS AgentCore 是可组合的托管服务集合，其 Runtime、Memory、Gateway、Browser（浏览器）、Code Interpreter（代码解释器）、Identity（身份）在功能上分别跨越不同域。</p>
         <p>因此，厂商架构要做<strong>保真映射</strong>而不是强行归层；「成熟度和可用区须在项目部署前重新核验」。</p>
-      </article>
+      </aside>
     </div>
 
-    <div class="formula" id="formula">
+    <div class="formula dx-formula" id="formula">
       <p class="eyebrow"><b>建议指标</b> / 本研究口径，非官方标准</p>
-      <div class="formula__eq">
-        <div class="formula__num"><b>每项成功任务完全成本</b> =（<span class="fterm">模型和推理</span> + <span class="fterm">工具调用</span> + <span class="fterm">Agent 运行</span> + <span class="fterm">数据知识维护</span> + <span class="fterm">人工复核</span> + <span class="fterm">失败重试</span> + <span class="fterm">安全合规</span> + <span class="fterm">运维资源</span> + <span class="fterm">故障和回滚成本</span>）</div>
-        <div class="formula__rule" aria-hidden="true"></div>
-        <div class="formula__den">÷ <span class="fterm fterm--den">满足质量门槛的任务数</span></div>
+      <div class="formula__eq dx-eq">
+        <div class="formula__num dx-eq__lhs"><b>每项成功任务完全成本</b><span class="dx-eq__is">=</span></div>
+        <div class="dx-eq__frac">
+          <div class="dx-eq__top"><span class="dx-t"><i>（</i><span class="fterm" tabindex="0">模型和推理</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">工具调用</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">Agent 运行</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">数据知识维护</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">人工复核</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">失败重试</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">安全合规</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">运维资源</span></span><span class="dx-t"><i>+</i><span class="fterm" tabindex="0">故障和回滚成本</span><i>）</i></span></div>
+          <div class="formula__rule" aria-hidden="true"></div>
+          <div class="formula__den"><span class="dx-sr">÷ </span><span class="fterm fterm--den" tabindex="0">满足质量门槛的任务数</span></div>
+        </div>
       </div>
       <p class="formula__note">指标须定义任务分母、成功标准、异常处理和分摊边界，并区分一次性建设费用与持续运营成本。相同模型、不同 Harness、工具和知识质量会显著改变业务成功率，因此不能只根据百万 Token 单价决定选型。</p>
     </div>
@@ -647,17 +684,24 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
 <!-- ============================== 09 GLOSSARY ============================== -->
 <section class="sec sec--tint" id="glossary" data-chapter="09" aria-labelledby="h-gloss">
   <div class="wrap">
+    <div class="gx-top">
     <header class="sec__head" data-num="09">
       <p class="eyebrow"><span class="eyebrow__n">09</span> 术语表</p>
       <h2 id="h-gloss" class="reveal-title">62 条术语：通俗解释、专业定义与边界</h2>
       <p class="lede">每条术语给出通俗解释、专业定义、<strong>不包括什么</strong>、概念类型、所属能力域、代表实现和证据编号。代表实现不代表赞助关系或治理权。</p>
     </header>
-    <div class="toolbar">
-      <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="gloss-q" placeholder="搜索术语、边界或代表实现…" aria-label="搜索术语表" autocomplete="off"></div>
-      <div class="select"><select id="gloss-group" aria-label="按领域筛选"><option value="">全部领域</option></select></div>
-      <span class="count" id="gloss-count"></span>
+    <div class="gx-distWrap" aria-hidden="true"><div class="gx-dist" id="gx-dist"></div><div class="gx-dist__l"><span id="gx-dist-a"></span><span id="gx-dist-b"></span></div></div>
     </div>
-    <div class="gloss" id="gloss-list"></div>
+    <div class="gx" id="gx">
+      <div class="gx-side">
+        <label class="gx-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="gloss-q" placeholder="搜索术语、边界、实现…" aria-label="搜索术语表" autocomplete="off"><kbd aria-hidden="true">/</kbd></label>
+        <span class="gx-count" id="gloss-count" aria-live="polite"></span>
+        <select id="gloss-group" class="gx-sel" aria-label="按领域筛选" tabindex="-1"><option value="">全部领域</option></select>
+        <ul class="gx-rail" id="gx-rail" aria-label="按领域筛选"></ul>
+      </div>
+      <ul class="gx-list" id="gx-list" aria-label="术语索引"></ul>
+      <div class="gx-paneWrap" id="gx-paneWrap"><div class="gx-pane" id="gx-pane" aria-live="polite"></div></div>
+    </div>
   </div>
 </section>
 
@@ -669,11 +713,15 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
       <h2 id="h-src" class="reveal-title">33 条一手来源</h2>
       <p class="lede">S01–S28 为原始研究资料，S29–S33 为沙箱技术补充资料。产品功能、成熟度和治理状态变化较快，正式采购前应按版本复核。</p>
     </header>
-    <div class="toolbar">
-      <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="src-q" placeholder="搜索来源标题或发布方…" aria-label="搜索一手来源" autocomplete="off"></div>
-      <span class="count" id="src-count"></span>
+    <div class="bib">
+      <aside class="bib__side" aria-label="来源筛选">
+        <p class="count" id="src-count" aria-live="polite"></p>
+        <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="src-q" placeholder="搜索来源标题或发布方…" aria-label="搜索一手来源" autocomplete="off"></div>
+        <figure class="bib__rib"><div class="bib__rib-bars" role="group" aria-label="按月份筛选来源"></div><figcaption class="bib__rib-cap"></figcaption></figure>
+        <div class="bib__pubs"><p class="bib__k bib__pubs-k"></p><ul class="bib__pubs-list" role="group" aria-label="按发布方筛选来源"></ul></div>
+      </aside>
+      <ol class="bib__list" id="src-list"></ol>
     </div>
-    <ol class="src" id="src-list"></ol>
   </div>
 </section>
 
@@ -772,5 +820,16 @@ if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/app.js"></script>
+<script src="assets/js/sec-02.js"></script>
+<script src="assets/js/sec-05.js"></script>
+<script src="assets/js/sec-10.js"></script>
+<script src="assets/js/sec-04.js"></script>
+<script src="assets/js/sec-thesis.js"></script><!--w2js-->
+<script src="assets/js/sec-09.js"></script>
+<script src="assets/js/sec-07.js"></script>
+<script src="assets/js/sec-03.js"></script>
+<script src="assets/js/sec-08.js"></script>
+<script src="assets/js/sec-06.js"></script>
+<script src="assets/js/sec-idx.js"></script>
 </body>
 </html>

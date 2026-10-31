@@ -1,0 +1,42 @@
+/* 06 Boundaries — four diptych rows, the ≠ as the one move (SECTIONS_SPEC §06; P2 P3 P6 P8) */
+.bx{border-top:3px double var(--rule-2)}
+.bx-r{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 240px;grid-template-areas:"n n n" "h h h" "a b note";gap:0 48px;padding:36px 0 44px;border-bottom:3px double var(--rule-2)}
+.bx-r:last-child{border-bottom:0}
+.bx-n{grid-area:n;font:500 11px var(--f-mono);letter-spacing:.14em;color:var(--ink-4)}
+#boundaries .bx-r .pair__h{grid-area:h;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 240px;column-gap:48px;align-items:baseline;margin:14px 0 28px!important;
+  font:400 54px/1.04 var(--f-disp)!important;letter-spacing:-.025em;color:var(--ink)}
+#boundaries .bx-r .pair__a,#boundaries .bx-r .pair__b{grid-row:1;transform:none;white-space:nowrap;transition:opacity var(--t-ui-2) var(--e-out-quint)}
+#boundaries .bx-r .pair__a{grid-column:1}
+#boundaries .bx-r .pair__b{grid-column:2}
+#boundaries .bx-r .pair__ne{grid-column:2;grid-row:1;justify-self:start;display:inline;width:auto;height:auto;margin-left:-38px;border-radius:0;box-shadow:none;background:none;transform:none;
+  font:300 52px/1 var(--f-disp);color:var(--ochre)}
+#boundaries .bx-r:hover .pair__ne{transform:none;background:none}
+.bx-cols{display:contents}
+.bx-s{align-self:start;margin:0;max-width:30em;font-size:17px;line-height:1.85;color:var(--ink-2);border-radius:4px;transition:opacity var(--t-ui-2) var(--e-out-quint)}
+.bx-s:first-child{grid-area:a}
+.bx-s:last-child{grid-area:b}
+.bx-s b{color:var(--ink);font-weight:500}
+.bx-s.is-q{opacity:.4}
+.bx-r.is-a .pair__b,.bx-r.is-b .pair__a{opacity:.4}
+.bx-s:focus{outline:none}
+.bx-s:focus-visible{outline:1px solid var(--focus);outline-offset:8px;border-radius:2px}
+.bx-note{grid-area:note;padding-left:20px;box-shadow:inset 1px 0 0 var(--rule)}
+.bx-note p{margin:0;font-size:13px;line-height:1.8;color:var(--ink-3)}
+.bx-note .card__meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.bx-note .chip{font-size:11.5px}
+@media (prefers-reduced-motion: reduce){.bx-s,.pair__a,.pair__b{transition:none}}
+@media (max-width: 1100px){
+  .bx-r{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"n n" "h h" "a b" "note note";gap:0 36px}
+  #boundaries .bx-r .pair__h{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:36px;font-size:40px!important}
+  #boundaries .bx-r .pair__ne{margin-left:-30px;font-size:34px}
+  .bx-note{margin-top:28px;max-width:40em;padding-left:0;box-shadow:none}
+}
+@media (max-width: 760px){
+  .bx-r{grid-template-columns:minmax(0,1fr);grid-template-areas:"n" "h" "a" "b" "note";padding:28px 0 32px}
+  #boundaries .bx-r .pair__h{display:block;font-size:34px!important;margin:10px 0 20px!important}
+  #boundaries .bx-r .pair__a,#boundaries .bx-r .pair__b{display:block;white-space:normal}
+  #boundaries .bx-r .pair__ne{display:block;margin:2px 0;font-size:30px}
+  .bx-s{font-size:15.5px}
+  .bx-s:last-child{margin-top:16px;padding-top:16px;border-top:1px dashed var(--rule-2);border-radius:0}
+  .bx-note{margin-top:22px}
+}

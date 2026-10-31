@@ -381,6 +381,7 @@ function openTerm(id, flash) {
 function renderSources(q) {
   var host = $('#src-list'); if (!host) return;
   q = q || '';
+  if (window.EAI_SRC_RENDER) { window.EAI_SRC_RENDER(q); return; } /* 10 ledger: assets/js/sec-10.js */
   var list = SRC.filter(function (s) { return !q || [s.id, s.title, s.publisher, s.date].join(' ').toLowerCase().indexOf(q) !== -1; });
   host.innerHTML = list.map(function (s) {
     return '<li id="src-' + s.id + '"><a href="' + esc(s.url) + '" target="_blank" rel="noopener"><span class="id">' + esc(s.id) + '</span><span class="t">' + hl(s.title, q) + '</span><span class="p">' + hl(s.publisher, q) + '</span><span class="d">' + esc(s.date) + '</span></a></li>';
@@ -470,7 +471,7 @@ function goHash(hash, push) {
   if (id === 'top') { t = doc.body; scrollToEl($('.hero')); }
   else if (id.indexOf('term-') === 0) { t = openTerm(id, true); scrollToEl(t); }
   else if (id.indexOf('src-') === 0) {
-    if (!doc.getElementById(id)) { $('#src-q').value = ''; renderSources(''); }
+    if (!doc.getElementById(id)) { $('#src-q').value = ''; if (window.EAI_SRC_RENDER && window.EAI_SRC_RENDER.reveal) window.EAI_SRC_RENDER.reveal(); else renderSources(''); }
     t = doc.getElementById(id); if (t) { scrollToEl(t); t.classList.remove('is-flash'); void t.offsetWidth; t.classList.add('is-flash'); setTimeout(function () { t.classList.remove('is-flash'); }, 1600); }
   } else { t = doc.getElementById(id); scrollToEl(t); }
   if (t && push !== false) { try { history.pushState(null, '', '#' + id); } catch (e) {} }
@@ -486,7 +487,7 @@ doc.addEventListener('click', function (e) {
   if (a.closest('#drawer')) closeOverlay();
   goHash(h);
 });
-addEventListener('popstate', function () { if (location.hash) goHash(location.hash, false); });
+addEventListener('popstate', function () { if (!location.hash) return; /* r6: sections may seat a target first (e.g. the glossary scrolls its index) so the page measure is exact */ (window.EAI_PRE_HASH || []).forEach(function (f) { try { f(location.hash); } catch (e) {} }); goHash(location.hash, false); });
 
 /* ---------- theme (View Transition crossfade) ---------- */
 function initTheme() {
@@ -495,7 +496,11 @@ function initTheme() {
   sync();
   b.addEventListener('click', function () {
     var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    var apply = function () { root.setAttribute('data-theme', next); try { localStorage.setItem('eai-theme', next); } catch (e) {} sync(); };
+    var apply = function () {
+      root.setAttribute('data-theme', next); try { localStorage.setItem('eai-theme', next); } catch (e) {}
+      var m = $('meta[name="theme-color"]'); if (m) m.content = next === 'dark' ? '#11100d' : '#f3eee3';
+      m = $('meta[name="color-scheme"]'); if (m) m.content = next; sync();
+    };
     if (doc.startViewTransition && !RM) doc.startViewTransition(apply); else apply();
   });
 }
@@ -1163,44 +1168,76 @@ function initHeroStack() {
 function initFullStack() {
   var host = $('#full-stack'), panel = $('#stack-panel'); if (!host) return;
   var st = buildStack(host, true), peel = $('#stack-peel'), n = st.layers.length;
-  var REST = { rx: 54, rz: -34 }, FOCUS = { rx: 12, rz: 0 };
+  var REST = { rx: 54, rz: -34 }, PICK = { rx: 38, rz: -24 };
   var focus = -1, hot = -1, sel = null;
   function gapFromSlider() { return lerp(6, 92, (+peel.value) / 100); }
-  /* per-sheet springs: dz moves a sheet out of / back into the stack, la is its opacity */
-  var L = st.layers.map(function (l) {
-    var o = {};
-    function put() { l.style.setProperty('--dz', (o.dz.x + o.lift.x * 22).toFixed(1) + 'px'); l.style.setProperty('--la', o.la.x.toFixed(3)); }
-    o.dz = new Spring(0, SPR.def, put); o.lift = new Spring(0, SPR.snappy, put); o.la = new Spring(1, SPR.def, put);
+  /* click-to-top: order[] lists sheets top-first. Each sheet has a fractional slot spring (sl); dz = (index − slot) × gap,
+     so a reorder is pure translateZ. A picked sheet also lifts (up) and slides out along its own plane (dx), then settles on top.
+     Springs are critically damped (c = 2√k): ~500 ms settle, no overshoot. Transform/opacity only, nothing that lays out per frame. */
+  var SPR_SHEET = [180, 26.8], SPR_OUT = [300, 34.6];
+  var order = st.layers.map(function (l, i) { return i; });
+  var L = st.layers.map(function (l, i) {
+    var o = { tm: [] };
+    o.put = function () {
+      l.style.setProperty('--dz', ((i - o.sl.x) * st.S.gap + o.up.x + o.lift.x * 22).toFixed(1) + 'px');
+      l.style.setProperty('--dx', o.dx.x.toFixed(1) + 'px');
+    };
+    o.sl = new Spring(i, SPR_SHEET, o.put); o.up = new Spring(0, SPR_SHEET, o.put); o.dx = new Spring(0, SPR_SHEET, o.put);
+    o.lift = new Spring(0, SPR.snappy, o.put);
     return o;
   });
+  /* the gap spring drives --z; keep every sheet's slot offset in step with it */
+  var gapOn = st.sp.gap.on; st.sp.gap.on = function (v) { gapOn(v); L.forEach(function (o) { o.put(); }); };
   var scS = new Spring(1, SPR.def, function (v) { st.S.sc = v; st.apply(); });
   function fitSc(f) {
     var w = host.clientWidth, h = host.clientHeight || 560, mob = w < 560;
     return f ? clamp(Math.min((w - (mob ? 16 : 56)) / 540, (h - 40) / 330), 0.4, 1.5)
              : clamp(Math.min((w - (mob ? 24 : 150)) / 640, h / 640), 0.42, 0.98);
   }
-  function fit(snap) { scS.to(fitSc(focus >= 0), snap === true); }
+  function fit(snap) { scS.to(fitSc(false), snap === true); }
   fit(true); addEventListener('resize', function () { fit(true); });
   if ('ResizeObserver' in window) new ResizeObserver(function () { fit(true); }).observe(host);
 
-  /* layout: overview = the exploded stack; focus = the chosen sheet comes forward face-on, the rest fall back behind it */
+  /* layout: the stack stays in place; the chosen sheet is on top (order[0]), the rest keep their relative order beneath it */
   function layout(snap) {
-    var gap = st.sp.gap.t, mid = (n - 1) / 2;
+    var top = order[0];
     L.forEach(function (o, i) {
-      var z = (n - 1 - i - mid) * gap, r = 0;
-      if (focus < 0) { o.dz.to(0, snap); o.la.to(1, snap); }
-      else if (i === focus) { o.dz.to(60 - z, snap); o.la.to(1, snap); }
-      else { r = i < focus ? i : i - 1; o.dz.to(-70 - r * 16 - z, snap); o.la.to(0.1, snap); }
-      o.lift.to(focus < 0 && i === hot ? 1 : 0, snap);
+      if (snap) { o.tm.forEach(clearTimeout); o.tm = []; o.sl.to(order.indexOf(i), true); o.up.to(0, true); o.dx.to(0, true); }
+      var h = i === hot && i !== focus;
+      o.lift.to(h ? 1 : 0, snap);
       st.layers[i].classList.toggle('is-focus', i === focus);
-      st.layers[i].classList.toggle('is-back', focus >= 0 && i !== focus);
-      st.layers[i].classList.toggle('is-hot', focus < 0 && i === hot);
-      st.layers[i].classList.toggle('is-dim', focus < 0 && hot >= 0 && i !== hot);
+      st.layers[i].classList.toggle('is-top', i === top);
+      st.layers[i].classList.toggle('is-hot', h);
+      st.layers[i].classList.toggle('is-dim', hot >= 0 && hot !== focus && i !== hot);
     });
-    var t = focus >= 0 ? FOCUS : REST;
-    st.sp.rx.to(t.rx, snap); st.sp.rz.to(t.rz, snap);
-    host.classList.toggle('is-focus', focus >= 0);
+    host.classList.toggle('is-picked', focus >= 0);
     fit(snap);
+  }
+  /* bring sheet i to the top in place (i < 0: back to the natural 01–05 order) */
+  function reorder(i, snap) {
+    var prev = order.slice(), next = i < 0 ? prev.slice().sort(function (a, b) { return a - b; }) : [i].concat(prev.filter(function (j) { return j !== i; }));
+    order = next;
+    var moved = next.some(function (j, s) { return prev[s] !== j; });
+    if (snap || !moved) { layout(snap); return; }
+    if (RM) { /* reduced motion: instant reorder, short fade */
+      layout(true);
+      st.world.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
+      return;
+    }
+    var k = 0, wW = st.world.offsetWidth || 520;
+    next.forEach(function (j, s) {
+      var o = L[j]; o.tm.forEach(clearTimeout); o.tm = [];
+      if (i >= 0 && j === i && prev.indexOf(j) !== 0) {
+        /* lift and slide out along the sheet's own plane, rise above the stack, then settle on top */
+        o.dx.k = SPR_OUT[0]; o.dx.c = SPR_OUT[1];
+        o.dx.to(-0.46 * wW); o.up.to(st.S.gap * 0.9 + 26); o.sl.to(0);
+        o.tm.push(setTimeout(function () { o.dx.k = SPR_SHEET[0]; o.dx.c = SPR_SHEET[1]; o.dx.to(0); o.up.to(0); }, 190));
+      } else if (prev.indexOf(j) !== s) {
+        /* the others step down (or back) beneath it, top-most first, with a slight stagger */
+        o.tm.push(setTimeout(function () { o.sl.to(s); }, 70 + 45 * k++));
+      }
+    });
+    layout(false);
   }
   function setFocus(i, opt) {
     opt = opt || {};
@@ -1208,14 +1245,15 @@ function initFullStack() {
     $$('.tile', host).forEach(function (x) { x.classList.remove('is-sel'); x.setAttribute('aria-pressed', 'false'); });
     host.classList.remove('has-sel');
     $$('.tile', host).forEach(function (x) { x.tabIndex = focus >= 0 && x.closest('.layer') === st.layers[focus] ? 0 : -1; });
-    layout(opt.snap);
+    reorder(focus, opt.snap);
+    var t = focus >= 0 ? PICK : REST; if (!opt.keepPose) { st.sp.rx.to(t.rx, opt.snap); st.sp.rz.to(t.rz, opt.snap); }
     syncTabs(opt.focusTab);
     renderPanel();
     if (opt.sound !== false && window.EAI_SOUND) window.EAI_SOUND('tick');
   }
   st.sp.gap.to(0, true);
   whenNear(host, function () { setTimeout(function () { st.sp.gap.to(gapFromSlider()); layout(); }, RM ? 0 : 120); }, '-15% 0px');
-  peel.addEventListener('input', function () { st.sp.gap.to(gapFromSlider()); if (focus >= 0) setFocus(null, { sound: false }); else layout(); });
+  peel.addEventListener('input', function () { st.sp.gap.to(gapFromSlider()); });
   $('#stack-reset').addEventListener('click', function () { peel.value = 62; st.sp.gap.to(gapFromSlider()); setFocus(innerWidth < 560 ? 0 : null, { sound: false }); });
 
   /* tabs: 整体 + one per sheet; arrows / Home / End move between them */
@@ -1246,11 +1284,11 @@ function initFullStack() {
   host.addEventListener('pointerdown', function (e) { if (e.button) return; down = { x: e.clientX, y: e.clientY, rz: st.sp.rz.t, rx: st.sp.rx.t, id: e.pointerId }; dragging = false; lastX = e.clientX; lastT = performance.now(); vx = 0; });
   host.addEventListener('pointermove', function (e) {
     if (!down || e.pointerId !== down.id) {
-      if (e.pointerType === 'mouse' && focus < 0 && !down) { var l = e.target.closest && e.target.closest('.layer'); var h = l ? st.layers.indexOf(l) : -1; if (h !== hot) { hot = h; layout(); } }
+      if (e.pointerType === 'mouse' && !down) { var l = e.target.closest && e.target.closest('.layer'); var h = l ? st.layers.indexOf(l) : -1; if (h !== hot) { hot = h; layout(); } }
       return;
     }
     var dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!dragging && Math.hypot(dx, dy) > 6) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); if (focus >= 0) { setFocus(null, { sound: false }); down.rz = REST.rz; down.rx = REST.rx; } }
+    if (!dragging && Math.hypot(dx, dy) > 6) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); }
     if (!dragging) return;
     var now = performance.now(); vx = (e.clientX - lastX) / Math.max(1, now - lastT); lastX = e.clientX; lastT = now;
     st.sp.rz.to(clamp(down.rz + dx * 0.28, -80, 10)); st.sp.rx.to(clamp(down.rx - dy * 0.22, 18, 70));
@@ -1271,7 +1309,7 @@ function initFullStack() {
   });
   host.addEventListener('keydown', function (e) {
     var step = { ArrowLeft: [0, -6], ArrowRight: [0, 6], ArrowUp: [-4, 0], ArrowDown: [4, 0] }[e.key];
-    if (step && e.shiftKey && focus < 0) { e.preventDefault(); st.sp.rx.to(clamp(st.sp.rx.t + step[0], 18, 70)); st.sp.rz.to(clamp(st.sp.rz.t + step[1], -80, 10)); return; }
+    if (step && e.shiftKey) { e.preventDefault(); st.sp.rx.to(clamp(st.sp.rx.t + step[0], 18, 70)); st.sp.rz.to(clamp(st.sp.rz.t + step[1], -80, 10)); return; }
     if (!e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target === host) { e.preventDefault(); setFocus(clamp(focus + (e.key === 'ArrowDown' ? 1 : -1), 0, n - 1)); return; }
     if (e.key === 'Escape') { if (sel) selectTile(null); else if (focus >= 0) setFocus(null); }
   });
@@ -1318,13 +1356,13 @@ function initFullStack() {
     sel = t || null;
     $$('.tile', host).forEach(function (x) { var on = x === t; x.classList.toggle('is-sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     host.classList.toggle('has-sel', !!t);
-    if (t) { var li = st.layers.indexOf(t.closest('.layer')); if (li !== focus) { focus = li; layout(); syncTabs(); } }
+    if (t) { var li = st.layers.indexOf(t.closest('.layer')); if (li !== focus) { focus = li; reorder(li); syncTabs(); } }
     renderPanel();
   }
   window.EAI_STACK_FOCUS = function (i) { setFocus(i, { sound: false }); };
   var pend = window.EAI_STACK_PENDING; delete window.EAI_STACK_PENDING;
   setFocus(pend != null ? pend : innerWidth < 560 ? 0 : null, { snap: true, sound: false });
-  host.appendChild(el('p', { 'class': 'stack-hint', 'aria-hidden': 'true' }, '<span>点击一层 · 正面展开</span><span>↑↓ · 切换层</span><span>拖动 · 旋转</span>'));
+  host.appendChild(el('p', { 'class': 'stack-hint', 'aria-hidden': 'true' }, '<span>点击一层 · 移到最上</span><span>↑↓ · 切换层</span><span>拖动 · 旋转</span>'));
 
   var vt = $('#viz-stack .seg');
   tabs(vt, function (b) {
@@ -1342,7 +1380,8 @@ function mIdx(d) { var p = d.split('-'); return (+p[0] - 2024) * 12 + (+(p[1] ||
 function mLabel(m) { var t = m + 9, y = 2024 + Math.floor(t / 12), mo = t % 12 + 1; return y + '-' + (mo < 10 ? '0' : '') + mo; }
 function initTimeline() {
   var host = $('#tl'), detail = $('#tl-detail'), play = $('#tl-play'); if (!host) return;
-  var W = 1100, X0 = 138, X1 = W - 160, M0 = 0, M1 = 25, ROW = 24, PADT = 40;
+  /* r6: the track takes the host's real width (measured once) so labels stay 1:1 at any column width */
+  var hw = host.clientWidth, W = hw > 200 ? Math.max(720, Math.round(hw - 36)) : 1100, X0 = 138, X1 = W - 190, M0 = 0, M1 = 25, ROW = 24, PADT = 40;
   var x = function (m) { return X0 + (m - M0) / (M1 - M0) * (X1 - X0); };
   var EV = D.events.map(function (e, i) { return Object.assign({ i: i, m: mIdx(e.d) }, e); });
   /* greedy row packing per lane so labels never overlap */
@@ -1394,6 +1433,28 @@ function initTimeline() {
     gEv.appendChild(g); evEls.push(g);
   });
   svg.appendChild(gEv);
+  /* r6: hovering a maturity token in 01's ledger lights the events its body owns (event.ref anchor:<BODY>, narrowed by status when one matches) */
+  var axRoot = $('#ax');
+  if (axRoot) {
+    var hlFor = function (n) {
+      var row = n && n.closest('.ax-r'), key = row ? row.id.replace('anchor-', '').toUpperCase() : '', tok = n && n.closest('.status'), st = tok ? (tok.className.match(/status--(\w+)/) || [])[1] : '';
+      var m = key ? EV.filter(function (e) { return e.ref === 'anchor:' + key; }) : [], ms = m.filter(function (e) { return st && e.status === st; });
+      if (ms.length) m = ms;
+      evEls.forEach(function (g, i) { g.classList.toggle('is-hl', m.indexOf(EV[i]) >= 0); });
+      svg.classList.toggle('has-hl', m.length > 0);
+      $$('.ax-cell .status', axRoot).forEach(function (t) { t.classList.toggle('is-hl', t === tok); });
+    };
+    $$('.ax-cell .status', axRoot).forEach(function (t) { t.tabIndex = 0; t.setAttribute('role', 'button'); t.setAttribute('aria-label', t.textContent + '：在下方时间轴中标出相关事件'); });
+    axRoot.addEventListener('pointerover', function (e) { var t = e.target.closest('.ax-cell .status, .ax-name'); hlFor(t); });
+    axRoot.addEventListener('pointerleave', function () { hlFor(null); });
+    axRoot.addEventListener('focusin', function (e) { if (e.target.closest('.ax-cell .status')) hlFor(e.target); });
+    axRoot.addEventListener('focusout', function () { hlFor(null); });
+    axRoot.addEventListener('keydown', function (e) {
+      var t = e.target.closest('.ax-cell .status'); if (!t || (e.key !== 'Enter' && e.key !== ' ')) return; e.preventDefault();
+      var hit = EV.filter(function (ev, i) { return evEls[i].classList.contains('is-hl'); }).sort(function (a, b) { return b.m - a.m; })[0];
+      if (hit) { setM(hit.m, { keepSel: true }); show(hit, true); }
+    });
+  }
   var cur = sv('g', { 'class': 'cur' });
   var curLine = sv('line', { 'class': 'cur-line', x1: 0, x2: 0, y1: 26, y2: H - 4 });
   var capR = sv('rect', { 'class': 'cur-cap', x: -30, y: 22, width: 60, height: 20, rx: 10 });
@@ -1464,8 +1525,8 @@ function initTimeline() {
   });
   /* playback: a steady sweep, sine in/out, one pass */
   var pl = null;
-  function stopPlay() { if (pl) { pl.stop = true; pl = null; } play.setAttribute('aria-pressed', 'false'); $('span', play).textContent = '播放'; }
-  play.addEventListener('click', function () {
+  function stopPlay() { if (pl) { pl.stop = true; pl = null; } if (play) { play.setAttribute('aria-pressed', 'false'); $('span', play).textContent = '播放'; } }
+  if (play) play.addEventListener('click', function () {
     if (pl) { stopPlay(); return; }
     play.setAttribute('aria-pressed', 'true'); $('span', play).textContent = '暂停';
     var from = cm >= maxM ? minM : cm; setM(from, { snap: true });
@@ -1473,12 +1534,9 @@ function initTimeline() {
     pl = tween((maxM - from) * 320, function (p) { var m = lerp(from, maxM, p); CM.to(m, true); var r = Math.round(m); if (r !== cm) setM(r, { snap: true }); }, EASE.inOutSine, function () { pl = null; stopPlay(); });
   });
   setM(maxM, { snap: true }); show(EV.filter(function (e) { return e.m === maxM; }).slice(-1)[0], false);
-  /* first view: sweep the cursor once across the record */
-  whenNear(host, function () {
-    if (RM) return;
-    setM(minM, { snap: true });
-    setTimeout(function () { pl = tween(2400, function (p) { var m = lerp(minM, maxM, p); CM.to(m, true); var r = Math.round(m); if (r !== cm) setM(r, { snap: true }); }, EASE.inOutSine, function () { pl = null; }); }, 250);
-  }, '-20% 0px');
+  /* r6: no autoplay sweep (P16) — the reader scrubs */
+  /* narrow screens: the track scrolls sideways — open on the cursor's end (the latest record) */
+  whenNear(host, function () { if (host.scrollWidth > host.clientWidth + 4) host.scrollLeft = host.scrollWidth; }, '0px');
 }
 
 /* =====================================================================
@@ -1717,7 +1775,9 @@ function initMap() {
     if (loading) return loading;
     var b = assetBase();
     mhost.classList.add('is-loading');
-    loading = loadScript(b + 'machine-assets.js').catch(function () {}).then(function () { return loadScript(b + 'map3d.js'); }).then(function () {
+    /* fetch the two 3D files in parallel (mount reads the assets only at mount time), then mount in an idle slice of its own */
+    var idle = function () { return new Promise(function (r) { if (window.requestIdleCallback) requestIdleCallback(function () { r(); }, { timeout: 1500 }); else setTimeout(r, 40); }); };
+    loading = Promise.all([loadScript(b + 'machine-assets.js').catch(function () {}), loadScript(b + 'map3d.js')]).then(idle).then(function () {
       var hits = {};
       names.forEach(function (n) { hits[n] = vendorMentions(n).map(function (g) { return g.term; }); });
       mx = window.EAI_MACHINE.mount(mhost, {
@@ -1973,6 +2033,15 @@ function boot() {
   whenNear($('#viz-timeline'), initTimeline, '400px 0px');
   whenNear($('#viz-map'), function () { if (!mapApi) initMap(); }, '400px 0px');
   whenNear($('#viz-flow'), initFlow, '400px 0px');
+  /* desktop opens the 3D machine by default: build it ahead, in idle time, so the first scroll into the map chapter does not
+     stall. Not during the opening (it would compete with the hero for the GPU): only once the reader has scrolled and at
+     least 3 s have passed since load, whichever is later; the machine then links its shaders in idle slices */
+  if (FINE && innerWidth >= 900 && 'requestIdleCallback' in window) {
+    var preT = 0, preS = false, preGo = function () { if (preT !== 1 || !preS) return; preT = 2; requestIdleCallback(function () { if (!mapApi) initMap(); }, { timeout: 4000 }); };
+    var preLoad = function () { setTimeout(function () { preT = 1; preGo(); }, 3000); };
+    addEventListener('scroll', function () { preS = true; preGo(); }, { passive: true, once: true });
+    if (doc.readyState === 'complete') preLoad(); else addEventListener('load', preLoad, { once: true });
+  }
   /* entrance once fonts are in (never wait more than 700 ms) */
   var done = false, go = function () { if (done) return; done = true; requestAnimationFrame(function () { requestAnimationFrame(ready); }); };
   if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(go); setTimeout(go, 700);

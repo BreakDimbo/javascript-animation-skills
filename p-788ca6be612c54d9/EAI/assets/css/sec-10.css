@@ -1,0 +1,90 @@
+/* 10 Sources — bibliography ledger + date ribbon. Tokens read-only from app.css. */
+.bib{display:grid;grid-template-columns:282px minmax(0,1fr);column-gap:48px;align-items:start}
+.bib__side{position:sticky;top:calc(var(--bar-h,60px) + 24px);display:flex;flex-direction:column;gap:32px}
+@media (max-height:860px){.bib__side{position:static}}
+.bib__k{margin:0 0 12px;font:500 11px/1.4 var(--f-mono);letter-spacing:.14em;color:var(--ink-4)}
+#sources .bib .count{display:flex;align-items:baseline;gap:4px;margin:0;padding:0;background:none;box-shadow:none;font:500 11px/1 var(--f-mono);letter-spacing:.08em;color:var(--ink-4)}
+#sources .bib .count b{font:400 72px/.9 var(--f-disp);letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums lining-nums}
+.bib__side .field{width:100%;max-width:none}
+
+/* date ribbon: one bar per month, height = count (computed) */
+.bib__rib{margin:0}
+.bib__rib-bars{display:grid;grid-template-columns:repeat(var(--n,23),minmax(0,1fr));gap:3px;height:64px;align-items:end;border-bottom:1px solid var(--rule-2)}
+.bib__bar{all:unset;box-sizing:border-box;position:relative;height:100%;display:flex;align-items:flex-end;cursor:pointer}
+.bib__bar i{display:block;width:100%;height:100%;background:var(--ink-4);transform:scaleY(var(--h,0));transform-origin:50% 100%;transition:background-color 180ms var(--e-out-cubic),transform 700ms var(--e-out-expo) calc(var(--i,0)*14ms)}
+.bib__bar--0{cursor:default}
+.bib__bar--0 i{height:1px;transform:none;background:var(--rule-2)}
+.bib__bar:hover i{background:var(--ink-2)}
+.bib__bar[aria-pressed="true"] i{background:var(--ochre)}
+.bib__side.has-mon .bib__bar:not([aria-pressed="true"]):not(.bib__bar--0) i{background:color-mix(in oklab,var(--ink-4) 55%,transparent)}
+.bib__bar:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:1px}
+.bib__side.is-pre .bib__bar i{transform:scaleY(0)}
+.bib__rib-cap{display:flex;justify-content:space-between;margin:8px 0 0;font:500 11px/1.4 var(--f-mono);letter-spacing:.06em;color:var(--ink-4);font-variant-numeric:tabular-nums}
+.bib__rib-cap.is-one{justify-content:flex-start}
+.bib__rib-cap b{font-weight:500;color:var(--ink)}
+
+/* publisher facets: name · count, 1 px proportional bar */
+.bib__pubs-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.bib__pubs-list button{all:unset;box-sizing:border-box;cursor:pointer;position:relative;display:flex;justify-content:space-between;align-items:center;width:100%;min-height:26px;padding:3px 0;font-size:13px;line-height:1.4;color:var(--ink-3);transition:color 180ms var(--e-out-cubic)}
+.bib__pubs-list .c{font:500 11px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink-4)}
+.bib__pubs-list i{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--rule-2);transform:scaleX(var(--w,0));transform-origin:0 50%;transition:background-color 180ms}
+.bib__pubs-list button:hover{color:var(--ink)}
+.bib__pubs-list button:hover i{background:var(--ink-3)}
+.bib__pubs-list button[aria-pressed="true"]{color:var(--ink)}
+.bib__pubs-list button[aria-pressed="true"] .c{color:var(--ochre-t)}
+.bib__pubs-list button[aria-pressed="true"] i{background:var(--ochre);height:2px}
+.bib__side.has-pub .bib__pubs-list button:not([aria-pressed="true"]){color:var(--ink-4)}
+.bib__pubs-list button:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.bib__pubs-list button:active{transform:translateX(1px)}
+
+/* the ledger */
+.bib__list{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule-2)}
+.bib-r{display:grid;grid-template-columns:44px minmax(0,1fr) 200px 88px;column-gap:16px;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--rule);position:relative;scroll-margin-top:96px;transition:background-color 180ms var(--e-out-cubic)}
+.bib-r::before{content:"";position:absolute;left:-16px;top:0;bottom:0;width:2px;background:var(--ochre);opacity:0;transition:opacity 900ms var(--e-out-cubic)}
+.bib-r.is-flash::before{opacity:1;transition-duration:260ms}
+.bib-r.is-flash{background:rgba(215,168,74,.07)}
+.bib-r:hover{background:rgba(237,230,214,.035)}
+html[data-theme="light"] .bib-r:hover{background:rgba(23,21,15,.03)}
+.bib-r--brk{border-top:1px solid var(--rule-2);margin-top:3px;box-shadow:0 -4px 0 -3px var(--rule-2)}
+.bib-r .id{font:500 12px/1 var(--f-mono);letter-spacing:.04em;color:var(--ink-4);font-variant-numeric:tabular-nums;transition:color 180ms}
+.bib-r:hover .id{color:var(--ochre-t)}
+.bib-r .t{font-size:15px;line-height:1.6;color:var(--ink);text-decoration:none;min-width:0}
+.bib-r .t span{background:linear-gradient(currentColor,currentColor) 0 100%/0 1px no-repeat;transition:background-size 260ms var(--e-out-cubic)}
+.bib-r .t:hover span{background-size:100% 1px}
+.bib-r .t i{font-style:normal;margin-left:6px;color:var(--ink-4);display:inline-block;opacity:0;transform:translate3d(-3px,2px,0);transition:opacity 180ms,transform 220ms var(--e-out-cubic)}
+.bib-r .t:hover i,.bib-r .t:focus-visible i{opacity:1;transform:none}
+.bib-r .t:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.bib-r .p{font-size:13px;line-height:1.5;color:var(--ink-3)}
+.bib-r .m{display:flex;align-items:baseline;gap:0;min-width:0;white-space:nowrap}
+.bib-r .m .p{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bib-r .sep{color:var(--ink-4);padding:0 6px;font-size:12px}
+.bib-r .d{font:500 11.5px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink-3);white-space:nowrap}
+.bib-r .bib-c{justify-self:end}
+.bib-r mark{background:var(--hl);color:inherit;border-radius:2px}
+.bib-c{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:baseline;gap:6px;font:500 11px/1.4 var(--f-mono);color:var(--ink-4);white-space:nowrap;transition:color 180ms}
+.bib-c b{display:none}
+.bib-c:hover{color:var(--ink)}
+.bib-c:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.bib-c:active{color:var(--ochre-t)}
+.bib-c--0{cursor:default;color:var(--rule-2)}
+.bib-empty{list-style:none;margin:24px 0}
+
+@media (prefers-reduced-motion:reduce){.bib__bar i,.bib-r::before,.bib-r .t i{transition:none!important}.bib__side.is-pre .bib__bar i{transform:scaleY(var(--h,0))}}
+@media (max-width:1100px){.bib{grid-template-columns:240px minmax(0,1fr);column-gap:32px}.bib-r{grid-template-columns:44px minmax(0,1fr) 180px 88px}}
+/* 390: side stacks above; publishers become a horizontal strip; rows two lines */
+@media (max-width:760px){
+  .bib{grid-template-columns:1fr;row-gap:32px}
+  .bib__side{position:static;gap:24px}
+  #sources .bib .count b{font-size:56px}
+  .bib__rib-bars{height:40px}
+  .bib__pubs-list{display:flex;gap:8px;overflow-x:auto;border:0;padding-bottom:6px;scrollbar-width:none}
+  .bib__pubs-list::-webkit-scrollbar{display:none}
+  .bib__pubs-list li{flex:none}
+  .bib__pubs-list button{width:auto;gap:8px;min-height:44px;padding:0 12px;border-radius:22px;box-shadow:inset 0 0 0 1px var(--rule-2)}
+  .bib__pubs-list button[aria-pressed="true"]{box-shadow:inset 0 0 0 1px var(--ochre)}
+  .bib__pubs-list i{display:none}
+  .bib-r{grid-template-columns:44px minmax(0,1fr) auto;row-gap:6px;padding:14px 0}
+  .bib-r .m{grid-column:2;grid-row:2}
+  .bib-r .bib-c{grid-column:3;grid-row:1 / span 2;align-self:center;justify-self:end;min-height:32px}
+  .bib-r::before{left:-12px}
+}

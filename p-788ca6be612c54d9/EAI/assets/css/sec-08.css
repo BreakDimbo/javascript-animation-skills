@@ -1,0 +1,89 @@
+/* 08 Decision — stepper + ledger + dark formula (SECTIONS_SPEC §08; P3 P5 P6 P10 P12) */
+/* stepper: three stops on one rule; one panel morphs beneath */
+#decision .scen.is-tabs .seg--scen{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 32px;width:100%;margin:8px 0 0;padding:0;border-radius:0;background:none;box-shadow:none}
+#decision .seg--scen .seg__ind{display:none}
+.dx-rule{position:absolute;left:0;right:0;top:15px;height:1px;background:var(--rule-2);pointer-events:none}
+.dx-rule i{position:absolute;inset:0;background:var(--ochre);transform-origin:left;transform:scaleX(calc((var(--step,0) * 2 + 1) / 6));transition:transform 420ms var(--e-out-quint)}
+#decision .seg--scen .dx-st{position:relative;z-index:1;display:grid;justify-items:start;gap:16px;height:auto;padding:0 0 4px;border-radius:0;text-align:left;background:none;cursor:pointer;color:var(--ink-3)}
+.dx-st__l{display:grid;place-items:center;width:31px;height:31px;border-radius:50%;background:var(--bg);box-shadow:inset 0 0 0 1px var(--rule-2);
+  font:500 12px/1 var(--f-mono);color:var(--ink-4);transition:box-shadow var(--t-ui),background-color var(--t-ui),color var(--t-ui),transform var(--t-ui) var(--e-out-quint)}
+.dx-st__t{display:block;max-width:15em;font:400 21px/1.4 var(--f-disp);color:var(--ink-3);text-wrap:balance;transition:color var(--t-ui)}
+#decision .dx-st:hover .dx-st__t{color:var(--ink-2)}
+#decision .dx-st:hover .dx-st__l{box-shadow:inset 0 0 0 1px var(--ink-3);color:var(--ink-2)}
+#decision .dx-st.is-past .dx-st__l{box-shadow:inset 0 0 0 1px var(--ochre);color:var(--ochre-t)}
+#decision .dx-st[aria-selected="true"] .dx-st__l{background:var(--ochre);box-shadow:none;color:#1a1612}
+#decision .dx-st[aria-selected="true"] .dx-st__t{color:var(--ink)}
+#decision .dx-st:focus-visible{outline:none}
+#decision .dx-st:focus-visible .dx-st__l{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--focus)}
+#decision .dx-st:active .dx-st__l{transform:scale(.92)}
+/* the one panel */
+#decision .dx-panels{display:block;margin-top:36px;padding-top:28px;border-top:1px solid var(--rule)}
+#decision .scen.is-tabs .scenario{max-width:714px;padding:0;background:none;box-shadow:none;border-radius:0;overflow:visible}
+#decision .scen.is-tabs .scenario[data-off]{display:none}
+#decision .scen.is-tabs .scenario::after{display:none}
+#decision .scen.is-tabs .scenario h4{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#decision .scenario .who{font:500 12.5px/1.5 var(--f-mono);letter-spacing:.06em;color:var(--ink-3);margin-bottom:20px}
+#decision .scenario ul{gap:14px;counter-reset:dx}
+#decision .scenario li{padding-left:40px;font-size:17px;line-height:1.8;color:var(--ink);counter-increment:dx}
+#decision .scenario li::before{content:counter(dx,decimal-leading-zero);top:.38em;left:0;width:auto;height:auto;background:none;font:500 11px var(--f-mono);color:var(--ink-4)}
+#decision .scenario.is-in{animation:dx-in 320ms var(--e-out-quint) both}
+@keyframes dx-in{from{opacity:0;transform:translate3d(0,6px,0)}to{opacity:1;transform:none}}
+/* no-JS / pre-init: the three scenarios stay listed */
+#decision .scen:not(.is-tabs) .dx-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+#decision .scen:not(.is-tabs) .scenario{background:none;box-shadow:none;padding:0}
+/* ledger */
+.dx-led{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:0 64px;margin-top:88px;align-items:start}
+.dx-led__h{margin:0 0 22px;font:400 32px/1.25 var(--f-disp);letter-spacing:-.01em;color:var(--ink)}
+.dx-led__cols{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule-2)}
+.dx-led__c{padding:16px 28px 24px 0}
+.dx-led__c + .dx-led__c{padding:16px 0 24px 28px;box-shadow:inset 1px 0 0 var(--rule)}
+.dx-led__k{margin:0 0 12px;font:500 11px var(--f-mono);letter-spacing:.14em;color:var(--ink-4)}
+.dx-led__c p:last-child{margin:0;font-size:15.5px;line-height:1.85;color:var(--ink-2)}
+.dx-led__c strong{color:var(--ink);font-weight:500}
+.dx-led__judge{display:grid;grid-template-columns:96px minmax(0,1fr);gap:0 20px;padding-top:18px;border-top:3px double var(--rule-2)}
+.dx-led__judge b{font:500 11px/2.2 var(--f-mono);letter-spacing:.14em;color:var(--ochre-t);font-weight:500}
+.dx-led__judge p{margin:0;font:400 19px/1.6 var(--f-disp);color:var(--ink)}
+.dx-note{padding-top:8px}
+.dx-note h3{margin:0 0 12px;font:500 13px/1.5 var(--f-sans);color:var(--ink)}
+.dx-note p{margin:0 0 10px;font-size:13px;line-height:1.8;color:var(--ink-3)}
+.dx-note strong{color:var(--ink-2);font-weight:500}
+/* formula, typeset on the page itself (no plate) */
+#decision .dx-formula{margin-top:96px;padding:36px 0 0;border-radius:0;background:none;color:var(--ink);border-top:1px solid var(--rule-2)}
+#decision .dx-formula .eyebrow{color:var(--ink-4)}
+#decision .dx-formula .eyebrow b{color:var(--ink-2)}
+.dx-eq{display:grid;grid-template-columns:auto max-content;justify-content:start;align-items:center;gap:0 28px;margin:40px 0 36px;line-height:1.4;font-size:inherit}
+.dx-eq__lhs b{font:400 30px/1.3 var(--f-disp);margin:0;color:var(--ink)}
+.dx-eq__is{margin-left:16px;font:300 30px var(--f-disp);color:var(--ink-3)}
+.dx-eq__top{display:grid;grid-template-columns:repeat(3,max-content);gap:10px 0;justify-content:center}
+.dx-t{display:inline-flex;align-items:baseline;white-space:nowrap}
+.dx-t i{font:300 22px var(--f-disp);font-style:normal;color:var(--ink-4);margin:0 12px}
+.dx-t:first-child i:first-child{margin-left:0}
+#decision .dx-formula .fterm{padding:0 2px;border-radius:0;box-shadow:none;background:none;font:400 21px/1.5 var(--f-disp);color:var(--ink);
+  background-image:linear-gradient(var(--ochre),var(--ochre));background-size:0 1px;background-position:0 100%;background-repeat:no-repeat;transition:background-size var(--t-ui-2) var(--e-out-quint),color var(--t-ui);cursor:default}
+#decision .dx-formula .fterm:hover,#decision .dx-formula .fterm:focus-visible{background-size:100% 1px;color:var(--ink);outline:none}
+#decision .dx-formula .formula__rule{height:1px;margin:14px 0 12px;background:var(--ink-2);transform-origin:left}
+#decision .dx-formula .formula__den{text-align:center}
+#decision .dx-formula .fterm--den{color:var(--ochre-t)}
+#decision .dx-formula.is-den .fterm--den{background:none;background-image:linear-gradient(var(--ochre),var(--ochre));background-size:100% 1px;background-position:0 100%;background-repeat:no-repeat;color:var(--ochre-t)}
+#decision .dx-formula.is-den .formula__rule{background:var(--ochre)}
+#decision .dx-formula .formula__note{max-width:46em;color:var(--ink-3);font-size:14px;line-height:1.85}
+.dx-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion: reduce){#decision .scenario.is-in{animation:none}.dx-rule i{transition:none}}
+@media (max-width: 1100px){.dx-led{grid-template-columns:1fr}.dx-note{max-width:40em;margin-top:40px}.dx-eq{grid-template-columns:1fr;gap:20px}.dx-eq__top{justify-content:start}}
+@media (max-width: 760px){
+  #decision .scen.is-tabs .seg--scen{gap:0 12px}
+  .dx-st__t{font-size:14px;line-height:1.45}
+  #decision .seg--scen .dx-st{min-height:44px}
+  #decision .scenario li{font-size:15.5px;padding-left:32px}
+  .dx-led{margin-top:64px}
+  .dx-led__h{font-size:26px}
+  .dx-led__cols{grid-template-columns:1fr}
+  .dx-led__c,.dx-led__c + .dx-led__c{padding:14px 0 18px;box-shadow:none}
+  .dx-led__c + .dx-led__c{border-top:1px solid var(--rule)}
+  .dx-led__judge{grid-template-columns:1fr;gap:6px}
+  .dx-eq__top{display:flex;flex-wrap:wrap;row-gap:6px;justify-content:flex-start;line-height:1.5}
+  .dx-t i{font-size:18px;margin:0 6px}
+  .dx-t .fterm{font-size:14px}
+  .dx-eq__lhs b,.dx-eq__is{font-size:24px}
+  #decision .dx-formula{margin-top:72px}
+}

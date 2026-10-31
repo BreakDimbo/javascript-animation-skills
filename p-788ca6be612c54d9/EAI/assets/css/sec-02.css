@@ -1,0 +1,92 @@
+/* 02 Domains — lens matrix. Tokens are read-only from app.css. */
+.lm{margin-top:96px;position:relative}
+/* G bands frame the matrix: label column + text at measure, hairlines only */
+.lm__g{display:grid;grid-template-columns:282px minmax(0,640px);column-gap:24px;row-gap:10px;align-items:baseline;padding:32px 0}
+.lm__g::before{content:"";grid-row:1/3;grid-column:1;align-self:start;margin-top:14px;width:24px;height:1px;background:var(--red)}
+.lm__g b,.lm__g span{grid-column:2}
+.lm__g--g1{border-top:1px solid var(--rule-2);border-bottom:1px solid var(--rule);margin-bottom:48px}
+.lm__g--g2{margin-top:48px;border-top:1px solid var(--rule-2);box-shadow:inset 0 4px 0 -3px var(--rule-2);padding-top:36px;border-bottom:1px solid var(--rule)}
+.lm__g b{display:block;font:400 21px/1.4 var(--f-disp);color:var(--ink);letter-spacing:-.005em;word-break:keep-all}
+.lm__g span{font-size:15.5px;line-height:1.85;color:var(--ink-2);max-width:36em}
+
+/* header row = the lens switch (on the matrix, not above it) */
+.lm__hd{display:grid;grid-template-columns:282px minmax(0,1fr) repeat(3,112px);column-gap:24px;align-items:end;border-bottom:1px solid var(--rule-2);position:sticky;top:var(--bar-h,60px);z-index:3;background:var(--bg)}
+.sec--tint .lm__hd{background:var(--bg-2)}
+.lm__corner{font:500 11px/1 var(--f-mono);letter-spacing:.14em;color:var(--ink-4);padding:0 0 14px}
+.lm__corner b{font-weight:500;color:var(--ink-3)}
+.lm__tab{all:unset;box-sizing:border-box;cursor:pointer;position:relative;display:flex;align-items:flex-end;min-height:44px;padding:0 0 14px;font:500 11px/1.3 var(--f-mono);letter-spacing:.12em;color:var(--ink-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color 180ms var(--e-out-cubic)}
+.lm__tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ochre);transform:scaleX(0);transform-origin:0 50%;transition:transform 320ms var(--e-out-quint)}
+.lm__tab:hover{color:var(--ink-2)}
+.lm__tab[aria-selected="true"]{color:var(--ink);font-size:12px}
+.lm__tab[aria-selected="true"]::after{transform:none}
+.lm__tab[data-f="err"]::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--red);margin:0 8px 4px 0;flex:none}
+.lm__tab:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.lm__tab:active{transform:translateY(1px)}
+
+/* rows */
+.lm .domains.lm__rows{display:block;margin:0}
+.lm .dcard.lm-row{display:grid;grid-template-columns:282px minmax(0,1fr) repeat(3,112px);column-gap:24px;align-items:start;padding:24px 0 24px;border-radius:0;background:none;box-shadow:none;border-bottom:1px solid var(--rule);position:relative;transition:background-color 180ms var(--e-out-cubic)}
+.lm .dcard.lm-row::before{content:"";position:absolute;left:-16px;top:0;bottom:0;width:2px;background:var(--ochre);transform:scaleY(0);transform-origin:50% 0;transition:transform 320ms var(--e-out-quint)}
+.lm .dcard.lm-row:hover{background:rgba(237,230,214,.035);box-shadow:none}
+html[data-theme="light"] .lm .dcard.lm-row:hover{background:rgba(23,21,15,.03)}
+.lm .dcard.lm-row.is-hot{box-shadow:none}
+.lm .dcard.lm-row.is-hot::before{transform:none}
+.lm-row__h{display:grid;grid-template-columns:36px 1fr;column-gap:12px;row-gap:8px;align-items:baseline}
+.lm-row__id{font:500 11px/1 var(--f-mono);letter-spacing:.08em;color:var(--ink-4);font-variant-numeric:tabular-nums;transition:color 180ms}
+.lm .lm-row h3{margin:0;font:400 21px/1.28 var(--f-disp);color:var(--ink-2);letter-spacing:-.005em;transition:color 180ms}
+.lm .lm-row:hover h3,.lm .lm-row.is-hot h3{color:var(--ink)}
+.lm .lm-row.is-hot .lm-row__id{color:var(--ochre-t)}
+.lm-row__more{all:unset;box-sizing:border-box;grid-column:2;cursor:pointer;display:inline-flex;gap:6px;align-items:center;min-height:24px;font:400 12px/1.5 var(--f-sans);color:var(--ink-4);transition:color 180ms var(--e-out-cubic)}
+.lm-row__more span:last-child{transition:transform 220ms var(--e-out-cubic)}
+.lm-row__more:hover{color:var(--ink)}
+.lm-row__more:hover span:last-child{transform:translateX(3px)}
+.lm-row__more:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.lm-row__more:active{color:var(--ochre-t)}
+
+/* cells: the lens promotes one field to the wide reading column; the others collapse to one line */
+.lm-c{margin:0;min-width:0;font-size:13px;line-height:1.6;color:var(--ink-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;padding-top:3px;transition:color 180ms var(--e-out-cubic),opacity 220ms var(--e-out-cubic),transform 220ms var(--e-out-cubic)}
+.lm-c:hover{color:var(--ink-2)}
+.lm-c--err{color:color-mix(in oklab,var(--red) 70%,var(--ink-4))}
+.lm-row .lm-c{order:2}
+.lm[data-lens="bound"] .lm-c--bound,.lm[data-lens="prod"] .lm-c--prod,.lm[data-lens="cn"] .lm-c--cn,.lm[data-lens="err"] .lm-c--err{order:1;white-space:normal;overflow:visible;cursor:auto;font:400 19px/1.62 var(--f-disp);color:var(--ink);padding:0 32px 0 0;max-width:30em}
+.lm[data-lens="err"] .lm-c--err{color:var(--ink)}
+.lm[data-lens="err"] .lm-c--err::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--red);margin:0 10px 3px 0;vertical-align:middle}
+.lm .lm-row__h{order:0}
+.lm__hd .lm__tab{order:2}
+.lm[data-lens="bound"] .lm__tab[data-f="bound"],.lm[data-lens="prod"] .lm__tab[data-f="prod"],.lm[data-lens="cn"] .lm__tab[data-f="cn"],.lm[data-lens="err"] .lm__tab[data-f="err"]{order:1}
+.lm.is-swap .lm-c,.lm.is-swap .lm__tab{opacity:0;transform:translateY(4px);transition-duration:120ms}
+
+/* entrance: once, rows rise 8 px, 30 ms stagger */
+.lm.is-pre .lm-row{opacity:0;transform:translateY(8px)}
+.lm .lm-row{transition:opacity 420ms var(--e-out-quint) calc(var(--i,0)*30ms),transform 420ms var(--e-out-quint) calc(var(--i,0)*30ms),background-color 180ms}
+.lm .lm-row:hover{transition-delay:0ms}
+
+/* no JS: the rows are not rendered; the G bands still read; hide the empty header */
+.lm:not(.is-js) .lm__hd{display:none}
+
+@media (prefers-reduced-motion:reduce){.lm .lm-row,.lm-c,.lm__tab,.lm__tab::after{transition:none!important}.lm.is-pre .lm-row{opacity:1;transform:none}}
+
+/* ≤1100: narrower collapsed columns */
+@media (max-width:1100px){
+  .lm__hd,.lm .dcard.lm-row{grid-template-columns:220px minmax(0,1fr) repeat(3,96px);column-gap:16px}
+  .lm__g{grid-template-columns:220px minmax(0,1fr)}
+}
+/* 390: tabs stay, each row shows only the current lens field */
+@media (max-width:760px){
+  .lm{margin-top:64px}
+  .lm__g{grid-template-columns:1fr;row-gap:10px;padding:24px 0}
+  .lm__g::before{grid-row:auto;margin:0}
+  .lm__g b,.lm__g span{grid-column:1}
+  .lm__hd{grid-template-columns:repeat(4,auto);column-gap:20px;overflow-x:auto;scrollbar-width:none;top:var(--bar-h,56px)}
+  .lm__hd::-webkit-scrollbar{display:none}
+  .lm__corner{display:none}
+  .lm__tab{order:0!important;min-height:44px}
+  .lm .dcard.lm-row{grid-template-columns:1fr;row-gap:10px;padding:20px 0}
+  .lm .dcard.lm-row::before{left:-12px}
+  .lm-c{display:none}
+  .lm[data-lens="bound"] .lm-c--bound,.lm[data-lens="prod"] .lm-c--prod,.lm[data-lens="cn"] .lm-c--cn,.lm[data-lens="err"] .lm-c--err{display:block;font-size:17px;padding:0}
+  .lm-row__more{min-height:44px}
+}
+
+/* field label inside each cell: read by screen readers, visually carried by the lens tabs */
+.lm-lab{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
