@@ -32,7 +32,15 @@ function slug(t) { return 'term-' + t.toLowerCase().replace(/[^a-z0-9]+/g, '-').
 function norm(s) { return String(s || '').toLowerCase(); }
 function hl(text, q) {
   var t = esc(text); if (!q) return t;
-  var i = norm(text).indexOf(q); if (i < 0) return t;
+  var i = norm(text).indexOf(q);
+  if (i < 0) { /* fuzzy: mark the in-order letters that matched, only when every letter is found within a short span */
+    var lt = norm(text), at = [], j = 0, k;
+    for (k = 0; k < lt.length && j < q.length; k++) if (lt[k] === q[j]) { at.push(k); j++; }
+    if (j < q.length || at[at.length - 1] - at[0] > q.length * 3) return t;
+    var o = '', set = {}; at.forEach(function (x) { set[x] = 1; });
+    for (k = 0; k < text.length; k++) o += set[k] ? '<mark>' + esc(text[k]) + '</mark>' : esc(text[k]);
+    return o;
+  }
   return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
 }
 var EASE = {
@@ -118,6 +126,23 @@ function termForRow(r) {
   return null;
 }
 function rowForTerm(g) { return linByTerm[g.term] || linByTerm[g.term.split(' / ')[0]] || null; }
+
+/* ---------- empty states: say what found nothing, and offer the one action that undoes it ---------- */
+function emptyState(what, q, reset, tag) {
+  tag = tag || 'li';
+  return '<' + tag + ' class="empty" role="status"><b class="empty__t">' + (q ? '没有匹配「' + esc(q) + '」的' + what : '这个筛选下没有' + what) + '</b>' +
+    '<span class="empty__h">换个关键词，或试试英文术语名、厂商名、来源编号（如 S04）。</span>' +
+    (reset ? '<button type="button" class="btn btn--ghost btn--sm empty__btn" data-reset="' + reset + '">清除筛选</button>' : '') + '</' + tag + '>';
+}
+doc.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('[data-reset]'); if (!b) return;
+  b.getAttribute('data-reset').split(',').forEach(function (sel) {
+    var f = doc.querySelector(sel); if (!f) return;
+    if (f.tagName === 'BUTTON') { f.click(); return; }
+    f.value = ''; f.dispatchEvent(new Event('input', { bubbles: true })); f.dispatchEvent(new Event('change', { bubbles: true }));
+    if (f.tagName === 'INPUT') f.focus({ preventScroll: true });
+  });
+});
 
 /* Lucide icons (ISC licence, https://lucide.dev; see LICENSES.md). ico(name) -> inline SVG string */
 var ICONS = {
@@ -298,7 +323,7 @@ function renderLineage() {
     html += '<tr class="layer-row" data-kind="' + esc(L.kind) + '"><td colspan="5"><span class="layer-name">' + esc(L.layer) + '</span><span class="layer-note">' + esc(L.note) + '</span></td></tr>';
     html += rows.map(lineageRowHtml).join('');
   });
-  tb.innerHTML = html || '<tr><td colspan="5" class="empty">没有匹配的条目</td></tr>';
+  tb.innerHTML = html || '<tr><td colspan="5">' + emptyState('谱系条目', q, '#lineage-layer,#lineage-q', 'div') + '</td></tr>';
   $('#lineage-count').textContent = n + ' / ' + linRows.length + ' 条';
   $('#lineage-cap').textContent = '共 ' + linRows.length + ' 个术语谱系条目，分 7 层。“代表性公开节点”指当前证据集能追溯的使用、论文、规范或系统化表述，不等同于唯一发明人或首次创新；' +
     '“代表厂商产品”是能力或方案映射，不是标准所有权或治理权的证据。';
@@ -340,7 +365,7 @@ function renderGlossary() {
     n += items.length;
     html += '<h3 class="gl-group">' + esc(grp) + '<span>' + items.length + ' 条</span></h3>' + items.map(function (g) { return termHtml(g, q); }).join('');
   });
-  host.innerHTML = html || '<p class="gloss__empty">没有匹配的术语</p>';
+  host.innerHTML = html || emptyState('术语', q, '#gloss-group,#gloss-q', 'div');
   $('#gloss-count').textContent = n + ' / ' + G.length + ' 条';
 }
 function openTerm(id, flash) {
@@ -359,7 +384,7 @@ function renderSources(q) {
   var list = SRC.filter(function (s) { return !q || [s.id, s.title, s.publisher, s.date].join(' ').toLowerCase().indexOf(q) !== -1; });
   host.innerHTML = list.map(function (s) {
     return '<li id="src-' + s.id + '"><a href="' + esc(s.url) + '" target="_blank" rel="noopener"><span class="id">' + esc(s.id) + '</span><span class="t">' + hl(s.title, q) + '</span><span class="p">' + hl(s.publisher, q) + '</span><span class="d">' + esc(s.date) + '</span></a></li>';
-  }).join('') || '<li class="empty">没有匹配的来源</li>';
+  }).join('') || emptyState('来源', q, '#src-q');
   $('#src-count').textContent = list.length + ' / ' + SRC.length + ' 条';
 }
 
@@ -395,9 +420,8 @@ function onScroll() {
   chapters.forEach(function (c, i) {
     c.p = clamp((probe - c.top) / c.h, 0, 1);
     if (probe >= c.top) act = c;
-    railLinks[i].firstChild.nextSibling.firstChild.style.setProperty('--p', c.p.toFixed(3));
-    tocLinks[i].lastChild.style.setProperty('--p', c.p.toFixed(3));
-    railLinks[i].classList.toggle('is-done', c.p >= 1);
+    var ps = c.p.toFixed(3);
+    if (ps !== c.ps) { c.ps = ps; railLinks[i].firstChild.nextSibling.firstChild.style.setProperty('--p', ps); tocLinks[i].lastChild.style.setProperty('--p', ps); railLinks[i].classList.toggle('is-done', c.p >= 1); }
   });
   if (act !== curCh) {
     curCh = act;
@@ -440,6 +464,8 @@ function scrollToEl(t, after) {
 }
 function goHash(hash, push) {
   if (!hash || hash === '#') return;
+  /* a jump is a navigation, not a reading scroll: show the destination at once */
+  doc.documentElement.classList.add('nav-jump'); clearTimeout(goHash._t); goHash._t = setTimeout(function () { doc.documentElement.classList.remove('nav-jump'); }, 1400);
   var id = decodeURIComponent(hash.slice(1)), t;
   if (id === 'top') { t = doc.body; scrollToEl($('.hero')); }
   else if (id.indexOf('term-') === 0) { t = openTerm(id, true); scrollToEl(t); }
@@ -477,18 +503,33 @@ function initTheme() {
 /* ---------- lamp: light follows the pointer with a heavy spring; shadows fall away from it ---------- */
 function initLamp() {
   if (!FINE) return;
-  var st = root.style, lx = 72, ly = 16, qsx = null, qsy = null;
-  function put() {
-    st.setProperty('--lx', lx.toFixed(1) + '%'); st.setProperty('--ly', ly.toFixed(1) + '%');
-    var sx = Math.round(clamp((lx / 100 - 0.5) * 2, -1, 1) * 12) / 12, sy = Math.round(clamp(1 - ly / 100 * 1.4, -0.3, 1) * 12) / 12;
+  var st = root.style, lx = 72, ly = 16, qsx = null, qsy = null, shT = 0, shAt = 0;
+  /* the pool of light is one composited layer moved by transform: no style or paint work per frame */
+  var lamp = doc.createElement('div'); lamp.className = 'lamp'; lamp.setAttribute('aria-hidden', 'true');
+  doc.body.insertBefore(lamp, doc.body.firstChild); root.classList.add('lamp-on');
+  function shade() {
+    /* shadows fall away from the lamp; --sx/--sy live on the root and restyle the page, so they move in coarse
+       steps and at most ~5×/s, which is below what the eye reads on a soft shadow */
+    shT = 0; shAt = performance.now();
+    var sx = Math.round(clamp((lx / 100 - 0.5) * 2, -1, 1) * 6) / 6, sy = Math.round(clamp(1 - ly / 100 * 1.4, -0.3, 1) * 6) / 6;
     if (sx !== qsx || sy !== qsy) { qsx = sx; qsy = sy; st.setProperty('--sx', sx); st.setProperty('--sy', sy); }
   }
+  function put() {
+    lamp.style.transform = 'translate3d(' + (lx * innerWidth / 100).toFixed(1) + 'px,' + (ly * innerHeight / 100).toFixed(1) + 'px,0)';
+    if (!shT) shT = setTimeout(shade, Math.max(0, 200 - (performance.now() - shAt)));
+  }
   var SX = new Spring(lx, SPR.heavy, function (v) { lx = v; put(); }), SY = new Spring(ly, SPR.heavy, function (v) { ly = v; put(); });
+  var pe = null, pr = 0;
   addEventListener('pointermove', function (e) {
-    if (e.pointerType !== 'mouse') return;
+    if (e.pointerType !== 'mouse' || doc.hidden) return;
+    pe = e; if (!pr) pr = requestAnimationFrame(aim);
+  }, { passive: true });
+  addEventListener('resize', put);
+  function aim() {
+    pr = 0; var e = pe; if (!e) return;
     /* the lamp drifts toward the pointer but stays above the page: damped range */
     SX.to(lerp(72, e.clientX / innerWidth * 100, 0.55)); SY.to(lerp(14, e.clientY / innerHeight * 100, 0.35));
-  }, { passive: true });
+  }
   put();
 }
 
@@ -519,6 +560,12 @@ function initReveals() {
     h.innerHTML = '<span class="rt-l"><span class="rt">' + h.innerHTML + '</span></span>';
   });
   if (RM || !('IntersectionObserver' in window)) { $$('.reveal-title').forEach(function (h) { h.classList.add('is-in'); }); return; }
+  /* chapter transitions: as a chapter's head arrives, its eyebrow, title and lede rise in sequence and the
+     first figure follows; each plays once, and nothing is hidden unless this script is running */
+  var heads = $$('.sec__head'), figs = $$('.sec > .wrap > .viz, .sec > .wrap > figure');
+  heads.concat(figs).forEach(function (n) { n.classList.add('ch-pre'); });
+  var cio = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('ch-in'); cio.unobserve(e.target); } }); }, { rootMargin: '0px 0px -6% 0px' });
+  heads.concat(figs).forEach(function (n) { var r = n.getBoundingClientRect(); if (r.top < innerHeight && r.bottom > 0) n.classList.add('ch-in'); else cio.observe(n); });
   var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } }); }, { rootMargin: '0px 0px -8% 0px' });
   $$('.reveal-title').forEach(function (h) { io.observe(h); });
 }
@@ -585,15 +632,36 @@ function initShotTilt() {
   s.addEventListener('pointerleave', function () { ry.to(0); rx.to(0); });
 }
 
-/* ---------- tooltip ---------- */
-var tipEl;
-function tip(html, x, y) {
+/* ---------- tooltip ----------
+   Anchored to the hovered mark when one is given (box = its client rect), else to the pointer. It prefers above,
+   flips below when the top bar or the viewport edge is in the way, and flips sideways at the right edge. */
+var tipEl, tipFor = null;
+function tip(html, x, y, box) {
   if (!tipEl) tipEl = $('#tip');
-  if (html == null) { tipEl.classList.remove('is-on'); return; }
-  tipEl.innerHTML = html; tipEl.hidden = false;
-  var w = tipEl.offsetWidth, h = tipEl.offsetHeight;
-  var L = clamp(x + 14, 8, innerWidth - w - 8), T = y - h - 12 < 8 ? y + 18 : y - h - 12;
-  tipEl.style.transform = 'translate(' + L + 'px,' + T + 'px)';
+  if (html == null) { tipEl.classList.remove('is-on'); tipFor = null; return; }
+  var key = html + '|' + (box ? Math.round(box.left) + ',' + Math.round(box.top) : '');
+  if (key !== tipFor || !box) { tipEl.innerHTML = html; tipFor = key; }
+  tipEl.hidden = false;
+  var w = tipEl.offsetWidth, h = tipEl.offsetHeight, top = (parseFloat(getComputedStyle(doc.documentElement).getPropertyValue('--bar-h')) || 56) + 8;
+  var ax = x, ayT = y - 12, ayB = y + 18, L, T, side = 'top';
+  if (box) { ax = box.left + box.width / 2; ayT = box.top - 8; ayB = box.bottom + 8; }
+  if (box) L = ax - w / 2; else { L = x + 14; if (L + w > innerWidth - 8) L = x - w - 14; }
+  L = clamp(L, 8, innerWidth - w - 8);
+  if (ayT - h >= top) T = ayT - h; else { T = ayB; side = 'bottom'; }
+  if (T + h > innerHeight - 8) T = Math.max(top, innerHeight - 8 - h);
+  /* collision: if the box would cover a mark the reader is looking at (avoid = rects), try the other side,
+     then beside the anchor, and keep the first spot that covers nothing */
+  var avoid = tip.avoid;
+  if (avoid && avoid.length && box) {
+    var hit = function (l, t) { return avoid.some(function (r) { return l < r.right && l + w > r.left && t < r.bottom && t + h > r.top; }); };
+    if (hit(L, T)) {
+      var c = [[L, ayB, 'bottom'], [L, ayT - h, 'top'], [box.right + 10, box.top + box.height / 2 - h / 2, 'right'], [box.left - w - 10, box.top + box.height / 2 - h / 2, 'left']];
+      for (var i = 0; i < c.length; i++) { var cl = clamp(c[i][0], 8, innerWidth - w - 8), ct = c[i][1]; if (ct >= top && ct + h <= innerHeight - 8 && !hit(cl, ct)) { L = cl; T = ct; side = c[i][2]; break; } }
+    }
+  }
+  tipEl.dataset.side = side;
+  tipEl.style.setProperty('--ax', clamp(ax - L, 12, w - 12).toFixed(0) + 'px');
+  tipEl.style.transform = 'translate(' + L.toFixed(0) + 'px,' + T.toFixed(0) + 'px)';
   tipEl.classList.add('is-on');
 }
 
@@ -774,23 +842,39 @@ function buildItems() {
   $$('#boundaries .pair').forEach(function (p, i) { var h = $('.pair__h', p); p.id = p.id || 'pair-' + (i + 1); ITEMS.push({ t: 'pair', title: h.textContent.replace('≠', ' ≠ ').replace(/\s+/g, ' ').trim(), sub: $('p', p).textContent, hay: p.textContent, go: 'go:' + p.id }); });
   $$('#scen .scenario').forEach(function (s) { var h = $('h4', s); ITEMS.push({ t: 'scen', title: h.textContent, sub: $('.who', s).textContent, hay: s.textContent, go: 'scen:' + s.id }); });
   SRC.forEach(function (s) { ITEMS.push({ t: 'src', title: s.title, sub: s.publisher + ' · ' + s.date, meta: s.id, hay: s.id, go: 'src:' + s.id }); });
-  ITEMS.forEach(function (it, i) { it.i = i; it.lt = norm(it.title); it.ls = norm(it.sub); it.lh = norm(it.hay + ' ' + (it.meta || '')); });
+  ITEMS.forEach(function (it, i) { it.i = i; it.lt = norm(it.title); it.ls = norm(it.sub); it.lh = norm(it.hay + ' ' + (it.meta || '')); it.lc = cmp(it.lt); });
+}
+/* fuzzy search: exact > prefix > substring (title, then sub, then body), then a squashed match that ignores spaces,
+   hyphens and dots ("agentos" finds "Agent OS"), then every word somewhere, then an in-order subsequence of the title */
+function cmp(s) { return s.replace(/[\s\-_.·/()（）]+/g, ''); }
+function subseq(q, t) {
+  var i = 0, j = 0, gaps = 0, last = -1;
+  for (; i < q.length && j < t.length; j++) if (t[j] === q[i]) { if (last >= 0) gaps += j - last - 1; last = j; i++; }
+  return i === q.length ? gaps : -1;
 }
 function search(q, types) {
   q = norm(q).trim();
-  var out = [];
+  var out = [], qc = cmp(q), words = q.split(/\s+/).filter(Boolean);
   ITEMS.forEach(function (it) {
     if (types && types.indexOf(it.t) < 0) return;
     var s = 0;
     if (!q) s = 1;
     else if (it.lt === q) s = 120; else if (it.lt.indexOf(q) === 0) s = 100; else if (it.lt.indexOf(q) > 0) s = 70;
+    else if (qc.length > 1 && it.lc.indexOf(qc) >= 0) s = 64;
     else if (it.ls.indexOf(q) >= 0) s = 30; else if (it.lh.indexOf(q) >= 0) s = 12;
+    else if (words.length > 1 && words.every(function (w) { return (it.lt + ' ' + it.ls + ' ' + it.lh).indexOf(w) >= 0; })) s = 10;
+    else if (qc.length >= 3) { var g = subseq(qc, it.lc); if (g >= 0 && g <= qc.length * 2) s = Math.max(2, 8 - g / 2); }
     if (s) out.push({ it: it, s: s });
   });
   out.sort(function (a, b) { return b.s - a.s || a.it.i - b.it.i; });
   return out.map(function (o) { return o.it; });
 }
+/* recents: the last six things opened from the palette, kept on this device only */
+var RECENT_K = 'eai-recent';
+function recents() { try { var a = JSON.parse(localStorage.getItem(RECENT_K) || '[]'); return a.map(function (g) { return ITEMS.filter(function (it) { return it.go === g; })[0]; }).filter(Boolean); } catch (e) { return []; } }
+function pushRecent(it) { try { var a = JSON.parse(localStorage.getItem(RECENT_K) || '[]').filter(function (g) { return g !== it.go; }); a.unshift(it.go); localStorage.setItem(RECENT_K, JSON.stringify(a.slice(0, 6))); } catch (e) {} }
 function runItem(it) {
+  if (ov.cur === pal) pushRecent(it);
   var g = it.go, i = g.indexOf(':'), type = g.slice(0, i), key = g.slice(i + 1);
   if (type === 'go') { closeOverlay(true); goHash('#' + key); return; }
   if (type === 'scen') {
@@ -812,7 +896,10 @@ function initPalette() {
     else if (e.key === 'Enter') { e.preventDefault(); if (palRes[palSel]) runItem(palRes[palSel]); }
   });
   pal.addEventListener('pointerdown', function (e) { if (e.target === pal) closeOverlay(); });
-  palList.addEventListener('click', function (e) { var o = e.target.closest('.palette__o'); if (o) runItem(palRes[+o.dataset.k]); });
+  palList.addEventListener('click', function (e) {
+    var sg = e.target.closest('[data-sug]'); if (sg) { palQ.value = sg.dataset.sug; drawPalette(); palQ.focus(); return; }
+    if (e.target.closest('[data-clr]')) { try { localStorage.removeItem(RECENT_K); } catch (er) {} drawPalette(); palQ.focus(); return; }
+    var o = e.target.closest('.palette__o'); if (o) runItem(palRes[+o.dataset.k]); });
   palList.addEventListener('pointermove', function (e) { var o = e.target.closest('.palette__o'); if (o && +o.dataset.k !== palSel) setSel(+o.dataset.k, false); });
 }
 function openPalette() {
@@ -827,21 +914,30 @@ function openPalette() {
 }
 function drawPalette() {
   var q = palQ.value, res = search(q);
-  if (!q.trim()) res = res.filter(function (it) { return it.t === 'sec'; }).concat(search('', ['dom', 'fac']));
-  else res = res.slice(0, 60);
+  var order = [], byT = {}, rec = [];
+  if (!q.trim()) {
+    rec = recents();
+    res = res.filter(function (it) { return it.t === 'sec'; }).concat(search('', ['dom', 'fac']));
+    if (rec.length) { order.push('rec'); byT.rec = rec; }
+  } else res = res.slice(0, 60);
   /* group by type, ordered by each group's best hit */
-  var order = [], byT = {};
   res.forEach(function (it) { if (!byT[it.t]) { byT[it.t] = []; order.push(it.t); } byT[it.t].push(it); });
   palRes = []; var html = '', lq = norm(q).trim();
   order.forEach(function (t) {
-    html += '<li class="palette__g" role="presentation">' + esc(TYPE[t].n) + '</li>';
+    html += '<li class="palette__g" role="presentation">' + (t === 'rec' ? '最近打开<button type="button" class="palette__clr" data-clr>清除</button>' : esc(TYPE[t].n)) + '</li>';
     byT[t].forEach(function (it) {
-      var k = palRes.length; palRes.push(it);
-      html += '<li class="palette__o" role="option" id="po-' + k + '" data-k="' + k + '" aria-selected="false"><span class="palette__ic" style="color:' + TYPE[t].c + '">' + TYPE[t].ic + '</span>' +
+      var k = palRes.length, ty = TYPE[it.t]; palRes.push(it);
+      html += '<li class="palette__o" role="option" id="po-' + k + '" data-k="' + k + '" aria-selected="false"><span class="palette__ic" style="color:' + ty.c + '">' + ty.ic + '</span>' +
         '<span class="palette__t"><b>' + hl(it.title, lq) + '</b><span>' + hl(it.sub, lq) + '</span></span><span class="palette__m">' + esc(it.meta || '') + '</span></li>';
     });
   });
-  palList.innerHTML = html || '<li class="palette__empty" role="presentation">没有找到「' + esc(q) + '」。可尝试英文术语名、厂商名或来源编号（如 S04）。</li>';
+  if (!html) {
+    /* suggest real entries only: the first term, domain and vendor in the data */
+    var sug = [G[0] && G[0].term, DOM[0] && DOM[0].id, VEN[0] && VEN[0].n].filter(Boolean);
+    html = '<li class="palette__empty" role="presentation"><b>没有找到「' + esc(q) + '」</b><span>可尝试英文术语名、厂商名或来源编号（如 S04）。</span><span class="palette__sug">' +
+      sug.map(function (x) { return '<button type="button" data-sug="' + esc(x) + '">' + esc(x) + '</button>'; }).join('') + '</span></li>';
+  }
+  palList.innerHTML = html;
   $('#palette-n').textContent = q.trim() ? palRes.length + ' 条结果' : ITEMS.length + ' 条可检索';
   setSel(0, true);
 }
@@ -917,7 +1013,7 @@ function initIndex() {
     host.innerHTML = shown.map(function (it, i) {
       var t = TYPE[it.t];
       return '<li><button class="kx__item" type="button" data-k="' + it.i + '" style="--i:' + i + ';--tc:' + t.c + '"><span class="kx__type">' + esc(t.n) + (it.meta ? ' · ' + esc(it.meta) : '') + '</span><span class="kx__name">' + hl(it.title, lq) + '</span><span class="kx__sub">' + hl(it.sub, lq) + '</span></button></li>';
-    }).join('') || '<li class="empty">没有匹配的条目</li>';
+    }).join('') || emptyState(cur ? TYPE[cur].n : '条目', q.value.trim(), (q.value.trim() ? '#kx-q' : '') + (cur ? (q.value.trim() ? ',' : '') + '#kx-types [data-t=""]' : ''));
     cnt.textContent = (lq || cur ? res.length + ' 条匹配' : res.length + ' 条知识条目') + (shown.length < res.length ? '，显示前 ' + shown.length + ' 条' : '');
     more.hidden = shown.length >= res.length;
     more.textContent = '显示全部 ' + res.length + ' 条';
@@ -935,7 +1031,7 @@ function initIndex() {
    VIZ A · exploded five-layer stack (CSS 3D, springs). Data: D.stack
    ===================================================================== */
 function chipsOf(s) { return s.split(' · ').map(function (x) { return '<span>' + esc(x) + '</span>'; }).join(''); }
-function buildStack(host, full) {
+function buildStack(host, full, labels) {
   var world = el('div', { 'class': 'stack__world' });
   var L = D.stack.map(function (layer, i) {
     var n = el('div', { 'class': 'layer layer--' + (i + 1), 'data-layer': layer.id });
@@ -948,7 +1044,7 @@ function buildStack(host, full) {
       return '<' + tag + (full ? ' type="button"' : '') + ' class="tile' + fc + dark + '"' + (fc ? ' data-c' : '') + ' data-key="' + t.key + '"' + (full ? ' aria-pressed="false"' : '') + '><span class="tile__t">' + esc(t.t) + '</span>' + body + '</' + tag + '>';
     }).join('');
     n.innerHTML = '<div class="layer__drop"></div><div class="layer__slab">' + tiles + '</div><div class="layer__edge"></div><div class="layer__edge layer__edge--r"></div>' +
-      (full ? '<span class="layer__label"><b>' + String(i + 1).padStart(2, '0') + '</b>' + esc(layer.k) + '</span>' : '');
+      (full || labels ? '<span class="layer__label"><b>' + String(i + 1).padStart(2, '0') + '</b>' + esc(layer.k) + '</span>' : '');
     world.appendChild(n); return n;
   });
   host.appendChild(world);
@@ -967,29 +1063,78 @@ function buildStack(host, full) {
 
 function initHeroStack() {
   var host = $('#hero-stack'); if (!host) return;
-  var st = buildStack(host, false), cap = $('.hero__object-cap'), capText = cap ? cap.textContent : '';
-  function fit() { var w = host.clientWidth, h = host.clientHeight || 500; st.S.sc = clamp(Math.min(w / (w < 560 ? 740 : 585), h / 500), 0.4, 1.12); st.apply(); }
-  fit(); addEventListener('resize', fit);
+  var sec = $('.hero.cine'), st = buildStack(host, false, true), cap = $('.hero__object-cap'), capText = cap ? cap.textContent : '';
+  var n = st.layers.length, base = 1;
+  function fit() {
+    var w = host.clientWidth, h = host.clientHeight || 500;
+    base = innerWidth < 1024 ? clamp(Math.min(w / 600, h / 430), 0.4, 1.2) : clamp(Math.min(w / 780, h / 500), 0.6, 2.1);
+    pose();
+  }
+  var scS = new Spring(1, SPR.def, function (v) { st.S.sc = v; st.apply(); });
   /* entrance: each sheet drops into place bottom-first (90ms stagger) on its own spring, while the stack settles its angle */
-  var n = st.layers.length, drops = st.layers.map(function (l) {
+  var drops = st.layers.map(function (l) {
     var o = {};
     function put() { l.style.setProperty('--dz', (o.z.x + o.lift.x * 26).toFixed(1) + 'px'); }
     o.z = new Spring(0, SPR.def, put); o.lift = new Spring(0, SPR.snappy, put);
     return o;
   });
+  var ready = RM;
   if (!RM) {
-    st.sp.gap.to(96, true); st.sp.rx.to(60, true); st.sp.rz.to(-40, true);
-    st.layers.forEach(function (l, i) { drops[i].z.to(320, true); l.style.setProperty('--la', '0'); });
+    st.sp.gap.to(110, true); st.sp.rx.to(62, true); st.sp.rz.to(-46, true); scS.to(base * 0.94, true);
+    st.layers.forEach(function (l, i) { drops[i].z.to(380, true); l.style.setProperty('--la', '0'); });
   }
   var vis = true; onVisible(host, function (v) { vis = v; });
   root.addEventListener('eai:ready', function () {
-    st.sp.gap.to(64); st.sp.rx.to(54); st.sp.rz.to(-34); st.sp.ty.to(0);
+    ready = true; pose();
     st.layers.forEach(function (l, i) {
-      var d = 260 + (n - 1 - i) * 90;
-      setTimeout(function () { drops[i].z.to(0); tween(420, function (v) { l.style.setProperty('--la', v.toFixed(3)); }); }, RM ? 0 : d);
+      var d = 200 + (n - 1 - i) * 100;
+      setTimeout(function () { drops[i].z.to(0); tween(520, function (v) { l.style.setProperty('--la', v.toFixed(3)); }); }, RM ? 0 : d);
     });
   });
-  /* hover a sheet: it lifts, the caption names it; click goes to chapter 00 where the stack comes apart */
+  /* scroll narrative over the pinned runway (px windows → 0..1): explode, then turn and zoom into chapter 00, then hand off */
+  var P = 0, px = 0, py = 0, pinned = false;
+  function ss(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+  function pose() {
+    if (!ready) return;
+    var e1 = ss(0, 0.48, P), e2 = ss(0.42, 0.84, P), e3 = ss(0.8, 1, P), calm = 1 - e1;
+    /* e1 explode · e2 turn toward top-down and zoom · e3 settle into chapter 00's resting pose on paper */
+    st.sp.gap.to(lerp(64 + 118 * e1 - 40 * e2, 64, e3) + Math.max(0, -py) * 10 * calm);
+    st.sp.rz.to(lerp(-34 - 24 * e1 + 38 * e2, -34, e3) + px * 9 * calm);
+    st.sp.rx.to(lerp(54 + 6 * e1 - 24 * e2, 54, e3) - py * 6 * calm);
+    scS.to(base * lerp(1 + 0.04 * e1 + 0.16 * e2, 0.86, e3));
+    if (!sec) return;
+    var S = sec.style;
+    S.setProperty('--p-t-y', (-170 * e1).toFixed(1) + 'px'); S.setProperty('--p-t-o', (1 - ss(0.04, 0.4, P)).toFixed(3));
+    S.setProperty('--p-zh-x', (90 * e1).toFixed(1) + 'px'); S.setProperty('--p-zh-o', (1 - ss(0, 0.3, P)).toFixed(3));
+    S.setProperty('--p-c-o', (1 - ss(0, 0.2, P)).toFixed(3)); S.setProperty('--p-c-y', (46 * ss(0, 0.24, P)).toFixed(1) + 'px');
+    S.setProperty('--p-obj-y', ((12 * e1 - 19 * e2) * (1 - e3)).toFixed(2) + 'vh'); S.setProperty('--p-lamp', (1 + 0.18 * e2).toFixed(3));
+    S.setProperty('--p-ch-o', (ss(0.5, 0.66, P) * (1 - ss(0.78, 0.86, P))).toFixed(3)); S.setProperty('--p-ch-y', (24 * (1 - ss(0.5, 0.7, P))).toFixed(1) + 'px');
+    S.setProperty('--p-sh-o', ss(0.8, 0.96, P).toFixed(3)); sec.classList.toggle('is-handoff', P > 0.86);
+    host.style.setProperty('--p-lab', (ss(0.14, 0.38, P) * (1 - ss(0.78, 0.92, P))).toFixed(3));
+  }
+  /* scroll reads only scrollY: the runway's geometry is measured on resize, never inside the scroll path */
+  var raf = 0, sTop = 0, sH = 0, sVH = innerHeight, sIn = true, sCls = null, sDark = null;
+  function geo() { if (!sec) return; var r = sec.getBoundingClientRect(); sTop = r.top + scrollY; sH = sec.offsetHeight; sVH = innerHeight; }
+  function onScroll() {
+    if (raf) return;
+    raf = requestAnimationFrame(function () {
+      raf = 0; if (!sec) return;
+      var top = sTop - scrollY, run = sH - sVH;
+      pinned = run > 40;
+      var np = pinned ? clamp(-top / run, 0, 1) : 0, dark = top + sH > 80 && np < 0.86, cl = np > 0.002;
+      if (cl !== sCls) { sCls = cl; sec.classList.toggle('is-scrolling', cl); }
+      if (dark !== sDark) { sDark = dark; root.classList.toggle('hero-dark', dark); }
+      if (!sIn && np >= 1 && P >= 1) return; /* far below the hero: nothing to pose */
+      if (Math.abs(np - P) > 0.0005 || np === 0 || np === 1) { P = np; pose(); }
+    });
+  }
+  if (sec && 'IntersectionObserver' in window) new IntersectionObserver(function (es) { sIn = es[0].isIntersecting; }).observe(sec);
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', function () { geo(); fit(); onScroll(); });
+  if ('ResizeObserver' in window) { var gT; new ResizeObserver(function () { clearTimeout(gT); gT = setTimeout(function () { geo(); onScroll(); }, 60); }).observe(doc.body); }
+  geo();
+  fit(); onScroll();
+  /* hover a sheet: it lifts, the caption names it; click goes to chapter 00 with that sheet brought forward */
   var hot = -1;
   function setHot(i) {
     if (i === hot) return; hot = i;
@@ -1004,70 +1149,182 @@ function initHeroStack() {
   host.addEventListener('pointerleave', function () { setHot(-1); });
   host.addEventListener('click', function (e) {
     var l = e.target.closest && e.target.closest('.layer'); if (!l) return;
-    var v = $('#viz-stack'); if (v) scrollToEl(v);
+    var v = $('#viz-stack'), i = st.layers.indexOf(l); if (v) scrollToEl(v);
+    if (window.EAI_STACK_FOCUS) setTimeout(function () { window.EAI_STACK_FOCUS(i); }, 450); else window.EAI_STACK_PENDING = i;
   });
+  var pmR = 0;
   if (FINE) addEventListener('pointermove', function (e) {
     if (!vis || e.pointerType !== 'mouse') return;
-    var px = e.clientX / innerWidth - 0.5, py = e.clientY / innerHeight - 0.5;
-    st.sp.rz.to(-34 + px * 9); st.sp.rx.to(54 - py * 6); st.sp.gap.to(64 + Math.max(0, -py) * 10);
+    px = e.clientX / innerWidth - 0.5; py = e.clientY / innerHeight - 0.5;
+    if (!pmR) pmR = requestAnimationFrame(function () { pmR = 0; pose(); });
   }, { passive: true });
 }
 
 function initFullStack() {
   var host = $('#full-stack'), panel = $('#stack-panel'); if (!host) return;
-  var st = buildStack(host, true), peel = $('#stack-peel');
-  var REST = { rx: 54, rz: -34 };
+  var st = buildStack(host, true), peel = $('#stack-peel'), n = st.layers.length;
+  var REST = { rx: 54, rz: -34 }, FOCUS = { rx: 12, rz: 0 };
+  var focus = -1, hot = -1, sel = null;
   function gapFromSlider() { return lerp(6, 92, (+peel.value) / 100); }
-  function fit() { var w = host.clientWidth, mob = w < 560; var h = host.clientHeight || 560; st.S.sc = clamp(Math.min((w - (mob ? 24 : 150)) / 640, h / 640), 0.42, 0.98); st.apply(); }
-  fit(); addEventListener('resize', fit);
-  if ('ResizeObserver' in window) new ResizeObserver(fit).observe(host);
-  st.sp.gap.to(0, true);
-  whenNear(host, function () { setTimeout(function () { st.sp.gap.to(gapFromSlider()); }, RM ? 0 : 120); }, '-15% 0px');
-  peel.addEventListener('input', function () { st.sp.gap.to(gapFromSlider()); });
-  $('#stack-reset').addEventListener('click', function () { peel.value = 62; st.sp.gap.to(gapFromSlider()); st.sp.rx.to(REST.rx); st.sp.rz.to(REST.rz); select(null); });
+  /* per-sheet springs: dz moves a sheet out of / back into the stack, la is its opacity */
+  var L = st.layers.map(function (l) {
+    var o = {};
+    function put() { l.style.setProperty('--dz', (o.dz.x + o.lift.x * 22).toFixed(1) + 'px'); l.style.setProperty('--la', o.la.x.toFixed(3)); }
+    o.dz = new Spring(0, SPR.def, put); o.lift = new Spring(0, SPR.snappy, put); o.la = new Spring(1, SPR.def, put);
+    return o;
+  });
+  var scS = new Spring(1, SPR.def, function (v) { st.S.sc = v; st.apply(); });
+  function fitSc(f) {
+    var w = host.clientWidth, h = host.clientHeight || 560, mob = w < 560;
+    return f ? clamp(Math.min((w - (mob ? 16 : 56)) / 540, (h - 40) / 330), 0.4, 1.5)
+             : clamp(Math.min((w - (mob ? 24 : 150)) / 640, h / 640), 0.42, 0.98);
+  }
+  function fit(snap) { scS.to(fitSc(focus >= 0), snap === true); }
+  fit(true); addEventListener('resize', function () { fit(true); });
+  if ('ResizeObserver' in window) new ResizeObserver(function () { fit(true); }).observe(host);
 
-  /* drag to orbit: horizontal → yaw (rotateZ), vertical → pitch (rotateX). Capture only after a real drag so taps stay clicks */
+  /* layout: overview = the exploded stack; focus = the chosen sheet comes forward face-on, the rest fall back behind it */
+  function layout(snap) {
+    var gap = st.sp.gap.t, mid = (n - 1) / 2;
+    L.forEach(function (o, i) {
+      var z = (n - 1 - i - mid) * gap, r = 0;
+      if (focus < 0) { o.dz.to(0, snap); o.la.to(1, snap); }
+      else if (i === focus) { o.dz.to(60 - z, snap); o.la.to(1, snap); }
+      else { r = i < focus ? i : i - 1; o.dz.to(-70 - r * 16 - z, snap); o.la.to(0.1, snap); }
+      o.lift.to(focus < 0 && i === hot ? 1 : 0, snap);
+      st.layers[i].classList.toggle('is-focus', i === focus);
+      st.layers[i].classList.toggle('is-back', focus >= 0 && i !== focus);
+      st.layers[i].classList.toggle('is-hot', focus < 0 && i === hot);
+      st.layers[i].classList.toggle('is-dim', focus < 0 && hot >= 0 && i !== hot);
+    });
+    var t = focus >= 0 ? FOCUS : REST;
+    st.sp.rx.to(t.rx, snap); st.sp.rz.to(t.rz, snap);
+    host.classList.toggle('is-focus', focus >= 0);
+    fit(snap);
+  }
+  function setFocus(i, opt) {
+    opt = opt || {};
+    focus = i == null ? -1 : i; hot = -1; sel = null;
+    $$('.tile', host).forEach(function (x) { x.classList.remove('is-sel'); x.setAttribute('aria-pressed', 'false'); });
+    host.classList.remove('has-sel');
+    $$('.tile', host).forEach(function (x) { x.tabIndex = focus >= 0 && x.closest('.layer') === st.layers[focus] ? 0 : -1; });
+    layout(opt.snap);
+    syncTabs(opt.focusTab);
+    renderPanel();
+    if (opt.sound !== false && window.EAI_SOUND) window.EAI_SOUND('tick');
+  }
+  st.sp.gap.to(0, true);
+  whenNear(host, function () { setTimeout(function () { st.sp.gap.to(gapFromSlider()); layout(); }, RM ? 0 : 120); }, '-15% 0px');
+  peel.addEventListener('input', function () { st.sp.gap.to(gapFromSlider()); if (focus >= 0) setFocus(null, { sound: false }); else layout(); });
+  $('#stack-reset').addEventListener('click', function () { peel.value = 62; st.sp.gap.to(gapFromSlider()); setFocus(innerWidth < 560 ? 0 : null, { sound: false }); });
+
+  /* tabs: 整体 + one per sheet; arrows / Home / End move between them */
+  var tabsEl = el('div', { 'class': 'ltabs', role: 'tablist', 'aria-label': '五层', 'aria-orientation': 'vertical' });
+  tabsEl.innerHTML = '<button type="button" role="tab" class="ltab ltab--all" data-l="-1" aria-controls="stack-panel-body"><b>00</b><span>整体</span></button>' +
+    D.stack.map(function (l, i) { return '<button type="button" role="tab" class="ltab" data-l="' + i + '" aria-controls="stack-panel-body"><b>' + String(i + 1).padStart(2, '0') + '</b><span>' + esc(l.k) + '</span></button>'; }).join('');
+  panel.innerHTML = '';
+  var body = el('div', { 'class': 'stack-panel__inner', id: 'stack-panel-body', role: 'tabpanel', 'aria-live': 'polite' });
+  panel.appendChild(tabsEl); panel.appendChild(body);
+  panel.removeAttribute('aria-live');
+  var tabBtns = $$('.ltab', tabsEl);
+  function syncTabs(moveFocus) {
+    tabBtns.forEach(function (b) { var on = +b.dataset.l === focus; b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; if (on && moveFocus) b.focus({ preventScroll: true }); });
+  }
+  tabsEl.addEventListener('click', function (e) { var b = e.target.closest('.ltab'); if (b) setFocus(+b.dataset.l < 0 ? null : +b.dataset.l); });
+  tabsEl.addEventListener('keydown', function (e) {
+    var k = e.key, i = focus + 1, N = n + 1, j = null;
+    if (k === 'ArrowDown' || k === 'ArrowRight') j = (i + 1) % N;
+    if (k === 'ArrowUp' || k === 'ArrowLeft') j = (i - 1 + N) % N;
+    if (k === 'Home') j = 0; if (k === 'End') j = N - 1;
+    if (j == null) return; e.preventDefault(); setFocus(j ? j - 1 : null, { focusTab: true });
+  });
+  /* the 3D labels beside the sheets are pointer targets for the same tabs */
+  st.layers.forEach(function (l, i) { var lab = $('.layer__label', l); if (lab) { lab.setAttribute('aria-hidden', 'true'); lab.dataset.l = i; } });
+
+  /* drag to orbit (overview only): horizontal → yaw, vertical → pitch. Capture only after a real drag so taps stay clicks */
   var down = null, dragging = false, lastX = 0, lastT = 0, vx = 0;
   host.addEventListener('pointerdown', function (e) { if (e.button) return; down = { x: e.clientX, y: e.clientY, rz: st.sp.rz.t, rx: st.sp.rx.t, id: e.pointerId }; dragging = false; lastX = e.clientX; lastT = performance.now(); vx = 0; });
   host.addEventListener('pointermove', function (e) {
-    if (!down || e.pointerId !== down.id) return;
+    if (!down || e.pointerId !== down.id) {
+      if (e.pointerType === 'mouse' && focus < 0 && !down) { var l = e.target.closest && e.target.closest('.layer'); var h = l ? st.layers.indexOf(l) : -1; if (h !== hot) { hot = h; layout(); } }
+      return;
+    }
     var dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!dragging && Math.hypot(dx, dy) > 5) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); }
+    if (!dragging && Math.hypot(dx, dy) > 6) { dragging = true; try { host.setPointerCapture(e.pointerId); } catch (er) {} host.classList.add('is-drag'); if (focus >= 0) { setFocus(null, { sound: false }); down.rz = REST.rz; down.rx = REST.rx; } }
     if (!dragging) return;
     var now = performance.now(); vx = (e.clientX - lastX) / Math.max(1, now - lastT); lastX = e.clientX; lastT = now;
     st.sp.rz.to(clamp(down.rz + dx * 0.28, -80, 10)); st.sp.rx.to(clamp(down.rx - dy * 0.22, 18, 70));
   });
+  host.addEventListener('pointerleave', function () { if (hot >= 0) { hot = -1; layout(); } });
   function end() {
     if (dragging) { st.sp.rz.to(clamp(st.sp.rz.t + vx * 40, -80, 10)); host.classList.remove('is-drag'); }
     down = null; setTimeout(function () { dragging = false; }, 0);
   }
   host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
-  host.addEventListener('click', function (e) { if (dragging) return; var t = e.target.closest('.tile'); if (t) select(t.getAttribute('aria-pressed') === 'true' ? null : t); });
+  host.addEventListener('click', function (e) {
+    if (dragging) return;
+    var lab = e.target.closest('.layer__label'); if (lab) { setFocus(+lab.dataset.l); return; }
+    var l = e.target.closest('.layer'), i = l ? st.layers.indexOf(l) : -1;
+    if (i < 0) { if (focus >= 0) setFocus(null); return; }
+    if (i !== focus) { setFocus(i); return; }
+    var t = e.target.closest('.tile'); if (t) selectTile(t.getAttribute('aria-pressed') === 'true' ? null : t);
+  });
   host.addEventListener('keydown', function (e) {
     var step = { ArrowLeft: [0, -6], ArrowRight: [0, 6], ArrowUp: [-4, 0], ArrowDown: [4, 0] }[e.key];
-    if (step && e.shiftKey) { e.preventDefault(); st.sp.rx.to(clamp(st.sp.rx.t + step[0], 18, 70)); st.sp.rz.to(clamp(st.sp.rz.t + step[1], -80, 10)); }
-    if (e.key === 'Escape') select(null);
+    if (step && e.shiftKey && focus < 0) { e.preventDefault(); st.sp.rx.to(clamp(st.sp.rx.t + step[0], 18, 70)); st.sp.rz.to(clamp(st.sp.rz.t + step[1], -80, 10)); return; }
+    if (!e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && e.target === host) { e.preventDefault(); setFocus(clamp(focus + (e.key === 'ArrowDown' ? 1 : -1), 0, n - 1)); return; }
+    if (e.key === 'Escape') { if (sel) selectTile(null); else if (focus >= 0) setFocus(null); }
   });
+  host.tabIndex = 0;
 
-  var tileByKey = {}; D.stack.forEach(function (l) { l.tiles.forEach(function (t) { t.layer = l; tileByKey[t.key] = t; }); });
-  var defaultPanel = panel.innerHTML;
-  function select(t) {
+  /* the readable panel: overview = every sheet as text; focus = that sheet's tiles as text; tile = its lineage / factory links */
+  var tileByKey = {}; D.stack.forEach(function (l, li) { l.tiles.forEach(function (t) { t.layer = l; t.li = li; tileByKey[t.key] = t; }); });
+  function tileText(t) { return '<b>' + esc(t.t) + '</b><span>' + t.lines.map(esc).join(' · ') + '</span>'; }
+  function renderPanel() {
+    var h = '';
+    if (sel) {
+      var d = tileByKey[sel.dataset.key], layer = d.layer;
+      h += '<button type="button" class="stack-panel__back" data-back>' + ico('arrow-right', 'i-back') + '<span>' + String(d.li + 1).padStart(2, '0') + ' ' + esc(layer.k) + '</span></button>';
+      h += '<p class="stack-panel__k">' + esc(layer.k) + ' · ' + esc(layer.title) + '</p><h4 class="stack-panel__t">' + esc(d.t) + '</h4><div class="stack-panel__b">';
+      h += '<ul class="stack-panel__lines">' + d.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
+      var rows = [];
+      (d.lineage || []).forEach(function (name) { LIN.forEach(function (L2) { if (L2.layer === name) { h += '<p class="stack-panel__sub">05 术语谱系 · ' + esc(L2.layer) + '</p><p class="small">' + esc(L2.note) + '</p>'; h += '<ul class="rows">' + L2.rows.map(function (r) { return '<li><button type="button" data-open="lin:' + r.key + '"><b>' + esc(r.term) + '</b><span>' + esc(r.sub) + ' · ' + esc(r.date) + '</span></button></li>'; }).join('') + '</ul>'; } }); });
+      (d.rows || []).forEach(function (name) { var r = linByTerm[name]; if (r) rows.push(r); });
+      if (rows.length) h += '<p class="stack-panel__sub">05 术语谱系 · ' + esc(rows[0].layer) + '</p><ul class="rows">' + rows.map(function (r) { return '<li><button type="button" data-open="lin:' + r.key + '"><b>' + esc(r.term) + '</b><span>' + esc(r.sub) + ' · ' + esc(r.date) + '</span></button></li>'; }).join('') + '</ul>';
+      if (facBy[d.key]) h += '<p class="stack-panel__sub">03 四类工厂</p><ul class="rows"><li><button type="button" data-open="factory:' + d.key + '"><b>' + esc(facBy[d.key].name) + '</b><span>' + esc(facBy[d.key].cn) + '　供给：' + esc(facBy[d.key].supply) + '</span></button></li></ul>';
+      if (d.key === 'value' || d.key === 'biz') h += '<p class="stack-panel__sub">04 协作架构 · 08 选型与建设</p><ul class="rows"><li><button type="button" data-open="go:architecture"><b>价值口径</b><span>更高的任务完成率 · 更低的单位任务成本 · 更高的业务 ROI</span></button></li><li><button type="button" data-open="go:formula"><b>每项成功任务完全成本</b><span>建议指标 / 本研究口径，非官方标准</span></button></li></ul>';
+      h += '</div>';
+    } else if (focus >= 0) {
+      var ly = D.stack[focus];
+      h += '<p class="stack-panel__k">' + String(focus + 1).padStart(2, '0') + ' · ' + esc(ly.k) + '</p><h4 class="stack-panel__t">' + esc(ly.title) + '</h4>' +
+        '<ul class="ltiles">' + ly.tiles.map(function (t) { return '<li><button type="button" data-tile="' + t.key + '">' + tileText(t) + '</button></li>'; }).join('') + '</ul>' +
+        '<p class="stack-panel__nav"><button type="button" data-step="-1"' + (focus ? '' : ' disabled') + '>上一层</button><button type="button" data-step="1"' + (focus < n - 1 ? '' : ' disabled') + '>下一层</button></p>';
+    } else {
+      h += '<p class="stack-panel__k">拖动旋转 · 点击一层查看</p><h4 class="stack-panel__t">选择一层</h4>' +
+        '<ol class="lsum">' + D.stack.map(function (l, i) { return '<li><button type="button" data-goto="' + i + '"><b>' + String(i + 1).padStart(2, '0') + '</b><span><em>' + esc(l.k) + '</em>' + esc(l.title) + '</span>' + ico('chevron-right') + '</button></li>'; }).join('') + '</ol>' +
+        '<div class="stack-panel__b"><p class="small">每层的条目取自 05 术语谱系中同名的层，点击条目可查看定义与推动者。</p></div>';
+    }
+    body.innerHTML = h;
+    if (!RM) body.animate([{ opacity: 0.001, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.22,1,.36,1)' });
+  }
+  body.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.hasAttribute('data-back')) { selectTile(null); return; }
+    if (b.dataset.goto != null) { setFocus(+b.dataset.goto); return; }
+    if (b.dataset.step) { setFocus(clamp(focus + +b.dataset.step, 0, n - 1)); return; }
+    if (b.dataset.tile) { var t = $('.tile[data-key="' + b.dataset.tile + '"]', host); if (t) selectTile(t); }
+  });
+  function selectTile(t) {
+    sel = t || null;
     $$('.tile', host).forEach(function (x) { var on = x === t; x.classList.toggle('is-sel', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
     host.classList.toggle('has-sel', !!t);
-    if (!t) { panel.innerHTML = defaultPanel; return; }
-    var d = tileByKey[t.dataset.key], layer = d.layer, html = '';
-    html += '<p class="stack-panel__k">' + esc(layer.k) + ' · ' + esc(layer.title) + '</p><h4 class="stack-panel__t">' + esc(d.t) + '</h4><div class="stack-panel__b">';
-    html += '<ul class="stack-panel__lines">' + d.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>';
-    var rows = [];
-    (d.lineage || []).forEach(function (name) { LIN.forEach(function (L2) { if (L2.layer === name) { html += '<p class="stack-panel__sub">05 术语谱系 · ' + esc(L2.layer) + '</p><p class="small">' + esc(L2.note) + '</p>'; html += '<ul class="rows">' + L2.rows.map(function (r) { return '<li><button type="button" data-open="lin:' + r.key + '"><b>' + esc(r.term) + '</b><span>' + esc(r.sub) + ' · ' + esc(r.date) + '</span></button></li>'; }).join('') + '</ul>'; } }); });
-    (d.rows || []).forEach(function (name) { var r = linByTerm[name]; if (r) rows.push(r); });
-    if (rows.length) html += '<p class="stack-panel__sub">05 术语谱系 · ' + esc(rows[0].layer) + '</p><ul class="rows">' + rows.map(function (r) { return '<li><button type="button" data-open="lin:' + r.key + '"><b>' + esc(r.term) + '</b><span>' + esc(r.sub) + ' · ' + esc(r.date) + '</span></button></li>'; }).join('') + '</ul>';
-    if (facBy[d.key]) html += '<p class="stack-panel__sub">03 四类工厂</p><ul class="rows"><li><button type="button" data-open="factory:' + d.key + '"><b>' + esc(facBy[d.key].name) + '</b><span>' + esc(facBy[d.key].cn) + '　供给：' + esc(facBy[d.key].supply) + '</span></button></li></ul>';
-    if (d.key === 'value' || d.key === 'biz') html += '<p class="stack-panel__sub">04 协作架构 · 08 选型与建设</p><ul class="rows"><li><button type="button" data-open="go:architecture"><b>价值口径</b><span>更高的任务完成率 · 更低的单位任务成本 · 更高的业务 ROI</span></button></li><li><button type="button" data-open="go:formula"><b>每项成功任务完全成本</b><span>建议指标 / 本研究口径，非官方标准</span></button></li></ul>';
-    panel.innerHTML = html + '</div>';
-    if (!RM) panel.animate([{ opacity: 0.001, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.22,1,.36,1)' });
+    if (t) { var li = st.layers.indexOf(t.closest('.layer')); if (li !== focus) { focus = li; layout(); syncTabs(); } }
+    renderPanel();
   }
-  host.appendChild(el('p', { 'class': 'stack-hint', 'aria-hidden': 'true' }, '<span>拖动 · 旋转</span><span>滑块 · 拆开</span><span>点击 · 查看该层</span>'));
+  window.EAI_STACK_FOCUS = function (i) { setFocus(i, { sound: false }); };
+  var pend = window.EAI_STACK_PENDING; delete window.EAI_STACK_PENDING;
+  setFocus(pend != null ? pend : innerWidth < 560 ? 0 : null, { snap: true, sound: false });
+  host.appendChild(el('p', { 'class': 'stack-hint', 'aria-hidden': 'true' }, '<span>点击一层 · 正面展开</span><span>↑↓ · 切换层</span><span>拖动 · 旋转</span>'));
 
   var vt = $('#viz-stack .seg');
   tabs(vt, function (b) {
@@ -1191,7 +1448,7 @@ function initTimeline() {
       if (drag.moved) setM(mFromClient(e.clientX));
     }
     var g = e.target.closest('.ev');
-    if (g && FINE) { var ev = EV[+g.dataset.i]; tip('<b>' + esc(ev.t) + '</b>' + esc(ev.x.length > 70 ? ev.x.slice(0, 70) + '…' : ev.x) + '<small>' + esc(ev.d) + ' · ' + esc(laneBy[ev.lane].name) + '</small>', e.clientX, e.clientY); }
+    if (g && FINE) { var ev = EV[+g.dataset.i]; tip('<b>' + esc(ev.t) + '</b>' + esc(ev.x.length > 70 ? ev.x.slice(0, 70) + '…' : ev.x) + '<small>' + esc(ev.d) + ' · ' + esc(laneBy[ev.lane].name) + '</small>', e.clientX, e.clientY, (g.querySelector('circle') || g).getBoundingClientRect()); }
     else tip(null);
   });
   svg.addEventListener('pointerleave', function () { tip(null); });
@@ -1342,6 +1599,11 @@ function initMap() {
     else if (q) setHot(function (n) { return norm(n.g.term).indexOf(q) >= 0 || norm(n.g.plain).indexOf(q) >= 0; });
     else if (focusDom) setHot(function (n) { return n.caps.indexOf(focusDom) >= 0; }, [focusDom]);
     else setHot(null);
+    /* the search field says how many terms it found, and says so plainly when it found none */
+    var fq = $('#map-q'), fn = fq.parentNode.querySelector('.field__n');
+    if (!fn) { fn = el('span', { 'class': 'field__n', 'aria-live': 'polite' }); fq.parentNode.appendChild(fn); }
+    var hits = q ? G.filter(function (g) { return norm(g.term).indexOf(q) >= 0 || norm(g.plain).indexOf(q) >= 0; }).length : -1;
+    fn.textContent = hits < 0 ? '' : hits ? hits + ' 条' : '无匹配'; fn.classList.toggle('is-none', hits === 0); fq.parentNode.classList.toggle('has-n', hits >= 0);
     if (mx) {
       var set = null;
       if (vendorOn) set = vendorMentions(vendorOn).map(function (g) { return g.term; });
@@ -1357,7 +1619,7 @@ function initMap() {
   });
   svg.addEventListener('pointermove', function (e) {
     var nd = nodeOf(e.target);
-    if (nd && FINE && !drag) { var n = nodes[+nd.dataset.i]; tip('<b>' + esc(n.g.term) + '</b>' + esc(n.g.plain) + '<small>' + esc(n.g.type) + ' · ' + esc(n.g.caps) + '</small>', e.clientX, e.clientY); }
+    if (nd && FINE && !drag) { var n = nodes[+nd.dataset.i]; tip('<b>' + esc(n.g.term) + '</b>' + esc(n.g.plain) + '<small>' + esc(n.g.type) + ' · ' + esc(n.g.caps) + '</small>', e.clientX, e.clientY, (nd.querySelector('circle,rect') || nd).getBoundingClientRect()); }
     else tip(null);
   });
   svg.addEventListener('pointerleave', function () { tip(null); baseHot(); });
@@ -1446,7 +1708,7 @@ function initMap() {
   } };
   /* ---------- the 3D machine (立体拆解): lazy, optional; the flat map above stays the accessible view ---------- */
   var fig = $('#viz-map'), mhost = $('#map3d'), seg = $('#map-view');
-  function glOK() { try { var c = doc.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } }
+  function glOK() { /* no probe context: creating one costs a second WebGL context (and seconds on software GL); if the machine's own context fails, ensureMachine rejects and the flat map takes over */ return !!(window.WebGL2RenderingContext || window.WebGLRenderingContext); }
   function assetBase() { var sc = $('script[src*="assets/js/app.js"]'); return sc ? sc.getAttribute('src').replace(/app\.js.*$/, '') : 'assets/js/'; }
   function loadScript(src) { return new Promise(function (res, rej) { var t = doc.createElement('script'); t.src = src; t.async = true; t.onload = res; t.onerror = rej; doc.head.appendChild(t); }); }
   var loading = null;
@@ -1459,7 +1721,7 @@ function initMap() {
       var hits = {};
       names.forEach(function (n) { hits[n] = vendorMentions(n).map(function (g) { return g.term; }); });
       mx = window.EAI_MACHINE.mount(mhost, {
-        data: D, vendorHits: hits, esc: esc, ico: ico, reduced: RM || /[?&]mxsnap/.test(location.search), dark: root.getAttribute('data-theme') === 'dark', sound: window.EAI_SOUND,
+        data: D, vendorHits: hits, esc: esc, ico: ico, reduced: RM || (/[?&]mxsnap/.test(location.search) && !/[?&]mxtour/.test(location.search)), dark: root.getAttribute('data-theme') === 'dark', sound: window.EAI_SOUND,
         open: function (spec) { openItem(spec); ov.opener = mhost.querySelector('.mx__stage'); },
         onFilter: function () { vendorOn = null; $$('.vchip', vh).forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); $('#map-q').value = ''; host.classList.remove('is-filter'); }
       });
@@ -1548,6 +1810,14 @@ function initFlow() {
   var lens = sv('g', { tabindex: '0', role: 'button', 'aria-label': inf.layer });
   lens.appendChild(sv('path', { 'class': 'lens', d: 'M' + (lx - 38) + ' ' + ly + ' A50 50 0 0 1 ' + (lx + 38) + ' ' + ly + ' A50 50 0 0 1 ' + (lx - 38) + ' ' + ly + 'Z' }));
   lens.appendChild(sv('text', { 'class': 'lens-t', x: lx, y: ly + 4, 'text-anchor': 'middle' }, '推理服务'));
+  /* first sight: each supply line draws itself from source to target, in order, then its label settles */
+  if (!RM && 'IntersectionObserver' in window) {
+    svg.classList.add('is-pre');
+    new IntersectionObserver(function (es) { svg.classList.toggle('is-live', es[0].isIntersecting); }).observe(svg);
+    var fio = new IntersectionObserver(function (es) { if (es[0].isIntersecting) { fio.disconnect(); svg.classList.remove('is-pre'); svg.classList.add('is-draw'); setTimeout(function () { svg.classList.remove('is-draw'); }, 2400); } }, { threshold: 0.35 });
+    fio.observe(host);
+  }
+  edges.forEach(function (e, i) { var l = e.g.querySelector('path.l'); l.setAttribute('pathLength', '1'); e.g.style.setProperty('--d', (i * 140) + 'ms'); });
   var nodes = {};
   FAC.forEach(function (f) {
     var p = P(f.key), g = sv('g', { 'class': 'fnode ' + f.key, tabindex: '0', role: 'button', 'aria-pressed': 'false', 'data-k': f.key, 'aria-label': f.n + ' ' + f.name + ' · ' + f.cn });
@@ -1601,7 +1871,7 @@ function initFlow() {
     var ed = e.target.closest('.edge'); if (ed) { hotEdges(function (x) { return x === edges[+ed.dataset.i].f; }); return; }
     var n = e.target.closest('.fnode'); if (n) { var k = n.dataset.k; hotEdges(function (x) { return x.from === k || x.to === k; }); }
   });
-  svg.addEventListener('pointermove', function (e) { var ed = e.target.closest('.edge'); if (ed && FINE) { var f = edges[+ed.dataset.i].f; tip('<b>' + esc(f.label) + '</b>' + esc(f.t), e.clientX, e.clientY); } else tip(null); });
+  svg.addEventListener('pointermove', function (e) { var ed = e.target.closest('.edge'); if (ed && FINE) { var f = edges[+ed.dataset.i].f; tip.avoid = $$('.fnode rect.b', svg).map(function (r) { return r.getBoundingClientRect(); }); tip('<b>' + esc(f.label) + '</b>' + esc(f.t), e.clientX, e.clientY, ed.querySelector('.lb rect').getBoundingClientRect()); tip.avoid = null; } else tip(null); });
   svg.addEventListener('pointerleave', function () { tip(null); if (selK) hotEdges(function (x) { return x.from === selK || x.to === selK; }); else hotEdges(null); });
   selectFactory('ai');
 }
@@ -1654,7 +1924,7 @@ function initLineageTime() {
       });
       y += rowsUsed * ROW + 14;
     });
-    if (!lanes.length) svg.appendChild(sv('text', { 'class': 'pre', x: W / 2, y: 60, 'text-anchor': 'middle' }, '没有匹配的条目'));
+    if (!lanes.length) { svg.appendChild(sv('text', { 'class': 'pre', x: W / 2, y: 52, 'text-anchor': 'middle' }, '这个筛选下没有谱系条目')); svg.appendChild(sv('text', { 'class': 'pre pre--h', x: W / 2, y: 74, 'text-anchor': 'middle' }, '清除上方的关键词或层级筛选即可恢复')); }
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Math.max(90, y)); svg.style.width = W + 'px';
     host.innerHTML = ''; host.appendChild(svg);
   };
@@ -1706,6 +1976,24 @@ function boot() {
   /* entrance once fonts are in (never wait more than 700 ms) */
   var done = false, go = function () { if (done) return; done = true; requestAnimationFrame(function () { requestAnimationFrame(ready); }); };
   if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(go); setTimeout(go, 700);
+  /* far chapters skip style, layout and paint until they near the viewport (content-visibility). Each one first
+     records its real height as the placeholder size, so scroll length and anchors stay exact */
+  var cvGo = function () {
+    if (!('contentVisibility' in doc.documentElement.style)) return;
+    $$('#main > .sec').forEach(function (s) {
+      if (s.id === 'domains') return; /* the machine measures its own stage */
+      var h = s.offsetHeight; if (!h) return;
+      s.style.containIntrinsicSize = 'auto ' + h + 'px'; s.classList.add('cv-far');
+    });
+  };
+  root.addEventListener('eai:ready', function () { setTimeout(function () { (window.requestIdleCallback || setTimeout)(cvGo, { timeout: 1500 }); }, 400); });
+  /* warm the machine's code in idle time so building it later is the only cost left on the scroll path */
+  addEventListener('load', function () {
+    (window.requestIdleCallback || setTimeout)(function () {
+      if (innerWidth < 900) return;
+      ['machine-assets.js', 'map3d.js'].forEach(function (f) { var l = doc.createElement('link'); l.rel = 'prefetch'; l.as = 'script'; l.href = 'assets/js/' + f; doc.head.appendChild(l); });
+    }, { timeout: 3000 });
+  });
   if (location.hash && location.hash.length > 1) setTimeout(function () { goHash(location.hash, false); }, 60);
   measure();
 }
