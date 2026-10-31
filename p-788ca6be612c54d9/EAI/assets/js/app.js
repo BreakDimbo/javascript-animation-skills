@@ -2046,6 +2046,15 @@ function boot() {
     };
     addEventListener('scroll', preOn, { passive: true });
     if (doc.readyState === 'complete') preLoad(); else addEventListener('load', preLoad, { once: true });
+    /* no scroll at all: after 7 s with no input, or the moment the reader aims at a link into the map, build ahead anyway */
+    var preIn = 0, preArm = function () { clearTimeout(preIn); preIn = setTimeout(function () { if (preT === 1) { preS = true; preGo(); } }, 7000); };
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, preArm, { passive: true }); });
+    addEventListener('load', preArm, { once: true }); if (doc.readyState === 'complete') preArm();
+    var preAim = function (e) {
+      var a = e.target && e.target.closest && e.target.closest('a[href^="#"]'); if (!a) return;
+      var h = a.getAttribute('href'); if (h === '#viz-map' || h === '#domains' || /^#domain-/.test(h)) { if (preT === 0) preT = 1; preS = true; preGo(); }
+    };
+    addEventListener('pointerover', preAim, { passive: true }); addEventListener('focusin', preAim);
   }
   /* entrance once fonts are in (never wait more than 700 ms) */
   var done = false, go = function () { if (done) return; done = true; requestAnimationFrame(function () { requestAnimationFrame(ready); }); };
