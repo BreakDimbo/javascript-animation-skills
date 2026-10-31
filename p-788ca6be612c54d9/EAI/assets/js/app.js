@@ -2136,7 +2136,7 @@ function boot() {
     var heroIn = false, heroEl = $('.hero.cine');
     if (heroEl && 'IntersectionObserver' in window) new IntersectionObserver(function (es) { heroIn = es[0].isIntersecting; }).observe(heroEl);
     var preQ = 0, preLast = 0, preOn = function () {
-      preLast = performance.now(); if (preT === 2) { removeEventListener('scroll', preOn); return; }
+      preLast = performance.now(); if (mapApi) { removeEventListener('scroll', preOn); return; } if (preT === 2) return;
       clearTimeout(preQ); preQ = setTimeout(function () { if (heroIn) return; preS = true; preGo(); }, 600);
     };
     addEventListener('scroll', preOn, { passive: true });
