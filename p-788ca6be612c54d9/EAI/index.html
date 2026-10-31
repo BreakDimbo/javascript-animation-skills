@@ -17,7 +17,7 @@
   document.documentElement.dataset.theme=t;document.documentElement.classList.remove('no-js');document.documentElement.classList.add('js');})();
 </script>
 <script>/* font preloads only over http(s): Chromium refuses CORS-mode preloads from file:// */
-if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fdf61e20fd'].forEach(function(f){var l=document.createElement('link');l.rel='preload';l.as='font';l.type='font/woff2';l.crossOrigin='';l.href='assets/fonts/'+f+'.woff2';document.head.appendChild(l)});</script>
+if(location.protocol!=='file:')['inter-var.4f28f13c4c','newsreader-var.2821d4186a'].forEach(function(f){var l=document.createElement('link');l.rel='preload';l.as='font';l.type='font/woff2';l.crossOrigin='';l.href='assets/fonts/'+f+'.woff2';document.head.appendChild(l)});</script>
 <link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
@@ -40,15 +40,16 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
     <div class="bar__chapter" aria-live="polite"><span class="bar__num" id="bar-num">—</span><span class="bar__label" id="bar-label">封面</span></div>
     <div class="bar__actions">
       <button class="kbtn kbtn--search" type="button" id="open-palette" aria-haspopup="dialog" aria-controls="palette">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg>
         <span class="kbtn__t">搜索全部知识</span><kbd class="kbd" id="kbd-hint">⌘K</kbd>
       </button>
+      <button class="ibtn" type="button" id="sound-toggle" aria-pressed="false" aria-label="界面音效：关" title="界面音效（默认关闭）"><svg class="i i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="volume-x"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z"/> <path d="m16.5 14.5 5-5"/> <path d="m16.5 9.5 5 5"/></svg><svg class="i i-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="volume-2"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/> <path d="M16 9a5 5 0 0 1 0 6"/> <path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg></button>
       <button class="ibtn" type="button" id="theme-toggle" aria-label="切换深色/浅色">
-        <svg class="ico-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 1.8v2.2M10 16v2.2M1.8 10h2.2M16 10h2.2M4.2 4.2l1.6 1.6M14.2 14.2l1.6 1.6M4.2 15.8l1.6-1.6M14.2 5.8l1.6-1.6"/></svg>
-        <svg class="ico-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 12.6A7 7 0 017.4 3.5a7 7 0 109.1 9.1z"/></svg>
+        <svg class="i ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="sun"><circle cx="12" cy="12" r="4"/> <path d="M12 2v2"/> <path d="M12 20v2"/> <path d="m4.93 4.93 1.41 1.41"/> <path d="m17.66 17.66 1.41 1.41"/> <path d="M2 12h2"/> <path d="M20 12h2"/> <path d="m6.34 17.66-1.41 1.41"/> <path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="i ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="moon"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
       </button>
       <button class="ibtn ibtn--menu" type="button" id="open-toc" aria-haspopup="dialog" aria-controls="toc" aria-label="打开目录">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h14M3 10h14M3 14h9"/></svg>
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="menu"><path d="M4 5h16"/> <path d="M4 12h16"/> <path d="M4 19h16"/></svg>
       </button>
     </div>
   </div>
@@ -68,9 +69,9 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
     <div class="hero__copy">
       <p class="hero__k"><span>Enterprise Agentic AI</span><span class="hero__k-rule"></span><span>技术架构与产业格局</span></p>
       <h1 id="hero-title" class="hero__title">
-        <span class="line"><span>Enterprise</span></span>
-        <span class="line"><span><em>Agentic AI</em></span></span>
-        <span class="line"><span class="zh">全景图</span></span>
+        <span class="line"><span class="w" style="--i:0">Enterprise</span></span>
+        <span class="line"><em><span class="w" style="--i:1">Agentic</span> <span class="w" style="--i:2">AI</span></em></span>
+        <span class="line"><span class="w zh" style="--i:3">全景图</span></span>
       </h1>
       <p class="hero__sub">
         梳理企业级智能体的技术架构与产业格局：由哪些能力构成、谁在制定标准、厂商如何布局、建设与选型看什么。
@@ -83,9 +84,9 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
         <li><b data-count="19">19</b><span> 条术语谱系</span></li>
       </ul>
       <div class="hero__cta">
-        <a class="btn btn--primary magnetic" href="#landscape"><span>开始阅读</span><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <a class="btn btn--primary magnetic" href="#landscape"><span>开始阅读</span><svg class="i i-go" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="arrow-right"><path d="M5 12h14"/> <path d="m12 5 7 7-7 7"/></svg></a>
         <a class="btn btn--ghost magnetic" href="#domains"><span>查看八大能力域</span></a>
-        <button class="btn btn--quiet" type="button" data-open-palette><svg viewBox="0 0 20 20" aria-hidden="true" width="16" height="16"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M13 13l4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>检索 <span class="kbd kbd--inline js-kbd">⌘K</span></span></button>
+        <button class="btn btn--quiet" type="button" data-open-palette><svg class="i" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><span>检索 <span class="kbd kbd--inline js-kbd">⌘K</span></span></button>
       </div>
     </div>
     <div class="hero__object" aria-hidden="true">
@@ -98,7 +99,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
       独立研究 · 面向架构师、FDE（前置部署工程师）、咨询顾问与技术决策者<br>
       非标准组织或厂商授权作品 · 结论均可追溯到一手来源
     </p>
-    <a class="hero__arrow" href="#knowledge-index" aria-label="跳到全文阅读索引"><span aria-hidden="true">↓</span></a>
+    <a class="hero__arrow" href="#knowledge-index" aria-label="跳到全文阅读索引"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="arrow-down"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></a>
   </div>
 </section>
 
@@ -178,7 +179,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <h3 id="kx-title" class="kx__title">按类型筛选或直接搜索</h3>
         </div>
         <div class="field field--search">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+          <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg>
           <input type="search" id="kx-q" placeholder="搜索术语、厂商、产品或来源…" aria-label="搜索全部知识条目" autocomplete="off">
         </div>
       </div>
@@ -215,7 +216,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
         </div>
         <div class="viz__tools" id="stack-tools">
           <label class="slider"><span>拆开</span><input type="range" min="0" max="100" value="62" id="stack-peel" aria-label="层间距"></label>
-          <button class="ibtn ibtn--sm" type="button" id="stack-reset" aria-label="复位视角"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10a6 6 0 106-6H6"/><path d="M8 1.5L5.5 4 8 6.5"/></svg></button>
+          <button class="ibtn ibtn--sm" type="button" id="stack-reset" aria-label="复位视角"><svg class="i i-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="rotate-ccw"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/> <path d="M3 3v5h5"/></svg></button>
         </div>
       </div>
       <div class="viz__stage stack-stage" id="stack-3d" role="tabpanel" aria-labelledby="tab-3d">
@@ -233,7 +234,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <rect x="24" y="42" width="120" height="112" rx="10" fill="#d5d9c2" stroke="#206d20"/>
           <rect x="24" y="42" width="120" height="26" rx="10" fill="#206d20"/>
           <rect x="24" y="58" width="120" height="10" fill="#206d20"/>
-          <text x="34" y="60" font-size="11.5" fill="#fff" font-family="Outfit,sans-serif" font-weight="600">01 AI Factory</text>
+          <text x="34" y="60" font-size="11.5" fill="#fff" font-family="Inter,sans-serif" font-weight="600">01 AI Factory</text>
           <text x="34" y="86" font-size="11" fill="#2b2720">算力 · 训练 · 集群</text>
           <text x="34" y="106" font-size="11" fill="#2b2720">GPU 利用率</text>
           <text x="34" y="124" font-size="11" fill="#2b2720">推理吞吐</text>
@@ -243,7 +244,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <rect x="156" y="42" width="120" height="112" rx="10" fill="#eaddc1" stroke="#b8891c"/>
           <rect x="156" y="42" width="120" height="26" rx="10" fill="#b8891c"/>
           <rect x="156" y="58" width="120" height="10" fill="#b8891c"/>
-          <text x="166" y="60" font-size="11.5" fill="#16140f" font-family="Outfit,sans-serif" font-weight="600">02 Token Factory</text>
+          <text x="166" y="60" font-size="11.5" fill="#16140f" font-family="Inter,sans-serif" font-weight="600">02 Token Factory</text>
           <text x="166" y="86" font-size="11" fill="#2b2720">模型接入 · 路由</text>
           <text x="166" y="106" font-size="11" fill="#2b2720">Token 吞吐</text>
           <text x="166" y="124" font-size="11" fill="#2b2720">TTFT · TPOT</text>
@@ -253,7 +254,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <rect x="288" y="42" width="120" height="112" rx="10" fill="#d5d2c8" stroke="#26354e"/>
           <rect x="288" y="42" width="120" height="26" rx="10" fill="#26354e"/>
           <rect x="288" y="58" width="120" height="10" fill="#26354e"/>
-          <text x="298" y="60" font-size="10.5" fill="#fff" font-family="Outfit,sans-serif" font-weight="600">03 Data-Knowledge</text>
+          <text x="298" y="60" font-size="10.5" fill="#fff" font-family="Inter,sans-serif" font-weight="600">03 Data-Knowledge</text>
           <text x="298" y="86" font-size="11" fill="#2b2720">数据 · 知识 · 语义</text>
           <text x="298" y="106" font-size="11" fill="#2b2720">知识覆盖率</text>
           <text x="298" y="124" font-size="11" fill="#2b2720">引用可靠度</text>
@@ -263,7 +264,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <rect x="420" y="42" width="120" height="112" rx="10" fill="#ead6cd" stroke="#b9536e"/>
           <rect x="420" y="42" width="120" height="26" rx="10" fill="#b9536e"/>
           <rect x="420" y="58" width="120" height="10" fill="#b9536e"/>
-          <text x="430" y="60" font-size="11.5" fill="#fff" font-family="Outfit,sans-serif" font-weight="600">04 Agent Factory</text>
+          <text x="430" y="60" font-size="11.5" fill="#fff" font-family="Inter,sans-serif" font-weight="600">04 Agent Factory</text>
           <text x="430" y="86" font-size="11" fill="#2b2720">设计 · 测试 · 发布</text>
           <text x="430" y="106" font-size="11" fill="#2b2720">任务合格完成率</text>
           <text x="430" y="124" font-size="11" fill="#2b2720">组件复用率</text>
@@ -273,26 +274,26 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <path d="M144 78 L152 78"/><path d="M276 78 L284 78"/><path d="M408 78 L416 78"/>
         </g>
         <rect x="24" y="176" width="516" height="74" rx="10" fill="#fbf7ee" stroke="#cbbfa0"/>
-        <text x="38" y="198" font-size="12" font-weight="600" fill="#16140f" font-family="Outfit,sans-serif">AgentOS · 运行与治理</text>
+        <text x="38" y="198" font-size="12" font-weight="600" fill="#16140f" font-family="Inter,sans-serif">AgentOS · 运行与治理</text>
         <text x="38" y="215" font-size="10.5" fill="#645c4d">身份与权限 · 资源调度 · 沙箱与隔离 · 记忆与状态 · 审计与合规 · 多智能体管理</text>
         <rect x="24" y="264" width="250" height="62" rx="10" fill="#fbf7ee" stroke="#cbbfa0"/>
-        <text x="38" y="284" font-size="11.5" font-weight="600" fill="#16140f" font-family="Outfit,sans-serif">Agent Harness</text>
+        <text x="38" y="284" font-size="11.5" font-weight="600" fill="#16140f" font-family="Inter,sans-serif">Agent Harness</text>
         <text x="38" y="301" font-size="10.5" fill="#645c4d">规划与推理 · 工具调用 · 上下文工程</text>
         <text x="38" y="316" font-size="10.5" fill="#645c4d">多 Agent 协同 · 自治与反思</text>
         <rect x="290" y="264" width="250" height="62" rx="10" fill="#fbf7ee" stroke="#cbbfa0"/>
-        <text x="304" y="284" font-size="11.5" font-weight="600" fill="#16140f" font-family="Outfit,sans-serif">Agent Runtime</text>
+        <text x="304" y="284" font-size="11.5" font-weight="600" fill="#16140f" font-family="Inter,sans-serif">Agent Runtime</text>
         <text x="304" y="301" font-size="10.5" fill="#645c4d">会话与状态 · 并发与调度</text>
         <text x="304" y="316" font-size="10.5" fill="#645c4d">容器与沙箱 · 故障恢复</text>
         <rect x="24" y="340" width="516" height="52" rx="10" fill="#e6dcc4" stroke="#cbbfa0"/>
-        <text x="38" y="359" font-size="11" font-weight="600" fill="#16140f" font-family="Outfit,sans-serif">跨层协议与生态</text>
-        <g font-size="10.5" fill="#2b2720" font-family="Outfit,sans-serif">
+        <text x="38" y="359" font-size="11" font-weight="600" fill="#16140f" font-family="Inter,sans-serif">跨层协议与生态</text>
+        <g font-size="10.5" fill="#2b2720" font-family="Inter,sans-serif">
           <text x="38" y="379">MCP · A2A · OpenAPI/HTTP · OpenTelemetry · OIDC/OAuth</text>
         </g>
         <rect x="24" y="404" width="250" height="46" rx="10" fill="#fbf7ee" stroke="#cbbfa0"/>
-        <text x="38" y="423" font-size="11" font-weight="600" fill="#16140f" font-family="Outfit,sans-serif">企业业务系统</text>
+        <text x="38" y="423" font-size="11" font-weight="600" fill="#16140f" font-family="Inter,sans-serif">企业业务系统</text>
         <text x="38" y="440" font-size="10.5" fill="#645c4d">ERP · CRM · BPM · 行业系统</text>
         <rect x="290" y="404" width="250" height="46" rx="10" fill="#16140f"/>
-        <text x="304" y="423" font-size="11" font-weight="600" fill="#fbf7ee" font-family="Outfit,sans-serif">业务产出与价值</text>
+        <text x="304" y="423" font-size="11" font-weight="600" fill="#fbf7ee" font-family="Inter,sans-serif">业务产出与价值</text>
         <text x="304" y="440" font-size="10.5" fill="#8f8268">任务完成率 ↑ · 单位任务成本 ↓ · 业务 ROI ↑</text>
         <defs>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -347,7 +348,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <p class="viz__t">拖动时间游标：同一个名字，在哪条轨道上、何时换了轨道</p>
         </div>
         <div class="viz__tools">
-          <button class="btn btn--ghost btn--sm" type="button" id="tl-play" aria-pressed="false"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>播放</span></button>
+          <button class="btn btn--ghost btn--sm" type="button" id="tl-play" aria-pressed="false"><svg class="i i-play" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="play"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg><svg class="i i-pause" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="pause"><rect x="14" y="3" width="5" height="18" rx="1"/> <rect x="5" y="3" width="5" height="18" rx="1"/></svg><span>播放</span></button>
         </div>
       </div>
       <div class="tl" id="tl" tabindex="0" role="slider" aria-label="时间游标，左右方向键移动" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div>
@@ -380,13 +381,15 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
           <p class="viz__t">62 条术语按「所属能力域」落位；悬停关联，点击查看</p>
         </div>
         <div class="viz__tools">
-          <div class="field field--search field--sm"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg><input type="search" id="map-q" placeholder="在地图中查找…" aria-label="在能力域地图中查找术语" autocomplete="off"></div>
-          <button class="ibtn ibtn--sm" type="button" id="map-zin" aria-label="放大"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
-          <button class="ibtn ibtn--sm" type="button" id="map-zout" aria-label="缩小"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
-          <button class="ibtn ibtn--sm" type="button" id="map-fit" aria-label="复位地图"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>
+          <div class="seg seg--sm" id="map-view" role="group" aria-label="地图视图" hidden><button type="button" data-v="3d" aria-pressed="false">立体拆解</button><button type="button" data-v="2d" aria-pressed="true">平面地图</button></div>
+          <div class="field field--search field--sm"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="map-q" placeholder="在地图中查找…" aria-label="在能力域地图中查找术语" autocomplete="off"></div>
+          <button class="ibtn ibtn--sm" type="button" id="map-zin" aria-label="放大"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="plus"><path d="M5 12h14"/> <path d="M12 5v14"/></svg></button>
+          <button class="ibtn ibtn--sm" type="button" id="map-zout" aria-label="缩小"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="minus"><path d="M5 12h14"/></svg></button>
+          <button class="ibtn ibtn--sm" type="button" id="map-fit" aria-label="复位地图"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="scan"><path d="M3 7V5a2 2 0 0 1 2-2h2"/> <path d="M17 3h2a2 2 0 0 1 2 2v2"/> <path d="M21 17v2a2 2 0 0 1-2 2h-2"/> <path d="M7 21H5a2 2 0 0 1-2-2v-2"/></svg></button>
         </div>
       </div>
       <div class="map-vendors" id="map-vendors" role="group" aria-label="按厂商高亮"></div>
+      <div class="mxh" id="map3d" hidden></div>
       <div class="map" id="map" aria-label="能力域地图：可拖动平移、滚轮或双指缩放"></div>
       <figcaption class="cap">落位依据：术语表每条的「所属能力域」字段（如 C5/C6 落在两域之间，G 落在治理横轴，「跨层」落在中轴）；厂商高亮依据该厂商名称是否出现在术语的「代表实现」或「专业定义」中。地图是本页数据的重排，不是新增判断。</figcaption>
     </figure>
@@ -445,7 +448,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
     <figure class="fig fig--plate">
       <button class="fig__open" type="button" data-lightbox="assets/img/four-factories.webp" aria-label="放大查看原图：四个工厂如何协作">
         <img src="assets/img/four-factories.webp" alt="四个工厂如何协作：AI Factory、Token Factory、Data-Knowledge Factory 与 Agent Factory 的能力、代表产品和相互供给关系，下方依次为 AgentOS、Agent Harness 与 Agent Runtime、跨层协议、企业业务系统与业务产出" width="1672" height="941" loading="lazy" decoding="async">
-        <span class="fig__hint"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4M8.5 6v5M6 8.5h5"/></svg>放大查看</span>
+        <span class="fig__hint"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="zoom-in"><circle cx="11" cy="11" r="8"/> <line x1="21" x2="16.65" y1="21" y2="16.65"/> <line x1="11" x2="11" y1="8" y2="14"/> <line x1="8" x2="14" y1="11" y2="11"/></svg>放大查看</span>
       </button>
       <figcaption class="cap"><b>四个工厂如何协作。</b>自上而下依次为四类工厂及其代表产品、共享运行与治理能力（AgentOS）、执行循环与托管环境（Agent Harness、Agent Runtime）、跨层协议、企业业务系统与业务产出。图中 AgentOS 表示一组共享能力，不代表必须采购同名产品；业务产出栏中"例如"后的百分比、金额与回本周期为示意，不是实测或来源数据。点击图片可查看原图。 <a href="assets/img/four-factories.webp" target="_blank" rel="noopener">在新窗口打开原图 ↗</a></figcaption>
     </figure>
@@ -490,7 +493,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
     </header>
 
     <div class="toolbar">
-      <div class="field field--search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg><input type="search" id="lineage-q" placeholder="搜索术语、产品或项目…" aria-label="搜索术语谱系" autocomplete="off"></div>
+      <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="lineage-q" placeholder="搜索术语、产品或项目…" aria-label="搜索术语谱系" autocomplete="off"></div>
       <div class="select"><select id="lineage-layer" aria-label="按层筛选"><option value="">全部层</option></select></div>
       <div class="seg" role="tablist" aria-label="视图">
         <button role="tab" aria-selected="true" data-lview="table" id="lv-table" aria-controls="lineage-tablewrap">表格</button>
@@ -646,7 +649,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
       <p class="lede">每条术语给出通俗解释、专业定义、<strong>不包括什么</strong>、概念类型、所属能力域、代表实现和证据编号。代表实现不代表赞助关系或治理权。</p>
     </header>
     <div class="toolbar">
-      <div class="field field--search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg><input type="search" id="gloss-q" placeholder="搜索术语、边界或代表实现…" aria-label="搜索术语表" autocomplete="off"></div>
+      <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="gloss-q" placeholder="搜索术语、边界或代表实现…" aria-label="搜索术语表" autocomplete="off"></div>
       <div class="select"><select id="gloss-group" aria-label="按领域筛选"><option value="">全部领域</option></select></div>
       <span class="count" id="gloss-count"></span>
     </div>
@@ -663,7 +666,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
       <p class="lede">S01–S28 为原始研究资料，S29–S33 为沙箱技术补充资料。产品功能、成熟度和治理状态变化较快，正式采购前应按版本复核。</p>
     </header>
     <div class="toolbar">
-      <div class="field field--search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg><input type="search" id="src-q" placeholder="搜索来源标题或发布方…" aria-label="搜索一手来源" autocomplete="off"></div>
+      <div class="field field--search"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg><input type="search" id="src-q" placeholder="搜索来源标题或发布方…" aria-label="搜索一手来源" autocomplete="off"></div>
       <span class="count" id="src-count"></span>
     </div>
     <ol class="src" id="src-list"></ol>
@@ -726,7 +729,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
   <header class="drawer__head">
     <p class="drawer__k" id="drawer-kind"></p>
     <h3 class="drawer__title" id="drawer-title"></h3>
-    <button class="ibtn drawer__close" type="button" data-close aria-label="关闭"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    <button class="ibtn drawer__close" type="button" data-close aria-label="关闭"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="x"><path pathLength="1" d="M18 6 6 18"/><path pathLength="1" d="m6 6 12 12"/></svg></button>
   </header>
   <div class="drawer__body" id="drawer-body"></div>
   <footer class="drawer__foot" id="drawer-foot"></footer>
@@ -735,7 +738,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
 <div class="palette" id="palette" role="dialog" aria-modal="true" aria-label="搜索全部知识" hidden>
   <div class="palette__box">
     <div class="palette__field">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4 4"/></svg>
+      <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="search"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg>
       <input id="palette-q" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" placeholder="搜索章节、术语、厂商、能力域、来源…" autocomplete="off" spellcheck="false">
       <kbd class="kbd">Esc</kbd>
     </div>
@@ -747,7 +750,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
 <div class="toc" id="toc" role="dialog" aria-modal="true" aria-label="目录" hidden>
   <div class="toc__sheet">
     <div class="drawer__grip" aria-hidden="true"></div>
-    <header class="toc__head"><p class="drawer__k">目录</p><button class="ibtn" type="button" data-close aria-label="关闭目录"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button></header>
+    <header class="toc__head"><p class="drawer__k">目录</p><button class="ibtn" type="button" data-close aria-label="关闭目录"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="x"><path pathLength="1" d="M18 6 6 18"/><path pathLength="1" d="m6 6 12 12"/></svg></button></header>
     <ol class="toc__list" id="toc-list"></ol>
     <button class="btn btn--ghost toc__search" type="button" data-open-palette><span>搜索全部知识</span></button>
   </div>
@@ -757,7 +760,7 @@ if(location.protocol!=='file:')['outfit-500.fc9bff941d','dm-serif-display-400.fd
   <div class="lightbox__stage" id="lightbox-stage"><img alt="" id="lightbox-img"></div>
   <div class="lightbox__bar">
     <span class="lightbox__hint">拖动平移 · 滚轮或双指缩放 · 双击复位</span>
-    <button class="ibtn" type="button" data-close aria-label="关闭原图"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    <button class="ibtn" type="button" data-close aria-label="关闭原图"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="x"><path pathLength="1" d="M18 6 6 18"/><path pathLength="1" d="m6 6 12 12"/></svg></button>
   </div>
 </div>
 

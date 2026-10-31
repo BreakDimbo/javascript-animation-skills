@@ -54,6 +54,13 @@ Spring.prototype.to = function (t, snap) {
   if (!this.live) { this.live = true; loop.add(this); }
   return this;
 };
+/* inertia: hand the spring a velocity (units/s) and let it coast toward a new target */
+Spring.prototype.fling = function (vel, t) {
+  if (RM) return this.to(t, true);
+  this.v = vel; this.t = t;
+  if (!this.live) { this.live = true; loop.add(this); }
+  return this;
+};
 Spring.prototype.step = function (dt) {
   var n = Math.max(1, Math.round(dt / (1 / 120))), h = dt / n;
   for (var i = 0; i < n; i++) { var a = -this.k * (this.x - this.t) - this.c * this.v; this.v += a * h; this.x += this.v * h; }
@@ -111,6 +118,94 @@ function termForRow(r) {
   return null;
 }
 function rowForTerm(g) { return linByTerm[g.term] || linByTerm[g.term.split(' / ')[0]] || null; }
+
+/* Lucide icons (ISC licence, https://lucide.dev; see LICENSES.md). ico(name) -> inline SVG string */
+var ICONS = {
+  'focus': '<circle cx="12" cy="12" r="3"/> <path d="M3 7V5a2 2 0 0 1 2-2h2"/> <path d="M17 3h2a2 2 0 0 1 2 2v2"/> <path d="M21 17v2a2 2 0 0 1-2 2h-2"/> <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
+  'scissors': '<circle cx="6" cy="6" r="3"/> <path d="M8.12 8.12 12 12"/> <path d="M20 4 8.12 15.88"/> <circle cx="6" cy="18" r="3"/> <path d="M14.8 14.8 20 20"/>',
+  'eye': '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/> <circle cx="12" cy="12" r="3"/>',
+  'eye-off': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/> <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/> <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/> <path d="m2 2 20 20"/>',
+  'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/> <path d="M3 3v5h5"/>',
+  'play': '<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>',
+  'pause': '<rect x="14" y="3" width="5" height="18" rx="1"/> <rect x="5" y="3" width="5" height="18" rx="1"/>',
+  'search': '<path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/>',
+  'plus': '<path d="M5 12h14"/> <path d="M12 5v14"/>',
+  'minus': '<path d="M5 12h14"/>',
+  'scan': '<path d="M3 7V5a2 2 0 0 1 2-2h2"/> <path d="M17 3h2a2 2 0 0 1 2 2v2"/> <path d="M21 17v2a2 2 0 0 1-2 2h-2"/> <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
+  'x': '<path d="M18 6 6 18"/> <path d="m6 6 12 12"/>',
+  'arrow-right': '<path d="M5 12h14"/> <path d="m12 5 7 7-7 7"/>',
+  'arrow-down': '<path d="M12 5v14"/> <path d="m19 12-7 7-7-7"/>',
+  'arrow-up-right': '<path d="M7 7h10v10"/> <path d="M7 17 17 7"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/> <path d="M12 2v2"/> <path d="M12 20v2"/> <path d="m4.93 4.93 1.41 1.41"/> <path d="m17.66 17.66 1.41 1.41"/> <path d="M2 12h2"/> <path d="M20 12h2"/> <path d="m6.34 17.66-1.41 1.41"/> <path d="m19.07 4.93-1.41 1.41"/>',
+  'moon': '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>',
+  'corner-down-left': '<path d="M20 4v7a4 4 0 0 1-4 4H4"/> <path d="m9 10-5 5 5 5"/>',
+  'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+  'volume-2': '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/> <path d="M16 9a5 5 0 0 1 0 6"/> <path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
+  'volume-x': '<path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z"/> <path d="m16.5 14.5 5-5"/> <path d="m16.5 9.5 5 5"/>',
+  'mouse-pointer-2': '<path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/>',
+  'list': '<path d="M3 5h.01"/> <path d="M3 12h.01"/> <path d="M3 19h.01"/> <path d="M8 5h13"/> <path d="M8 12h13"/> <path d="M8 19h13"/>',
+  'map': '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/> <path d="M15 5.764v15"/> <path d="M9 3.236v15"/>',
+  'layers-2': '<path d="M13 13.74a2 2 0 0 1-2 0L2.5 8.87a1 1 0 0 1 0-1.74L11 2.26a2 2 0 0 1 2 0l8.5 4.87a1 1 0 0 1 0 1.74z"/> <path d="m20 14.285 1.5.845a1 1 0 0 1 0 1.74L13 21.74a2 2 0 0 1-2 0l-8.5-4.87a1 1 0 0 1 0-1.74l1.5-.845"/>',
+  'box': '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/> <path d="m3.3 7 8.7 5 8.7-5"/> <path d="M12 22V12"/>',
+  'boxes': '<path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/> <path d="m7 16.5-4.74-2.85"/> <path d="m7 16.5 5-3"/> <path d="M7 16.5v5.17"/> <path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/> <path d="m17 16.5-5-3"/> <path d="m17 16.5 4.74-2.85"/> <path d="M17 16.5v5.17"/> <path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/> <path d="M12 8 7.26 5.15"/> <path d="m12 8 4.74-2.85"/> <path d="M12 13.5V8"/>',
+  'book-open': '<path d="M12 5v16"/> <path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>',
+  'clock': '<circle cx="12" cy="12" r="10"/> <path d="M12 6v6l4 2"/>',
+  'link': '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  'copy': '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'info': '<circle cx="12" cy="12" r="10"/> <path d="M12 16v-4"/> <path d="M12 8h.01"/>',
+  'move-3d': '<path d="M5 3v16h16"/> <path d="m5 19 6-6"/> <path d="m2 6 3-3 3 3"/> <path d="m18 16 3 3-3 3"/>',
+  'zoom-in': '<circle cx="11" cy="11" r="8"/> <line x1="21" x2="16.65" y1="21" y2="16.65"/> <line x1="11" x2="11" y1="8" y2="14"/> <line x1="8" x2="14" y1="11" y2="11"/>',
+  'menu': '<path d="M4 5h16"/> <path d="M4 12h16"/> <path d="M4 19h16"/>'
+};
+function ico(n, cls) { return '<svg class="i' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-i="' + n + '">' + (ICONS[n] || '') + '</svg>'; }
+
+/* =====================================================================
+   UI sound: synthesised with WebAudio (no sample files). OFF by default;
+   the bar toggle turns it on and the choice is remembered. Quiet (-30 dB),
+   short (≤ 90 ms), and only on explicit user actions.
+   ===================================================================== */
+var SND = (function () {
+  var on = false, ctx = null, last = 0;
+  try { on = localStorage.getItem('eai-sound') === 'on'; } catch (e) {}
+  function ac() { if (!ctx) { var A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ctx = new A(); } if (ctx.state === 'suspended') ctx.resume(); return ctx; }
+  function blip(f0, f1, dur, gain, type, at) {
+    var c = ac(); if (!c) return; var t = c.currentTime + (at || 0);
+    var o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    lp.type = 'lowpass'; lp.frequency.value = 3200;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp); lp.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  var LIB = {
+    tick: function () { blip(1800, 1200, 0.028, 0.028, 'triangle'); },
+    open: function () { blip(520, 660, 0.07, 0.03); blip(780, 990, 0.08, 0.02, 'sine', 0.045); },
+    close: function () { blip(700, 480, 0.07, 0.026); },
+    toggle: function () { blip(900, 900, 0.03, 0.026, 'triangle'); blip(1350, 1350, 0.035, 0.02, 'triangle', 0.04); },
+    slide: function () { blip(1100, 1000, 0.018, 0.014, 'triangle'); }
+  };
+  function play(n) {
+    if (!on || RM && n === 'slide') return; var now = performance.now(); if (now - last < 45) return; last = now;
+    try { (LIB[n] || LIB.tick)(); } catch (e) {}
+  }
+  function set(v, quiet) {
+    on = v; try { localStorage.setItem('eai-sound', v ? 'on' : 'off'); } catch (e) {}
+    var b = $('#sound-toggle'); if (b) { b.setAttribute('aria-pressed', v ? 'true' : 'false'); b.setAttribute('aria-label', v ? '界面音效：开' : '界面音效：关'); }
+    if (v && !quiet) play('toggle');
+  }
+  return { play: play, set: set, get on() { return on; } };
+})();
+window.EAI_SOUND = function (n) { SND.play(n); };
+function initSound() {
+  var b = $('#sound-toggle'); if (!b) return;
+  SND.set(SND.on, true); /* sync the button with the stored choice, silently */
+  b.addEventListener('click', function () { SND.set(!SND.on); });
+  doc.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('button,[role="tab"],.seg button,a.btn'); if (!t || t === b) return;
+    SND.play(t.matches('[data-close]') ? 'close' : 'tick');
+  }, true);
+}
 
 /* =====================================================================
    Verbatim renders of the page's own data (labels match the original)
@@ -562,6 +657,7 @@ function showDrawer(kind, title, body, foot) {
   }
   if (ov.cur) closeOverlay(true);
   ov.opener = ov.opener && ov.opener.isConnected ? ov.opener : doc.activeElement;
+  SND.play('open');
   dP.to(0, true); ov.cur = drawer; drawer.hidden = false; scrim.hidden = false; lockScroll(true);
   void drawer.offsetWidth;
   requestAnimationFrame(function () { scrim.classList.add('is-on'); dP.to(1); });
@@ -871,13 +967,45 @@ function buildStack(host, full) {
 
 function initHeroStack() {
   var host = $('#hero-stack'); if (!host) return;
-  var st = buildStack(host, false);
-  function fit() { var w = host.clientWidth; st.S.sc = clamp(w / (w < 560 ? 760 : 600), 0.4, 1.05); st.apply(); }
+  var st = buildStack(host, false), cap = $('.hero__object-cap'), capText = cap ? cap.textContent : '';
+  function fit() { var w = host.clientWidth, h = host.clientHeight || 500; st.S.sc = clamp(Math.min(w / (w < 560 ? 740 : 585), h / 500), 0.4, 1.12); st.apply(); }
   fit(); addEventListener('resize', fit);
-  /* entrance: the sheets fall from an exploded spread into a stack — one hero move */
-  st.sp.gap.to(150, true); st.sp.rx.to(64, true); st.sp.rz.to(-44, true); st.sp.ty.to(30, true);
+  /* entrance: each sheet drops into place bottom-first (90ms stagger) on its own spring, while the stack settles its angle */
+  var n = st.layers.length, drops = st.layers.map(function (l) {
+    var o = {};
+    function put() { l.style.setProperty('--dz', (o.z.x + o.lift.x * 26).toFixed(1) + 'px'); }
+    o.z = new Spring(0, SPR.def, put); o.lift = new Spring(0, SPR.snappy, put);
+    return o;
+  });
+  if (!RM) {
+    st.sp.gap.to(96, true); st.sp.rx.to(60, true); st.sp.rz.to(-40, true);
+    st.layers.forEach(function (l, i) { drops[i].z.to(320, true); l.style.setProperty('--la', '0'); });
+  }
   var vis = true; onVisible(host, function (v) { vis = v; });
-  root.addEventListener('eai:ready', function () { st.sp.gap.to(64); st.sp.rx.to(54); st.sp.rz.to(-34); st.sp.ty.to(0); });
+  root.addEventListener('eai:ready', function () {
+    st.sp.gap.to(64); st.sp.rx.to(54); st.sp.rz.to(-34); st.sp.ty.to(0);
+    st.layers.forEach(function (l, i) {
+      var d = 260 + (n - 1 - i) * 90;
+      setTimeout(function () { drops[i].z.to(0); tween(420, function (v) { l.style.setProperty('--la', v.toFixed(3)); }); }, RM ? 0 : d);
+    });
+  });
+  /* hover a sheet: it lifts, the caption names it; click goes to chapter 00 where the stack comes apart */
+  var hot = -1;
+  function setHot(i) {
+    if (i === hot) return; hot = i;
+    drops.forEach(function (d, j) { d.lift.to(j === i ? 1 : 0); });
+    st.layers.forEach(function (l, j) { l.classList.toggle('is-hot', j === i); l.classList.toggle('is-dim', i >= 0 && j !== i); });
+    if (cap) cap.textContent = i >= 0 ? String(i + 1).padStart(2, '0') + ' · ' + D.stack[i].k : capText;
+  }
+  host.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    var l = e.target.closest && e.target.closest('.layer'); setHot(l ? st.layers.indexOf(l) : -1);
+  });
+  host.addEventListener('pointerleave', function () { setHot(-1); });
+  host.addEventListener('click', function (e) {
+    var l = e.target.closest && e.target.closest('.layer'); if (!l) return;
+    var v = $('#viz-stack'); if (v) scrollToEl(v);
+  });
   if (FINE) addEventListener('pointermove', function (e) {
     if (!vis || e.pointerType !== 'mouse') return;
     var px = e.clientX / innerWidth - 0.5, py = e.clientY / innerHeight - 0.5;
@@ -1200,7 +1328,7 @@ function initMap() {
   addEventListener('resize', function () { size(); if (!focusDom) fit(true); });
 
   /* ---------- highlight state ---------- */
-  var focusDom = null, vendorOn = null;
+  var focusDom = null, vendorOn = null, mx = null;
   function setHot(pred, doms) {
     var any = !!pred;
     host.classList.toggle('is-filter', any);
@@ -1214,6 +1342,12 @@ function initMap() {
     else if (q) setHot(function (n) { return norm(n.g.term).indexOf(q) >= 0 || norm(n.g.plain).indexOf(q) >= 0; });
     else if (focusDom) setHot(function (n) { return n.caps.indexOf(focusDom) >= 0; }, [focusDom]);
     else setHot(null);
+    if (mx) {
+      var set = null;
+      if (vendorOn) set = vendorMentions(vendorOn).map(function (g) { return g.term; });
+      else if (q) set = G.filter(function (g) { return norm(g.term).indexOf(q) >= 0 || norm(g.plain).indexOf(q) >= 0; }).map(function (g) { return g.term; });
+      mx.filter(set ? new Set(set) : null, vendorOn);
+    }
   }
   function nodeOf(t) { return t && t.closest ? t.closest('.node') : null; }
   svg.addEventListener('pointerover', function (e) {
@@ -1306,11 +1440,63 @@ function initMap() {
     setHot(function (m) { return m === n; }, n.caps);
     n.el.tabIndex = 0; setTimeout(function () { n.el.focus({ preventScroll: true }); }, 60);
   }
-  mapApi = { locate: function (term) { var n = nodes.filter(function (x) { return x.g.term === term; })[0]; if (n) locate(n); } };
+  mapApi = { locate: function (term) {
+    if (mx && fig.classList.contains('is-3d')) { mx.locate(term); return; }
+    var n = nodes.filter(function (x) { return x.g.term === term; })[0]; if (n) locate(n);
+  } };
+  /* ---------- the 3D machine (立体拆解): lazy, optional; the flat map above stays the accessible view ---------- */
+  var fig = $('#viz-map'), mhost = $('#map3d'), seg = $('#map-view');
+  function glOK() { try { var c = doc.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } }
+  function assetBase() { var sc = $('script[src*="assets/js/app.js"]'); return sc ? sc.getAttribute('src').replace(/app\.js.*$/, '') : 'assets/js/'; }
+  function loadScript(src) { return new Promise(function (res, rej) { var t = doc.createElement('script'); t.src = src; t.async = true; t.onload = res; t.onerror = rej; doc.head.appendChild(t); }); }
+  var loading = null;
+  function ensureMachine() {
+    if (mx) return Promise.resolve(mx);
+    if (loading) return loading;
+    var b = assetBase();
+    mhost.classList.add('is-loading');
+    loading = loadScript(b + 'machine-assets.js').catch(function () {}).then(function () { return loadScript(b + 'map3d.js'); }).then(function () {
+      var hits = {};
+      names.forEach(function (n) { hits[n] = vendorMentions(n).map(function (g) { return g.term; }); });
+      mx = window.EAI_MACHINE.mount(mhost, {
+        data: D, vendorHits: hits, esc: esc, ico: ico, reduced: RM || /[?&]mxsnap/.test(location.search), dark: root.getAttribute('data-theme') === 'dark', sound: window.EAI_SOUND,
+        open: function (spec) { openItem(spec); ov.opener = mhost.querySelector('.mx__stage'); },
+        onFilter: function () { vendorOn = null; $$('.vchip', vh).forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); $('#map-q').value = ''; host.classList.remove('is-filter'); }
+      });
+      mhost.__mx = mx;
+      new MutationObserver(function () { mx.theme(root.getAttribute('data-theme') === 'dark'); }).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+      var m = /[?&]mx=([^&#]+)/.exec(location.search);
+      if (m) { var st = {}; decodeURIComponent(m[1]).split(',').forEach(function (kv) { var p = kv.split(':'); st[p[0]] = p[1]; }); mx.state(st); }
+      mhost.classList.remove('is-loading');
+      baseHot();
+      return mx;
+    });
+    return loading;
+  }
+  var segPlace = null;
+  function setView(v, save) {
+    var three = v === '3d';
+    $$('button', seg).forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.v === v ? 'true' : 'false'); });
+    if (segPlace) segPlace(); 
+    if (save) try { localStorage.setItem('eai-map-view', v); } catch (e) {}
+    if (three) {
+      ensureMachine().then(function () { fig.classList.add('is-3d'); mhost.hidden = false; }, function () { setView('2d'); seg.hidden = true; });
+    } else { fig.classList.remove('is-3d'); mhost.hidden = true; if (mx) mx.tour.stop(); size(); fit(true); }
+  }
+  if (seg) {
+    if (!glOK()) seg.hidden = true;
+    else {
+      seg.hidden = false; segPlace = segIndicator(seg);
+      seg.addEventListener('click', function (e) { var b = e.target.closest('button[data-v]'); if (b) setView(b.dataset.v, true); });
+      var pref = null; try { pref = localStorage.getItem('eai-map-view'); } catch (e) {}
+      if (/[?&]mx=/.test(location.search)) pref = '3d';
+      setView(pref || (innerWidth >= 900 ? '3d' : '2d'));
+    }
+  }
   /* domain cards below the map highlight their region on hover */
   $$('.dcard').forEach(function (c) {
-    c.addEventListener('pointerenter', function () { var id = c.dataset.dom; setHot(function (m) { return m.caps.indexOf(id) >= 0; }, [id]); });
-    c.addEventListener('pointerleave', baseHot);
+    c.addEventListener('pointerenter', function () { var id = c.dataset.dom; setHot(function (m) { return m.caps.indexOf(id) >= 0; }, [id]); if (mx) mx.preview(id); });
+    c.addEventListener('pointerleave', function () { baseHot(); if (mx) mx.preview(null); });
   });
 }
 function locateOnMap(term) {
@@ -1509,7 +1695,7 @@ function ready() {
 }
 function boot() {
   renderDomains(); renderFactories(); renderVendors(); renderLadder(); renderLineage(); renderGlossary(); renderSources('');
-  initChrome(); initTheme(); initLamp(); initReveals(); initDecision(); initButtons();
+  initChrome(); initTheme(); initSound(); initLamp(); initReveals(); initDecision(); initButtons();
   initDrawer(); initPalette(); initToc(); initLightbox(); initControls(); initShotTilt();
   buildItems(); initIndex(); initLineageTime();
   initHeroStack();
