@@ -2037,9 +2037,14 @@ function boot() {
      stall. Not during the opening (it would compete with the hero for the GPU): only once the reader has scrolled and at
      least 3 s have passed since load, whichever is later; the machine then links its shaders in idle slices */
   if (FINE && innerWidth >= 900 && 'requestIdleCallback' in window) {
-    var preT = 0, preS = false, preGo = function () { if (preT !== 1 || !preS) return; preT = 2; requestIdleCallback(function () { if (!mapApi) initMap(); }, { timeout: 4000 }); };
+    var preT = 0, preS = false, preGo = function () { if (preT !== 1 || !preS) return; preT = 2; requestIdleCallback(function idleMount() { if (mapApi) return; if (performance.now() - preLast < 600) { requestIdleCallback(idleMount, { timeout: 4000 }); return; } initMap(); }, { timeout: 4000 }); };
     var preLoad = function () { setTimeout(function () { preT = 1; preGo(); }, 3000); };
-    addEventListener('scroll', function () { preS = true; preGo(); }, { passive: true, once: true });
+    /* wait for the scroll to settle (600 ms quiet) so the mount and shadow pre-pass never land inside a scroll */
+    var preQ = 0, preLast = 0, preOn = function () {
+      preLast = performance.now(); if (preT === 2) { removeEventListener('scroll', preOn); return; }
+      clearTimeout(preQ); preQ = setTimeout(function () { preS = true; preGo(); }, 600);
+    };
+    addEventListener('scroll', preOn, { passive: true });
     if (doc.readyState === 'complete') preLoad(); else addEventListener('load', preLoad, { once: true });
   }
   /* entrance once fonts are in (never wait more than 700 ms) */
